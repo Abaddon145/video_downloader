@@ -5,6 +5,7 @@ src-tauri/gen/
 src-tauri/resources/tools/
 .superpowers/
 artifacts/
+release/
 artifacts-*.json
 *.log
 *.part

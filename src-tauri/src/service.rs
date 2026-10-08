@@ -583,7 +583,7 @@ impl Service {
             let ids = engine::queued_ids(
                 &state.disk.tasks,
                 state.disk.settings.concurrency as usize,
-                state.running.len(),
+                &state.running.keys().cloned().collect::<Vec<_>>(),
             );
             let mut claims = Vec::new();
             for id in ids {
@@ -659,7 +659,7 @@ impl Service {
             self.changed(&task);
         }
     }
-    fn run_task(&self, task: &DownloadTask) -> AppResult<()> {
+    fn run_task(self: &Arc<Self>, task: &DownloadTask) -> AppResult<()> {
         let disk = self.state.lock().unwrap().disk.clone();
         let context = self.context(&disk)?;
         let mut preview_args = engine::base_args();
@@ -724,7 +724,28 @@ impl Service {
         args.splice(0..0, context.args.clone());
         let (process, stdout, stderr) = native::spawn(&self.yt, &args)?;
         self.register(&task.id, process.job.clone());
-        let errors = std::thread::spawn(move || native::read_bounded(stderr, 64 * 1024));
+        let service = self.clone();
+        let task_id = task.id.clone();
+        let errors = std::thread::spawn(move || -> AppResult<Vec<u8>> {
+            let mut errors = Vec::new();
+            for line in BufReader::new(stderr).lines() {
+                let line = line.map_err(|error| error.to_string())?;
+                if line.starts_with("VD_PROGRESS") || line.starts_with("VD_PROCESS") {
+                    service.process_line(&task_id, &line);
+                } else {
+                    let bytes = line.as_bytes();
+                    errors.extend_from_slice(
+                        &bytes[..bytes
+                            .len()
+                            .min((64 * 1024usize).saturating_sub(errors.len()))],
+                    );
+                    if errors.len() < 64 * 1024 {
+                        errors.push(b'\n');
+                    }
+                }
+            }
+            Ok(errors)
+        });
         let mut read_error = None;
         for line in BufReader::new(stdout).lines() {
             match line {
@@ -772,7 +793,9 @@ impl Service {
             .tasks
             .iter()
             .find(|entry| entry.id == task.id)
-            .is_some_and(|task| task.files.iter().any(|file| Path::new(file).is_file()));
+            .is_some_and(|task| {
+                !task.files.is_empty() && task.files.iter().all(|file| Path::new(file).is_file())
+            });
         if !exists {
             return Err(
                 "内核结束但没有发现输出文件；可能没有所选字幕或源站不提供此格式，请重新解析".into(),
@@ -825,8 +848,11 @@ impl Service {
                 };
                 self.mutate_task(id, |task| {
                     for path in paths {
-                        if !task.files.iter().any(|item| item == path) {
-                            task.files.push(path.into());
+                        let path = engine::final_output_path(task, path)
+                            .to_string_lossy()
+                            .into_owned();
+                        if !task.files.contains(&path) {
+                            task.files.push(path);
                         }
                     }
                 });

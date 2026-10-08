@@ -247,13 +247,11 @@ pub fn task_args(task: &DownloadTask) -> AppResult<Vec<String>> {
         return Err("任务标识无效".into());
     }
     let mut args = download_args(&task.request, &task.output_dir)?;
-    if task.request.kind != MediaKind::Subtitles {
-        let temporary = std::path::Path::new(&task.output_dir)
-            .join(".video-downloader")
-            .join(&task.id);
-        // Stable per-task paths preserve .part continuation and prevent video/audio workers from sharing a source file.
-        args.splice(0..0, ["-P".into(), format!("temp:{}", temporary.display())]);
-    }
+    let temporary = std::path::Path::new(&task.output_dir)
+        .join(".video-downloader")
+        .join(&task.id);
+    // Isolate all conversion outputs; the final move enforces --no-overwrites, including existing SRT files.
+    args.splice(0..0, ["-P".into(), format!("temp:{}", temporary.display())]);
     Ok(args)
 }
 pub fn checksum_entry(sums: &str, filename: &str) -> AppResult<String> {
@@ -277,11 +275,23 @@ pub fn recover_tasks(tasks: &mut [DownloadTask]) {
         }
     }
 }
-pub fn queued_ids(tasks: &[DownloadTask], limit: usize, running: usize) -> Vec<String> {
+pub fn final_output_path(task: &DownloadTask, raw: &str) -> std::path::PathBuf {
+    let path = std::path::Path::new(raw);
+    let output = std::path::Path::new(&task.output_dir);
+    let temporary = output.join(".video-downloader").join(&task.id);
+    // yt-dlp moves subtitle files but leaves requested_subtitles.filepath unchanged.
+    if path.parent() == Some(temporary.as_path()) {
+        if let Some(name) = path.file_name() {
+            return output.join(name);
+        }
+    }
+    path.to_path_buf()
+}
+pub fn queued_ids(tasks: &[DownloadTask], limit: usize, running: &[String]) -> Vec<String> {
     tasks
         .iter()
-        .filter(|task| task.status == TaskStatus::Queued)
-        .take(limit.saturating_sub(running))
+        .filter(|task| task.status == TaskStatus::Queued && !running.contains(&task.id))
+        .take(limit.saturating_sub(running.len()))
         .map(|task| task.id.clone())
         .collect()
 }
@@ -394,6 +404,15 @@ mod tests {
         assert_ne!(video_path, audio_path);
         assert_eq!(video_path, temp(task_args(&video).unwrap()));
         assert!(video_path.contains("task-video"));
+        let subtitles = DownloadTask {
+            request: DownloadRequest {
+                kind: MediaKind::Subtitles,
+                subtitle_languages: vec!["en".into()],
+                ..video.request.clone()
+            },
+            ..video.clone()
+        };
+        assert_eq!(temp(task_args(&subtitles).unwrap()), video_path);
         let invalid = DownloadTask {
             id: "../../outside".into(),
             ..video
@@ -425,7 +444,9 @@ mod tests {
             })
             .collect();
         tasks[0].status = TaskStatus::Downloading;
-        assert_eq!(queued_ids(&tasks, 2, 1), vec!["1"]);
+        assert_eq!(queued_ids(&tasks, 2, &["0".into()]), vec!["1"]);
+        tasks[0].status = TaskStatus::Queued;
+        assert_eq!(queued_ids(&tasks, 2, &["0".into()]), vec!["1"]);
         recover_tasks(&mut tasks);
         assert!(tasks.iter().all(|task| task.status == TaskStatus::Paused));
         transition(&mut tasks[1], "resume").unwrap();
@@ -434,5 +455,22 @@ mod tests {
         assert!(transition(&mut tasks[1], "pause").is_err());
         transition(&mut tasks[1], "cancel").unwrap();
         assert_eq!(tasks[1].status, TaskStatus::Cancelled);
+    }
+
+    #[test]
+    fn moved_subtitles_use_the_final_directory() {
+        let task = DownloadTask {
+            id: "one".into(),
+            output_dir: "C:/downloads".into(),
+            ..Default::default()
+        };
+        assert_eq!(
+            final_output_path(&task, "C:/downloads/.video-downloader/one/movie.en.srt"),
+            std::path::PathBuf::from("C:/downloads/movie.en.srt")
+        );
+        assert_eq!(
+            final_output_path(&task, "C:/downloads/movie.mp4"),
+            std::path::PathBuf::from("C:/downloads/movie.mp4")
+        );
     }
 }

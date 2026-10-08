@@ -48,6 +48,8 @@ npm run tauri -- build --bundles nsis
 
 设置、加密 Cookie、任务记录和可更新内核保存在 `%LOCALAPPDATA%/com.local.video-downloader/`。任务和设置采用原子 JSON 写入并保留最近一次有效备份。
 
+保存目录中的 `.video-downloader` 存放每个任务的临时文件，用于暂停续传和保护已有文件。取消任务会保留已下载内容；确认不需要继续时可以自行清理对应临时目录。
+
 组件版本、来源与摘要：`src-tauri/resources/components.json`、生成的 `tools/binaries.json`；上游许可：`resources/licenses/`、`THIRD-PARTY-NOTICES.txt`。桌面界面源码采用 MIT；官方 yt-dlp 源码采用 Unlicense，捆绑的 PyInstaller 独立 exe 和 FFmpeg GPL 构建保留各自上游许可。
 
 本地验收可以设置 `VIDEO_DOWNLOADER_DATA_DIR` 将测试数据与日常数据分开；默认无需设置。

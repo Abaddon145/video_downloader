@@ -32,4 +32,4 @@ npm run tauri -- build --bundles nsis
 
 ## 验收记录
 
-实施过程中更新此节；测试结果以实际命令和产物为准。
+实现与检查结果见 [本机验收记录](acceptance.md)，其中明确记录源站限制和未验证环境。
