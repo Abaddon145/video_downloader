@@ -1,0 +1,16 @@
+Windows 视频下载器 — bundled components
+
+yt-dlp: https://github.com/yt-dlp/yt-dlp
+Source is Unlicense; the official PyInstaller standalone executable contains GPL-3.0-or-later components. The bundled upstream README contains the exact release's dependency license/source list. See licenses/yt-dlp-Unlicense.txt, licenses/GPL-3.txt and licenses/yt-dlp-UPSTREAM-README.md.
+https://github.com/yt-dlp/yt-dlp#licensing
+
+FFmpeg GPL build: https://github.com/yt-dlp/FFmpeg-Builds
+FFmpeg source and licenses: https://ffmpeg.org/legal.html
+Build source/configuration: https://github.com/yt-dlp/FFmpeg-Builds
+Corresponding source: https://github.com/FFmpeg/FFmpeg
+
+Deno: MIT, https://github.com/denoland/deno
+Third-party components: https://github.com/denoland/deno/blob/main/third_party/README.md
+
+Exact versions, official release URLs and SHA256 digests are in components.json and tools/binaries.json.
+Desktop interface source is provided with this personal-use build. The bundled executables remain under their respective upstream licenses.
