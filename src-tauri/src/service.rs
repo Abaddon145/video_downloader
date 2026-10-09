@@ -455,6 +455,9 @@ impl Service {
                         && task.request.video_mode == request.video_mode
                         && task.request.max_height == request.max_height
                         && task.request.subtitle_languages == request.subtitle_languages
+                        && task.request.filename_template == request.filename_template
+                        && task.request.by_author == request.by_author
+                        && task.request.playlist_index == request.playlist_index
                         && (task.status.active()
                             || matches!(task.status, TaskStatus::Queued | TaskStatus::Paused))
                 })
@@ -632,6 +635,20 @@ impl Service {
         drop(state);
         self.publish();
         Ok(())
+    }
+    pub fn save_presets(&self, mut presets: Vec<DownloadPreset>) -> AppResult<AppSettings> {
+        crate::naming::validate_presets(&presets)?;
+        for preset in &mut presets {
+            preset.name = preset.name.trim().into();
+        }
+        let mut state = self.state.lock().unwrap();
+        let mut next = state.disk.clone();
+        next.settings.download_presets = presets;
+        let settings = next.settings.clone();
+        self.commit_disk(&mut state, next)?;
+        drop(state);
+        self.publish();
+        Ok(settings)
     }
     fn schedule(self: &Arc<Self>) {
         let Ok(_gate) = self.batch_gate.try_lock() else {

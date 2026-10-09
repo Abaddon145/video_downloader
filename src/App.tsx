@@ -3,12 +3,13 @@ import { invoke, isTauri } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
 import { ArrowDownToLine, ArrowUpRight, Check, ChevronLeft, ChevronRight, CircleAlert, Clock3, Download, FileText, Folder, FolderOpen, Globe2, History, Link2, ListVideo, Loader2, Music2, Pause, Play, Plus, RefreshCw, Search, Settings2, ShieldCheck, SlidersHorizontal, Trash2, Video, X, Zap, type LucideIcon } from 'lucide-react';
-import { extractUrls, pageItems, downloadError, taskActionAllowed, actionCount, keepSelection, selectFiltered, selectRange, batchConfirmation, batchSummary, escapeAction, classifyCookieError, cookieExpiryText } from './lib';
-import type { BatchAction, BatchResult } from './types';
+import { extractUrls, pageItems, downloadError, taskActionAllowed, actionCount, keepSelection, selectFiltered, selectRange, batchConfirmation, batchSummary, escapeAction, classifyCookieError, cookieExpiryText, applyPreset } from './lib';
+import type { BatchAction, BatchResult, DownloadPreset, PlaylistEntry } from './types';
+import { emptyPreset, NamingFields, PresetSettings } from './Presets';
 import type { AppSettings, AppSnapshot, DownloadRequest, DownloadTask, EngineUpdate, MediaKind, MediaPreview, PreviewResult, TaskStatus, VideoMode } from './types';
 
 const initial: AppSnapshot = {
-  settings: { downloadDir: '', concurrency: 2, cookieMode: 'none', browser: 'edge', browserProfile: '', hasCookieFile: false, proxyEnabled: false, proxyUrl: '', autoCheckCoreUpdate:true, lastCoreUpdateCheck:null, cookieSummary:null },
+  settings: { downloadDir: '', concurrency: 2, cookieMode: 'none', browser: 'edge', browserProfile: '', hasCookieFile: false, proxyEnabled: false, proxyUrl: '', autoCheckCoreUpdate:true, lastCoreUpdateCheck:null, cookieSummary:null, downloadPresets:[] },
   tasks: [], engine: { version: '', ready: false, ffmpegVersion: '', denoVersion: '', error: null }, updating: false, previewing: false, notice: null, coreUpdate:null,
 };
 const statusText: Record<TaskStatus, string> = { queued: '等待中', resolving: '解析中', downloading: '下载中', processing: '处理中', paused: '已暂停', completed: '已完成', failed: '下载失败', cancelled: '已取消' };
@@ -77,13 +78,20 @@ function TaskRow({ task, act, details, checked, select }: { task: DownloadTask; 
   </article>;
 }
 
-function PreviewPanel({ results, expected, busy, directory, enqueue, close, configure, retry, openSource }: { results: PreviewResult[]; expected: number; busy: boolean; directory: string; enqueue: (requests: DownloadRequest[]) => Promise<void>; close: () => void; configure: () => void; retry: () => void; openSource: (url: string) => void }) {
+function PreviewPanel({ results, expected, busy, directory, presets, savePreset, enqueue, close, configure, retry, openSource }: { presets: DownloadPreset[]; savePreset: (preset: DownloadPreset) => Promise<string|null>; results: PreviewResult[]; expected: number; busy: boolean; directory: string; enqueue: (requests: DownloadRequest[]) => Promise<string | null>; close: () => void; configure: () => void; retry: () => void; openSource: (url: string) => void }) {
   const [active, setActive] = useState(0);
   const [selected, setSelected] = useState(new Set<string>());
   const [kind, setKind] = useState<MediaKind>('video');
   const [mode, setMode] = useState<VideoMode>('compatible');
   const [height, setHeight] = useState(0);
   const [languages, setLanguages] = useState<string[]>([]);
+  const [filenameTemplate, setFilenameTemplate] = useState('');
+  const [byAuthor, setByAuthor] = useState(false);
+  const [presetIndex, setPresetIndex] = useState('');
+  const [presetName, setPresetName] = useState('');
+  const [presetSaving, setPresetSaving] = useState(false);
+  const [submissionError, setSubmissionError] = useState('');
+  const [presetNotice,setPresetNotice]=useState('');
   const [playlistLanguages, setPlaylistLanguages] = useState('zh-Hans,en');
   const [page, setPage] = useState(1);
   const [saving, setSaving] = useState(false);
@@ -98,7 +106,7 @@ function PreviewPanel({ results, expected, busy, directory, enqueue, close, conf
   const failure = result?.error ? downloadError(result.url, result.error) : null;
   const allPreviews = results.flatMap(result => result.preview ? [result.preview] : []);
   const incompatible = kind === 'video' && mode === 'compatible' && allPreviews.some(item => !item.isPlaylist && selected.has(item.url) && !item.compatible);
-  const allItems = allPreviews.flatMap(item => item.isPlaylist ? item.entries : [{ id: item.url, url: item.url, title: item.title, thumbnail: item.thumbnail, duration: item.duration }]);
+  const allItems = allPreviews.flatMap<Omit<PlaylistEntry,'playlistIndex'> & {playlistIndex:number|null}>(item => item.isPlaylist ? item.entries : [{ id: item.url, url: item.url, title: item.title, thumbnail: item.thumbnail, duration: item.duration, playlistIndex: null }]);
   const chosen = allItems.filter((item, index) => selected.has(item.url) && allItems.findIndex(other => other.url === item.url) === index);
   const availableSubtitles = allPreviews.flatMap(item => item.subtitles).filter((track, index, all) => all.findIndex(other => other.language === track.language) === index);
   const hasPlaylist = allPreviews.some(item => item.isPlaylist);
@@ -107,8 +115,10 @@ function PreviewPanel({ results, expected, busy, directory, enqueue, close, conf
   const toggle = (url: string) => setSelected(previous => { const next = new Set(previous); if (next.has(url)) next.delete(url); else next.add(url); return next; });
   const download = async () => {
     setSaving(true);
-    try { await enqueue(chosen.map(item => ({ url: item.url, title: item.title, thumbnail: item.thumbnail, kind, videoMode: mode, maxHeight: height, subtitleLanguages }))); } finally { setSaving(false); }
+    try { setSubmissionError(await enqueue(chosen.map(item => ({ url: item.url, title: item.title, thumbnail: item.thumbnail, kind, videoMode: mode, maxHeight: height, subtitleLanguages: [...subtitleLanguages], filenameTemplate, byAuthor, playlistIndex: item.playlistIndex }))) || ''); } finally { setSaving(false); }
   };
+  const choosePreset=(value:string)=>{setPresetIndex(value);const preset=applyPreset(value==='' ? emptyPreset : presets[Number(value)]);setKind(preset.kind);setMode(preset.videoMode);setHeight(preset.maxHeight);setLanguages(preset.subtitleLanguages);setPlaylistLanguages(value===''?'zh-Hans,en':preset.subtitleLanguages.join(','));setFilenameTemplate(preset.filenameTemplate);setByAuthor(preset.byAuthor);setSubmissionError('');};
+  const storePreset=async()=>{setPresetSaving(true);try {const error=await savePreset({name:presetName.trim(),kind,videoMode:mode,maxHeight:height,subtitleLanguages:[...subtitleLanguages],filenameTemplate,byAuthor});setSubmissionError(error||'');if(!error){setPresetName('');setPresetNotice('预设已保存，可在设置中编辑。');}}finally{setPresetSaving(false);}};
   return <Modal title="解析与下载" subtitle={`${results.length} / ${expected} 个链接已解析${busy ? ' · 正在继续解析' : ''}`} onClose={close} wide>
     <div className="preview-body">
       {results.length > 1 && <div className="preview-tabs">{results.map((result, index) => <button key={result.url} className={active === index ? 'selected' : ''} onClick={() => { setActive(index); setPage(1); }}>{result.error ? <CircleAlert size={14} /> : <Video size={14} />}{result.preview?.title || siteName(result.url)}</button>)}</div>}
@@ -119,10 +129,14 @@ function PreviewPanel({ results, expected, busy, directory, enqueue, close, conf
         {preview.isPlaylist && <div className="playlist"><div className="playlist-heading"><label className="check-label"><input type="checkbox" checked={preview.entries.length > 0 && preview.entries.every(entry => selected.has(entry.url))} onChange={event => setSelected(previous => { const next = new Set(previous); preview.entries.forEach((entry, index) => { if (event.target.checked && index < 1000) next.add(entry.url); else next.delete(entry.url); }); return next; })} />选择列表{preview.entries.length > 1000 && '（每批最多 1000 条）'}</label><span>已选 {preview.entries.filter(entry => selected.has(entry.url)).length} 条</span></div><div className="playlist-items">{pageItems(preview.entries, page).map((entry, index) => <label className="playlist-item" key={`${entry.url}-${index}`}><input type="checkbox" checked={selected.has(entry.url)} onChange={() => toggle(entry.url)} /><span className="item-number">{(page - 1) * 50 + index + 1}</span><span className="item-title" title={entry.title}>{entry.title}</span><span>{duration(entry.duration)}</span></label>)}</div><Pagination count={preview.entries.length} page={page} setPage={setPage} /></div>}
       </>}
       {!!allPreviews.length && <div className="download-options"><div className="option-header"><SlidersHorizontal size={16} /><h3>下载选项</h3><span>应用到所有勾选条目</span></div>
+        <label className="preset-picker">下载预设<select value={presetIndex} onChange={event=>choosePreset(event.target.value)}><option value="">不使用预设 · 默认选项</option>{presets.map((preset,index)=><option value={index} key={preset.name}>{preset.name}</option>)}</select></label>
         <div className="kind-picker">{([{ id: 'video', icon: Video, text: '视频', sub: '完整音视频' }, { id: 'audio', icon: Music2, text: '音频', sub: '转换为 MP3' }, { id: 'subtitles', icon: FileText, text: '字幕', sub: '单独保存 SRT' }] as const).map(({ id, icon: Icon, text, sub }) => <button key={id} className={kind === id ? 'selected' : ''} onClick={() => setKind(id)} aria-pressed={kind === id}><Icon size={20} /><span>{text}<small>{sub}</small></span>{kind === id && <Check size={15} />}</button>)}</div>
-        {kind === 'video' && <div className="option-grid"><label>格式策略<select value={mode} onChange={event => setMode(event.target.value as VideoMode)}><option value="compatible">兼容优先 · MP4 / H.264 / AAC</option><option value="source">源站最高画质 · 保留源编码</option></select></label><label>最高画质<select value={height} onChange={event => setHeight(Number(event.target.value))}><option value={0}>最佳可用画质</option>{[...new Set([...heights, 2160, 1080, 720, 480, 360])].sort((a, b) => b - a).map(item => <option key={item} value={item}>{item}p</option>)}</select></label></div>}
+        {kind === 'video' && <div className="option-grid"><label>格式策略<select value={mode} onChange={event => setMode(event.target.value as VideoMode)}><option value="compatible">兼容优先 · MP4 / H.264 / AAC</option><option value="source">源站最高画质 · 保留源编码</option></select></label><label>最高画质<select value={height} onChange={event => setHeight(Number(event.target.value))}><option value={0}>最佳可用画质</option>{[...new Set([...heights, 2160, 1080, 720, 480, 360, height])].filter(Boolean).sort((a, b) => b - a).map(item => <option key={item} value={item}>{item}p</option>)}</select></label></div>}
         {incompatible && <div className="inline-warning"><CircleAlert size={16} />此视频没有 H.264 / AAC 组合，请选择“源站最高画质”。</div>}
         {(availableSubtitles.length > 0 || hasPlaylist || kind === 'subtitles') && <div className="subtitle-options"><label className="field-label">{kind === 'subtitles' ? '选择字幕语言' : '同时保存字幕 · SRT'}</label>{hasPlaylist ? <><input aria-label="字幕语言代码" value={playlistLanguages} onChange={event => setPlaylistLanguages(event.target.value)} placeholder="zh-Hans,en（以逗号分隔）" /><p className="help">播放列表逐条检查字幕；语言代码示例：zh-Hans、en。空白表示不附加字幕。</p></> : <div className="subtitle-tracks">{availableSubtitles.length ? availableSubtitles.map(track => <label className="check-label" key={track.language}><input type="checkbox" checked={languages.includes(track.language)} onChange={event => setLanguages(previous => event.target.checked ? [...previous, track.language] : previous.filter(lang => lang !== track.language))} />{languageName[track.language] || track.language}{track.automatic && <small>自动</small>}</label>) : <p className="help">此视频未提供可用字幕</p>}</div>}</div>}
+        <NamingFields template={filenameTemplate} byAuthor={byAuthor} setTemplate={setFilenameTemplate} setByAuthor={setByAuthor} />
+        <div className="preset-save-row"><label>保存当前选项为预设<input value={presetName} maxLength={40} placeholder="预设名称" onChange={event=>setPresetName(event.target.value)} /></label><button className="secondary" disabled={presetSaving || !presetName.trim() || presets.length>=20} onClick={()=>{void storePreset();}}>{presetSaving?'正在保存…':'保存预设'}（{presets.length}/20）</button></div>{presetNotice && <p className="help" role="status">{presetNotice}</p>}
+        {submissionError && <p className="inline-warning" role="alert">{submissionError}</p>}
         <p className="help">文件大小为解析时的估算，实际格式会在下载前重新检查。</p>
       </div>}
     </div><div className="modal-footer"><div className="save-location" title={directory}><Folder size={16} /><span>{directory || '系统下载目录'}</span></div><button className="primary" disabled={busy || saving || !chosen.length || chosen.length > 1000 || incompatible || (kind === 'subtitles' && !subtitleLanguages.length)} onClick={() => { void download(); }}>{saving ? <Loader2 size={17} className="spin" /> : <ArrowDownToLine size={17} />}加入下载 · {chosen.length}</button></div>
@@ -137,7 +151,7 @@ function SettingsPanel({ snapshot, act, notify, cookieFailure }: { cookieFailure
   const [checking, setChecking] = useState(false);
   const [update, setUpdate] = useState<EngineUpdate | null>(null);
   const availableUpdate = update ?? snapshot.coreUpdate;
-  const settingsKey = JSON.stringify({...snapshot.settings,lastCoreUpdateCheck:null});
+  const settingsKey = JSON.stringify({...snapshot.settings,lastCoreUpdateCheck:null,downloadPresets:[]});
   useEffect(() => { setForm(snapshot.settings); setProxy(''); setProxyChanged(false); }, [settingsKey]); // Backend snapshots may arrive while typing; only actual setting changes reset this form.
   const change = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => setForm(previous => ({ ...previous, [key]: value }));
   const chooseDirectory = async () => { try { const path = await open({ directory: true, multiple: false, title: '选择下载目录', defaultPath: form.downloadDir || undefined }); if (typeof path === 'string') change('downloadDir', path); } catch (error) { notify(errorText(error)); } };
@@ -147,6 +161,7 @@ function SettingsPanel({ snapshot, act, notify, cookieFailure }: { cookieFailure
   const applyUpdate = async () => { const result = await act('update_engine', {}, '内核更新完成'); if (result) setUpdate(null); };
   const busy = snapshot.previewing || snapshot.tasks.some(task => ['queued', ...busyStatuses].includes(task.status));
   return <div className="settings-content">
+    <PresetSettings presets={snapshot.settings.downloadPresets ?? []} save={async presets=>!!await act('save_download_presets',{presets},'下载预设已保存')} />
     <section className="settings-card"><div className="section-icon"><Folder size={20} /></div><div className="settings-section"><h2>下载与保存</h2><p className="section-description">配置新任务的默认保存位置与同时下载数量</p><label className="field-label" htmlFor="download-directory">保存目录</label><div className="input-with-button"><input id="download-directory" value={form.downloadDir} onChange={event => change('downloadDir', event.target.value)} /><button className="secondary" onClick={() => { void chooseDirectory(); }}><FolderOpen size={16} />浏览</button></div><div className="setting-line"><div><label htmlFor="concurrency">同时下载数量</label><p className="help">已运行任务会先完成；新任务按此数量排队</p></div><select id="concurrency" value={form.concurrency} onChange={event => change('concurrency', Number(event.target.value))}>{[1, 2, 3, 4].map(value => <option value={value} key={value}>{value} 个任务{value === 2 ? ' · 推荐' : ''}</option>)}</select></div></div></section>
     <section className="settings-card"><div className="section-icon"><ShieldCheck size={20} /></div><div className="settings-section"><h2>登录与 Cookie</h2><p className="section-description">下载需要登录的内容时，使用你的本地登录状态</p><div className="radio-group">{[{ id: 'none', text: '不使用 Cookie' }, { id: 'browser', text: '从浏览器读取' }, { id: 'file', text: '导入 Cookie 文件' }].map(item => <label key={item.id}><input type="radio" name="cookie-mode" value={item.id} checked={form.cookieMode === item.id} onChange={() => change('cookieMode', item.id)} />{item.text}</label>)}</div>
       {form.cookieMode === 'browser' && <><div className="option-grid"><label>浏览器<select value={form.browser} onChange={event => change('browser', event.target.value)}><option value="edge">Microsoft Edge</option><option value="chrome">Google Chrome</option><option value="firefox">Mozilla Firefox</option></select></label><label>配置名称 / 路径（可选）<input value={form.browserProfile} onChange={event => change('browserProfile', event.target.value)} placeholder="使用默认配置" /></label></div><div className="inline-note"><CircleAlert size={16} />读取可能受浏览器占用或加密限制。失败时请切换为 Cookie 文件导入。</div></>}
@@ -257,9 +272,11 @@ export default function App() {
   };
   const requestBatch = (action: BatchAction) => { const ids = [...selectedIds]; if (action === 'cancel' || action === 'remove') setConfirmBatch({action, ids}); else void runBatch(action,ids); };
   const enqueue = async (requests: DownloadRequest[]) => {
-    const tasks = await act('enqueue_downloads', { requests }) as DownloadTask[] | null;
+    try { if (!isTauri()) throw new Error('请在 Windows 桌面软件中使用此功能'); const tasks = await invoke<DownloadTask[]>('enqueue_downloads', {requests});
     if (tasks) { setPreviewOpen(false); setLinks(''); notify(tasks.length ? `${tasks.length} 个任务已加入下载队列` : '所选任务已在队列中'); setFilter('all'); setPage('download'); requestAnimationFrame(() => input.current?.focus()); }
+    return null; } catch(error) { return errorText(error); }
   };
+  const savePreviewPreset=async(preset:DownloadPreset)=>{try {await invoke('save_download_presets',{presets:[...snapshot.settings.downloadPresets,preset]});return null;}catch(error){return errorText(error);}};
   const navigate = (target: typeof page) => { setPage(target); setFilter('all'); setSearch(''); };
   return <div className="app-shell">
     <aside className="sidebar"><div className="brand"><div className="brand-mark"><ArrowDownToLine size={23} strokeWidth={2.5} /></div><div><strong>映流</strong><span>视频下载器</span></div></div><div className="nav-label">工作空间</div><nav aria-label="主导航">{[{ id: 'download', icon: Download, text: '下载', badge: active.length + waiting.length }, { id: 'history', icon: History, text: '历史', badge: null }, { id: 'settings', icon: Settings2, text: '设置', badge: null }].map(({ id, icon: Icon, text, badge }) => <button key={id} className={page === id ? 'active' : ''} onClick={() => navigate(id as typeof page)} aria-current={page === id ? 'page' : undefined}><Icon size={19} /><span>{text}</span>{!!badge && <span className="nav-badge">{badge}</span>}</button>)}</nav>
@@ -282,7 +299,7 @@ export default function App() {
     {!!toast && <div className="toast" role="status"><CircleAlert size={18} /><span>{toast}</span><IconButton icon={X} label="关闭提示" onClick={() => setToast('')} /></div>}
     {confirmBatch && <Modal title={`确认${batchLabels[confirmBatch.action]}`} onClose={() => setConfirmBatch(null)}><div className="details-body"><p>{batchConfirmation(confirmBatch.action,confirmBatch.ids.length)}</p><p className="help">不适用的任务会跳过并说明原因。</p></div><div className="modal-footer"><button className="secondary" onClick={() => setConfirmBatch(null)}>返回</button><button className="primary" onClick={() => { void runBatch(confirmBatch.action,confirmBatch.ids); }}>确认操作</button></div></Modal>}
     {batchResult && <Modal title="批量操作结果" onClose={() => setBatchResult(null)}><div className="details-body"><p role="status">{batchSummary(batchResult)}</p>{!!(batchResult.skipped.length + batchResult.failed.length) && <details className="batch-details"><summary>查看逐项原因</summary>{batchResult.skipped.map(item => <p key={item.id}>{snapshot.tasks.find(task => task.id === item.id)?.request.title || item.id}：{item.reason}</p>)}{batchResult.failed.map(item => <p className="error-text" key={item.id}>{snapshot.tasks.find(task => task.id === item.id)?.request.title || item.id}：{item.error}</p>)}</details>}</div><div className="modal-footer"><button className="primary" onClick={() => setBatchResult(null)}>知道了</button></div></Modal>}
-    {previewOpen && <PreviewPanel results={results} expected={expected} busy={parsing} directory={snapshot.settings.downloadDir} enqueue={enqueue} close={closePreview} configure={() => { closePreview(); navigate('settings'); }} retry={() => { void startPreview(); }} openSource={url => { void act('open_source', { url }); }} />}
+    {previewOpen && <PreviewPanel results={results} expected={expected} busy={parsing} directory={snapshot.settings.downloadDir} presets={snapshot.settings.downloadPresets ?? []} savePreset={savePreviewPreset} enqueue={enqueue} close={closePreview} configure={() => { closePreview(); navigate('settings'); }} retry={() => { void startPreview(); }} openSource={url => { void act('open_source', { url }); }} />}
     {detail && <Modal title="任务详情" subtitle={statusText[detail.status]} onClose={() => setDetailId(null)}><div className="details-body"><h3>{detail.request.title}</h3><dl><dt>来源链接</dt><dd>{detail.request.url}</dd><dt>保存目录</dt><dd>{detail.outputDir}</dd><dt>下载类型</dt><dd>{kindText[detail.request.kind]} · {detail.request.videoMode === 'compatible' ? '兼容优先' : '源格式'}</dd><dt>创建时间</dt><dd>{dateText(detail.createdAt)}</dd>{detail.files.length > 0 && <><dt>输出文件</dt><dd>{detail.files.map(file => <p key={file}>{file}</p>)}</dd></>}</dl>{detail.error && <div className="error-panel"><strong>{downloadError(detail.request.url, detail.error).title}</strong><p>{downloadError(detail.request.url, detail.error).message}</p><details className="task-logs"><summary>技术详情</summary><pre>{detail.error}</pre></details>{(detail.error.toLowerCase().includes('cookie') || downloadError(detail.request.url, detail.error).message !== detail.error) && <button className="secondary" onClick={() => { setDetailId(null); navigate('settings'); }}>到设置导入 Cookie</button>}</div>}<details className="task-logs" open={detail.status === 'failed'}><summary>内核日志（已脱敏）</summary><pre>{detail.logs.join('\n') || '暂无日志'}</pre></details></div><div className="modal-footer"><button className="secondary" onClick={() => { void act('open_source', { url: detail.request.url }); }}><ArrowUpRight size={16} />打开来源</button><button className="secondary" onClick={() => { void act('open_task_target', { id: detail.id, folder: true }); }}><FolderOpen size={16} />打开目录</button></div></Modal>}
   </div>;
 }

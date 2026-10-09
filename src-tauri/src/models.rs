@@ -47,6 +47,23 @@ pub struct DownloadRequest {
     pub video_mode: VideoMode,
     pub max_height: u32,
     pub subtitle_languages: Vec<String>,
+    #[serde(default)]
+    pub filename_template: String,
+    #[serde(default)]
+    pub by_author: bool,
+    #[serde(default)]
+    pub playlist_index: Option<u32>,
+}
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct DownloadPreset {
+    pub name: String,
+    pub kind: MediaKind,
+    pub video_mode: VideoMode,
+    pub max_height: u32,
+    pub subtitle_languages: Vec<String>,
+    pub filename_template: String,
+    pub by_author: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -84,6 +101,8 @@ pub struct AppSettings {
     pub last_core_update_check: Option<u64>,
     #[serde(default)]
     pub cookie_summary: Option<CookieSummary>,
+    #[serde(default)]
+    pub download_presets: Vec<DownloadPreset>,
 }
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -110,6 +129,7 @@ impl Default for AppSettings {
             auto_check_core_update: true,
             last_core_update_check: None,
             cookie_summary: None,
+            download_presets: Vec::new(),
         }
     }
 }
@@ -162,6 +182,8 @@ pub struct PlaylistEntry {
     pub title: String,
     pub duration: Option<f64>,
     pub thumbnail: Option<String>,
+    #[serde(default)]
+    pub playlist_index: u32,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

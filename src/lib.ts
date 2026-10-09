@@ -1,4 +1,5 @@
-import type { BatchAction, BatchResult, CookieSummary, DownloadTask, TaskStatus } from './types.ts';
+import type { BatchAction, BatchResult, CookieSummary, DownloadPreset, DownloadTask, TaskStatus } from './types.ts';
+export function applyPreset(preset: DownloadPreset) { return {...preset, subtitleLanguages:[...preset.subtitleLanguages]}; }
 export function taskActionAllowed(status: TaskStatus, action: BatchAction): boolean {
   switch (action) {
     case 'pause': return ['queued','resolving','downloading'].includes(status);

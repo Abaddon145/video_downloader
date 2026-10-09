@@ -4,6 +4,14 @@ import { extractUrls, pageItems, downloadError } from './lib.ts';
 import { actionCount, batchConfirmation, batchSummary, escapeAction, keepSelection, selectRange, selectFiltered, taskActionAllowed } from './lib.ts';
 import type { DownloadTask, TaskStatus } from './types.ts';
 import { classifyCookieError, cookieExpiryText } from './lib.ts';
+import { applyPreset } from './lib.ts';
+import type { DownloadPreset } from './types.ts';
+test('preset application copies all existing choices and naming without retaining mutable arrays', () => {
+  const preset: DownloadPreset = {name:'音频',kind:'audio',videoMode:'source',maxHeight:720,subtitleLanguages:['en'],filenameTemplate:'{作者}_{标题}',byAuthor:true};
+  const options=applyPreset(preset);preset.subtitleLanguages.push('zh-Hans');preset.filenameTemplate='{日期}';
+  assert.equal(options.kind,'audio'); assert.equal(options.maxHeight,720); assert.deepEqual(options.subtitleLanguages,['en']);
+  assert.equal(options.filenameTemplate,'{作者}_{标题}');assert.equal(options.byAuthor,true);
+});
 
 test('browser Cookie errors offer category-specific next steps without echoing secrets', () => {
   const cases = [

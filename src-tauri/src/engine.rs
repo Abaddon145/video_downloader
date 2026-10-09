@@ -22,7 +22,8 @@ pub fn media_preview(url: &str, json: &Value) -> AppResult<MediaPreview> {
         .as_array()
         .into_iter()
         .flatten()
-        .filter_map(|entry| {
+        .enumerate()
+        .filter_map(|(index, entry)| {
             if !entry.is_object() {
                 return None;
             }
@@ -44,6 +45,10 @@ pub fn media_preview(url: &str, json: &Value) -> AppResult<MediaPreview> {
                 title: entry["title"].as_str().unwrap_or("未命名视频").into(),
                 duration: entry["duration"].as_f64(),
                 thumbnail: thumbnail(entry),
+                playlist_index: entry["playlist_index"]
+                    .as_u64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .unwrap_or(index as u32 + 1),
             })
         })
         .collect();
@@ -135,6 +140,10 @@ pub fn media_preview(url: &str, json: &Value) -> AppResult<MediaPreview> {
 }
 fn valid_language(language: &str) -> bool {
     !language.is_empty()
+        && language
+            .as_bytes()
+            .first()
+            .is_some_and(u8::is_ascii_alphanumeric)
         && language.len() <= 80
         && language
             .chars()
@@ -188,6 +197,7 @@ pub fn download_args(request: &DownloadRequest, output: &str) -> AppResult<Vec<S
         return Err("请至少选择一种字幕语言".into());
     }
     let mut args = base_args();
+    let output_template = crate::naming::output_template(request)?;
     args.extend(
         [
             "--no-playlist",
@@ -204,7 +214,7 @@ pub fn download_args(request: &DownloadRequest, output: &str) -> AppResult<Vec<S
             "-P",
             output,
             "-o",
-            "%(title).120B [%(id)s].%(ext)s",
+            &output_template,
             "--progress-template",
             "download:VD_PROGRESS%(progress)j",
             "--progress-template",
@@ -286,10 +296,8 @@ pub fn final_output_path(task: &DownloadTask, raw: &str) -> std::path::PathBuf {
     let output = std::path::Path::new(&task.output_dir);
     let temporary = output.join(".video-downloader").join(&task.id);
     // yt-dlp moves subtitle files but leaves requested_subtitles.filepath unchanged.
-    if path.parent() == Some(temporary.as_path()) {
-        if let Some(name) = path.file_name() {
-            return output.join(name);
-        }
+    if let Ok(relative) = path.strip_prefix(temporary) {
+        return output.join(relative);
     }
     path.to_path_buf()
 }

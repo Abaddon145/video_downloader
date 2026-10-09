@@ -2,6 +2,7 @@ pub mod batch;
 pub mod domain;
 pub mod engine;
 pub mod models;
+pub mod naming;
 pub mod native;
 pub mod service;
 
@@ -71,6 +72,13 @@ fn import_cookies(service: AppService<'_>, path: String) -> AppResult<()> {
     service.import_cookies(&path)
 }
 #[tauri::command]
+fn save_download_presets(
+    service: AppService<'_>,
+    presets: Vec<DownloadPreset>,
+) -> AppResult<AppSettings> {
+    service.save_presets(presets)
+}
+#[tauri::command]
 fn open_task_target(service: AppService<'_>, id: String, folder: bool) -> AppResult<()> {
     service::open_target(&service, &id, folder)
 }
@@ -119,6 +127,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             get_snapshot,
+            save_download_presets,
             batch_task_action,
             preview_sources,
             cancel_preview,
