@@ -3,12 +3,12 @@ import { invoke, isTauri } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
 import { ArrowDownToLine, ArrowUpRight, Check, ChevronLeft, ChevronRight, CircleAlert, Clock3, Download, FileText, Folder, FolderOpen, Globe2, History, Link2, ListVideo, Loader2, Music2, Pause, Play, Plus, RefreshCw, Search, Settings2, ShieldCheck, SlidersHorizontal, Trash2, Video, X, Zap, type LucideIcon } from 'lucide-react';
-import { extractUrls, pageItems, downloadError, taskActionAllowed, actionCount, keepSelection, selectFiltered, selectRange, batchConfirmation, batchSummary, escapeAction } from './lib';
+import { extractUrls, pageItems, downloadError, taskActionAllowed, actionCount, keepSelection, selectFiltered, selectRange, batchConfirmation, batchSummary, escapeAction, classifyCookieError, cookieExpiryText } from './lib';
 import type { BatchAction, BatchResult } from './types';
 import type { AppSettings, AppSnapshot, DownloadRequest, DownloadTask, EngineUpdate, MediaKind, MediaPreview, PreviewResult, TaskStatus, VideoMode } from './types';
 
 const initial: AppSnapshot = {
-  settings: { downloadDir: '', concurrency: 2, cookieMode: 'none', browser: 'edge', browserProfile: '', hasCookieFile: false, proxyEnabled: false, proxyUrl: '', autoCheckCoreUpdate:true, lastCoreUpdateCheck:null },
+  settings: { downloadDir: '', concurrency: 2, cookieMode: 'none', browser: 'edge', browserProfile: '', hasCookieFile: false, proxyEnabled: false, proxyUrl: '', autoCheckCoreUpdate:true, lastCoreUpdateCheck:null, cookieSummary:null },
   tasks: [], engine: { version: '', ready: false, ffmpegVersion: '', denoVersion: '', error: null }, updating: false, previewing: false, notice: null, coreUpdate:null,
 };
 const statusText: Record<TaskStatus, string> = { queued: '等待中', resolving: '解析中', downloading: '下载中', processing: '处理中', paused: '已暂停', completed: '已完成', failed: '下载失败', cancelled: '已取消' };
@@ -129,7 +129,7 @@ function PreviewPanel({ results, expected, busy, directory, enqueue, close, conf
   </Modal>;
 }
 
-function SettingsPanel({ snapshot, act, notify }: { snapshot: AppSnapshot; act: (command: string, args: Record<string, unknown>, message?: string) => Promise<unknown>; notify: (message: string) => void }) {
+function SettingsPanel({ snapshot, act, notify, cookieFailure }: { cookieFailure: ReturnType<typeof classifyCookieError>; snapshot: AppSnapshot; act: (command: string, args: Record<string, unknown>, message?: string) => Promise<unknown>; notify: (message: string) => void }) {
   const [form, setForm] = useState(snapshot.settings);
   const [proxy, setProxy] = useState('');
   const [proxyChanged, setProxyChanged] = useState(false);
@@ -150,7 +150,10 @@ function SettingsPanel({ snapshot, act, notify }: { snapshot: AppSnapshot; act: 
     <section className="settings-card"><div className="section-icon"><Folder size={20} /></div><div className="settings-section"><h2>下载与保存</h2><p className="section-description">配置新任务的默认保存位置与同时下载数量</p><label className="field-label" htmlFor="download-directory">保存目录</label><div className="input-with-button"><input id="download-directory" value={form.downloadDir} onChange={event => change('downloadDir', event.target.value)} /><button className="secondary" onClick={() => { void chooseDirectory(); }}><FolderOpen size={16} />浏览</button></div><div className="setting-line"><div><label htmlFor="concurrency">同时下载数量</label><p className="help">已运行任务会先完成；新任务按此数量排队</p></div><select id="concurrency" value={form.concurrency} onChange={event => change('concurrency', Number(event.target.value))}>{[1, 2, 3, 4].map(value => <option value={value} key={value}>{value} 个任务{value === 2 ? ' · 推荐' : ''}</option>)}</select></div></div></section>
     <section className="settings-card"><div className="section-icon"><ShieldCheck size={20} /></div><div className="settings-section"><h2>登录与 Cookie</h2><p className="section-description">下载需要登录的内容时，使用你的本地登录状态</p><div className="radio-group">{[{ id: 'none', text: '不使用 Cookie' }, { id: 'browser', text: '从浏览器读取' }, { id: 'file', text: '导入 Cookie 文件' }].map(item => <label key={item.id}><input type="radio" name="cookie-mode" value={item.id} checked={form.cookieMode === item.id} onChange={() => change('cookieMode', item.id)} />{item.text}</label>)}</div>
       {form.cookieMode === 'browser' && <><div className="option-grid"><label>浏览器<select value={form.browser} onChange={event => change('browser', event.target.value)}><option value="edge">Microsoft Edge</option><option value="chrome">Google Chrome</option><option value="firefox">Mozilla Firefox</option></select></label><label>配置名称 / 路径（可选）<input value={form.browserProfile} onChange={event => change('browserProfile', event.target.value)} placeholder="使用默认配置" /></label></div><div className="inline-note"><CircleAlert size={16} />读取可能受浏览器占用或加密限制。失败时请切换为 Cookie 文件导入。</div></>}
+      {cookieFailure && <div className="inline-warning cookie-failure" role="status"><CircleAlert size={16} /><div><strong>{cookieFailure.title}</strong><p>{cookieFailure.message}</p></div></div>}
       {form.cookieMode === 'file' && <div className="cookie-import"><div><strong>{snapshot.settings.hasCookieFile ? '已导入 Cookie 文件' : '尚未导入 Cookie 文件'}</strong><p className="help">Netscape 格式 · 由 Windows 加密保存在本机</p></div><button className="secondary" onClick={() => { void importCookies(); }}><Plus size={16} />{snapshot.settings.hasCookieFile ? '重新导入' : '选择文件'}</button></div>}
+      {form.cookieMode === 'file' && snapshot.settings.hasCookieFile && <p className="cookie-statistics" role="status">{snapshot.settings.cookieSummary ? cookieExpiryText(snapshot.settings.cookieSummary) : '有效期信息不可用，重新导入后可查看统计。'}</p>}
+      <details className="cookie-guide"><summary>如何导出 Cookie 文件</summary><ol><li>在常用浏览器中登录自己的账号，打开来源视频，确认可以播放。</li><li>使用浏览器提供或你信任的导出方式，将该站点的 Cookie 保存为 Netscape HTTP Cookie File；部分浏览器没有直接导出选项。</li><li>文件需使用 UTF-8 编码、小于 2 MiB，每条记录为制表符分隔的 7 列。不要直接复制 JSON 或 HTTP 请求头。</li><li>选择“导入 Cookie 文件”，导入后检查有效期并保存设置；过期时重新导出。</li></ol><p>Cookie 等同登录凭据，不要分享，只导入自己的账号。软件仅显示数量与有效期统计。</p></details>
     </div></section>
     <section className="settings-card"><div className="section-icon"><Globe2 size={20} /></div><div className="settings-section"><div className="setting-line top"><div><h2>网络代理</h2><p className="section-description">为解析、下载和内核更新指定代理</p></div><label className="switch"><input type="checkbox" aria-label="启用网络代理" checked={form.proxyEnabled} onChange={event => change('proxyEnabled', event.target.checked)} /><span /></label></div><label className="field-label" htmlFor="proxy-url">代理地址</label><input id="proxy-url" value={proxy} onChange={event => { setProxy(event.target.value); setProxyChanged(true); }} placeholder={snapshot.settings.proxyUrl ? `已保存：${snapshot.settings.proxyUrl}（留空保留）` : 'http://127.0.0.1:7890'} autoComplete="off" spellCheck={false} /><p className="help">支持 HTTP、HTTPS、SOCKS5。含账号密码的地址会加密保存。</p></div></section>
     <div className="settings-save"><span>关闭窗口后，下载继续在托盘运行</span><button className="primary" disabled={saving} onClick={() => { void save(); }}>{saving ? <Loader2 className="spin" size={16} /> : <Check size={16} />}保存设置</button></div>
@@ -171,6 +174,7 @@ export default function App() {
   const [expected, setExpected] = useState(0);
   const [parsing, setParsing] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [cookieFailure, setCookieFailure] = useState<ReturnType<typeof classifyCookieError>>(null);
   const [selectedIds, setSelectedIds] = useState(new Set<string>());
   const [confirmBatch, setConfirmBatch] = useState<{action: BatchAction; ids: string[]} | null>(null);
   const [batchResult, setBatchResult] = useState<BatchResult | null>(null);
@@ -180,6 +184,11 @@ export default function App() {
   const previewButton = useRef<HTMLButtonElement>(null);
   const previewVisible = useRef(false); previewVisible.current = previewOpen;
   const notify = useCallback((message: string) => setToast(message), []);
+  const receiveSnapshot = useCallback((data: AppSnapshot) => {
+    setSnapshot(data);
+    const failed = data.tasks.filter(task => task.status === 'failed' && task.error && classifyCookieError(task.error)).sort((a,b) => (b.finishedAt ?? b.createdAt) - (a.finishedAt ?? a.createdAt))[0];
+    if (failed?.error) setCookieFailure(classifyCookieError(failed.error));
+  }, []);
   const act = useCallback(async (command: string, args: Record<string, unknown>, message?: string): Promise<unknown> => {
     try { if (!isTauri()) throw new Error('请在 Windows 桌面软件中使用此功能'); const result = await invoke(command, args); if (message) notify(message); return result ?? true; } catch (error) { notify(errorText(error)); return null; }
   }, [notify]);
@@ -189,19 +198,19 @@ export default function App() {
     const stops: (() => void)[] = [];
     const subscribe = async () => {
       for (const [event, handler] of [
-        ['snapshot-updated', (data: AppSnapshot) => setSnapshot(data)],
-        ['task-updated', (task: DownloadTask) => setSnapshot(previous => ({ ...previous, tasks: previous.tasks.some(item => item.id === task.id) ? previous.tasks.map(item => item.id === task.id ? task : item) : [...previous.tasks, task] }))],
-        ['preview-result', (result: PreviewResult) => { if (previewVisible.current) setResults(previous => [...previous.filter(item => item.url !== result.url), result]); }],
+        ['snapshot-updated', receiveSnapshot],
+        ['task-updated', (task: DownloadTask) => { if (task.status === 'failed' && task.error) setCookieFailure(classifyCookieError(task.error)); setSnapshot(previous => ({ ...previous, tasks: previous.tasks.some(item => item.id === task.id) ? previous.tasks.map(item => item.id === task.id ? task : item) : [...previous.tasks, task] })); }],
+        ['preview-result', (result: PreviewResult) => { setCookieFailure(result.error ? classifyCookieError(result.error) : null); if (previewVisible.current) setResults(previous => [...previous.filter(item => item.url !== result.url), result]); }],
       ] as const) {
         const stop = await listen(event, event => { if (!cancelled) handler(event.payload as never); });
         if (cancelled) stop(); else stops.push(stop);
       }
       const state = await invoke<AppSnapshot>('get_snapshot');
-      if (!cancelled) setSnapshot(state);
+      if (!cancelled) receiveSnapshot(state);
     };
     void subscribe().catch(error => notify(errorText(error)));
     return () => { cancelled = true; stops.forEach(stop => stop()); };
-  }, [notify]);
+  }, [notify, receiveSnapshot]);
   useEffect(() => { if (!toast) return; const timer = setTimeout(() => setToast(''), 7000); return () => clearTimeout(timer); }, [toast]);
   useEffect(() => { const key = (event: KeyboardEvent) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'l') { event.preventDefault(); setPage('download'); requestAnimationFrame(() => input.current?.focus()); } }; document.addEventListener('keydown', key); return () => document.removeEventListener('keydown', key); }, []);
   useEffect(() => setListPage(1), [page, filter, search]);
@@ -258,7 +267,7 @@ export default function App() {
     </aside>
     <main className="main"><header className="page-header"><div><div className="eyebrow">你的本地媒体工作空间</div><h1>{page === 'download' ? '下载' : page === 'history' ? '下载历史' : '偏好设置'}</h1><p>{page === 'download' ? '把喜欢的内容，留在本地。' : page === 'history' ? '每一次保存，都有迹可循。' : '让下载按照你的习惯运行。'}</p></div><div className="header-right">{snapshot.coreUpdate?.available && <button className="text-button" onClick={() => navigate('settings')}>内核有新版本 {snapshot.coreUpdate.version}，去更新</button>}<span className="local-badge"><span className="status-dot online" />本地存储</span>{page === 'history' && <button className="secondary" onClick={() => { navigate('download'); requestAnimationFrame(() => input.current?.focus()); }}><Plus size={16} />新建下载</button>}</div></header>
       {(snapshot.notice || snapshot.engine.error) && <div className="global-notice" role="status"><CircleAlert size={17} /><span>{snapshot.notice || snapshot.engine.error}</span></div>}
-      {page === 'settings' ? <SettingsPanel snapshot={snapshot} act={act} notify={notify} /> : <>
+      {page === 'settings' ? <SettingsPanel snapshot={snapshot} act={act} notify={notify} cookieFailure={cookieFailure} /> : <>
         {page === 'download' && <><section className="link-card"><div className="link-card-heading"><span><Link2 size={18} />添加视频链接</span><kbd>Ctrl + L</kbd></div><div className="link-input-row"><textarea ref={input} aria-label="视频链接" value={links} onChange={event => setLinks(event.target.value)} onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); if (snapshot.engine.ready && !parsing) void startPreview(); } }} placeholder="粘贴视频、播放列表或分享文本，可一次添加多个链接" rows={2} spellCheck={false} /><button ref={previewButton} className="primary parse-button" disabled={!urls.length || parsing || snapshot.previewing || snapshot.updating || !snapshot.engine.ready} onClick={() => { void startPreview(); }}>{parsing ? <Loader2 size={18} className="spin" /> : <Search size={18} />}解析链接</button></div><div className="link-hint"><span><Globe2 size={14} />支持哔哩哔哩、YouTube 及 yt-dlp 支持的平台</span><span>{urls.length ? `识别到 ${urls.length} 个链接` : '先预览，再下载'}</span></div></section>
         <div className="stats-strip"><div><span className="stat-icon cyan"><Download size={19} /></span><div><span>正在下载</span><strong>{active.length}<small> / {snapshot.settings.concurrency}</small></strong></div></div><div><span className="stat-icon"><Clock3 size={19} /></span><div><span>等待下载</span><strong>{waiting.length}<small> 个任务</small></strong></div></div><div><span className="stat-icon green"><Check size={19} /></span><div><span>已保存</span><strong>{completed.length}<small> 个文件任务</small></strong></div></div><div><span className="stat-icon"><Zap size={19} /></span><div><span>当前速度</span><strong className="speed-stat">{speed ? bytes(speed) : '—'}<small>{speed ? '/s' : ''}</small></strong></div></div></div></>}
         <section className="task-list" tabIndex={0} aria-label="下载任务列表" onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a' && !(event.target as HTMLElement).matches('input:not([type=checkbox]),textarea,select')) { event.preventDefault(); setSelectedIds(previous => selectFiltered(previous,filteredIds,true)); } }}><div className="list-header"><div className="list-title"><h2>{page === 'history' ? '全部记录' : '下载队列'}</h2><span>{page === 'history' ? history.length : snapshot.tasks.length}</span></div><div className="list-tools">{page === 'history' && <div className="search-field"><Search size={15} /><input aria-label="搜索下载历史" placeholder="搜索标题或链接" value={search} onChange={event => setSearch(event.target.value)} /></div>}<select aria-label="筛选任务状态" value={filter} onChange={event => setFilter(event.target.value)}><option value="all">全部状态</option>{(page === 'history' ? ['completed', 'failed', 'cancelled'] : ['queued', 'active', 'paused', 'failed', 'completed', 'cancelled']).map(value => <option key={value} value={value}>{value === 'active' ? '下载中（含解析与处理）' : statusText[value as TaskStatus]}</option>)}</select></div></div>

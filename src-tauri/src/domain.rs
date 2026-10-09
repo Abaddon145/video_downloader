@@ -68,6 +68,62 @@ pub fn parse_progress(value: &Value) -> Progress {
     }
 }
 
+pub fn cookie_summary(text: &str) -> AppResult<crate::models::CookieSummary> {
+    if text.len() >= 2 * 1024 * 1024
+        || !text.lines().any(|line| {
+            line.trim_start_matches('\u{feff}').starts_with('#')
+                && line.contains("HTTP Cookie File")
+        })
+    {
+        return Err("请选择小于 2 MiB 的 Netscape 格式 Cookie 文件".into());
+    }
+    let mut summary = crate::models::CookieSummary::default();
+    for (index, raw) in text.lines().enumerate() {
+        let line = raw.trim_start_matches('\u{feff}');
+        if line.is_empty() || (line.starts_with('#') && !line.starts_with("#HttpOnly_")) {
+            continue;
+        }
+        let fields: Vec<_> = line.split('\t').collect();
+        let invalid = || {
+            format!(
+                "Cookie 文件第 {} 行格式无效，请重新导出（需要 7 列和有效的过期时间）",
+                index + 1
+            )
+        };
+        if fields.len() != 7
+            || fields[0].trim_start_matches("#HttpOnly_").is_empty()
+            || !matches!(fields[1], "TRUE" | "FALSE")
+            || !fields[2].starts_with('/')
+            || !matches!(fields[3], "TRUE" | "FALSE")
+        {
+            return Err(invalid());
+        }
+        let expiry: u64 = fields[4].parse().map_err(|_| invalid())?;
+        if expiry > 253402300799 {
+            return Err(invalid());
+        }
+        summary.count += 1;
+        if expiry == 0 {
+            summary.session_count += 1;
+        } else {
+            summary.earliest_expiry = Some(
+                summary
+                    .earliest_expiry
+                    .map_or(expiry, |previous| previous.min(expiry)),
+            );
+            summary.latest_expiry = Some(
+                summary
+                    .latest_expiry
+                    .map_or(expiry, |previous| previous.max(expiry)),
+            );
+        }
+    }
+    if summary.count == 0 {
+        return Err("Cookie 文件没有可用记录，请重新导出".into());
+    }
+    Ok(summary)
+}
+
 pub fn redact(raw: &str) -> String {
     raw.lines()
         .map(|line| {
@@ -108,6 +164,40 @@ pub fn redact(raw: &str) -> String {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn cookie_expiry_parses_normal_comments_http_only_and_sessions_without_values() {
+        let text = "# Netscape HTTP Cookie File\n# comment\n.example.com\tTRUE\t/\tFALSE\t1900000000\tfixture\tsynthetic-tripwire\n#HttpOnly_.example.com\tTRUE\t/\tTRUE\t1800000000\tfixture\tsynthetic-tripwire\n.example.com\tTRUE\t/\tFALSE\t0\tfixture\tsynthetic-tripwire\n";
+        let summary = cookie_summary(text).unwrap();
+        assert_eq!(summary.count, 3);
+        assert_eq!(summary.session_count, 1);
+        assert_eq!(summary.earliest_expiry, Some(1800000000));
+        assert_eq!(summary.latest_expiry, Some(1900000000));
+        let serialized = serde_json::to_string(&summary).unwrap();
+        assert!(
+            !serialized.contains("synthetic-tripwire")
+                && !serialized.contains("fixture")
+                && !serialized.contains("example.com")
+        );
+        let session = cookie_summary(
+            "# HTTP Cookie File\n.example.com\tFALSE\t/\tFALSE\t0\tfixture\ttripwire",
+        )
+        .unwrap();
+        assert_eq!(session.latest_expiry, None);
+    }
+    #[test]
+    fn cookie_expiry_rejects_empty_bad_columns_and_timestamps_without_leaking_rows() {
+        for text in ["", "# Netscape HTTP Cookie File\n# no rows", "# Netscape HTTP Cookie File\nsynthetic-tripwire", "# Netscape HTTP Cookie File\n.example.com\tTRUE\t/\tFALSE\tbad\tfixture\tsynthetic-tripwire", "# Netscape HTTP Cookie File\n.example.com\tTRUE\t/\tFALSE\t-1\tfixture\tsynthetic-tripwire"] {
+            let error = cookie_summary(text).unwrap_err(); assert!(!error.contains("synthetic-tripwire"));
+        }
+    }
+    #[test]
+    fn legacy_settings_have_no_cookie_statistics_until_reimport() {
+        let value = json!({"downloadDir":"C:/saved","concurrency":2,"cookieMode":"file","browser":"edge","browserProfile":"","hasCookieFile":true,"proxyEnabled":false,"proxyUrl":""});
+        let settings: crate::models::AppSettings = serde_json::from_value(value).unwrap();
+        assert!(settings.has_cookie_file);
+        assert!(settings.cookie_summary.is_none());
+    }
 
     #[test]
     fn rejects_commands_local_files_and_credentials_as_video_urls() {

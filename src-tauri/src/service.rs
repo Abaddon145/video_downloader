@@ -615,25 +615,19 @@ impl Service {
     }
     pub fn import_cookies(&self, path: &str) -> AppResult<()> {
         let metadata = fs::metadata(path).map_err(|e| format!("Cookie 文件无法读取：{e}"))?;
-        if !metadata.is_file() || metadata.len() > 2 * 1024 * 1024 {
+        if !metadata.is_file() || metadata.len() >= 2 * 1024 * 1024 {
             return Err("请选择小于 2 MiB 的 Netscape 格式 Cookie 文件".into());
         }
         let bytes = fs::read(path).map_err(|e| e.to_string())?;
         let text = std::str::from_utf8(&bytes).map_err(|_| "Cookie 文件应使用 UTF-8 编码")?;
-        if !text.lines().any(|line| {
-            line.contains("Netscape HTTP Cookie File") || line.contains("HTTP Cookie File")
-        }) || !text.lines().any(|line| {
-            (!line.starts_with('#') || line.starts_with("#HttpOnly_"))
-                && line.split('\t').count() == 7
-        }) {
-            return Err("这不是有效的 Netscape Cookie 文件，请重新导出".into());
-        }
+        let summary = domain::cookie_summary(text)?;
         let sealed = native::protect(&bytes)?;
         let mut state = self.state.lock().unwrap();
         let mut next = state.disk.clone();
         next.cookie_secret = sealed;
         next.settings.has_cookie_file = true;
         next.settings.cookie_mode = "file".into();
+        next.settings.cookie_summary = Some(summary);
         self.commit_disk(&mut state, next)?;
         drop(state);
         self.publish();

@@ -82,6 +82,16 @@ pub struct AppSettings {
     pub auto_check_core_update: bool,
     #[serde(default)]
     pub last_core_update_check: Option<u64>,
+    #[serde(default)]
+    pub cookie_summary: Option<CookieSummary>,
+}
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct CookieSummary {
+    pub count: u32,
+    pub session_count: u32,
+    pub earliest_expiry: Option<u64>,
+    pub latest_expiry: Option<u64>,
 }
 fn enabled() -> bool {
     true
@@ -99,6 +109,7 @@ impl Default for AppSettings {
             proxy_url: String::new(),
             auto_check_core_update: true,
             last_core_update_check: None,
+            cookie_summary: None,
         }
     }
 }

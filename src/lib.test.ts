@@ -3,6 +3,26 @@ import assert from 'node:assert/strict';
 import { extractUrls, pageItems, downloadError } from './lib.ts';
 import { actionCount, batchConfirmation, batchSummary, escapeAction, keepSelection, selectRange, selectFiltered, taskActionAllowed } from './lib.ts';
 import type { DownloadTask, TaskStatus } from './types.ts';
+import { classifyCookieError, cookieExpiryText } from './lib.ts';
+
+test('browser Cookie errors offer category-specific next steps without echoing secrets', () => {
+  const cases = [
+    ['ERROR: Failed to decrypt with DPAPI.', 'encrypted'],
+    ['ERROR: could not find edge cookies database in profile', 'missing'],
+    ['ERROR: Could not copy Chrome cookie database.', 'occupied'],
+    ['ERROR: cookie database is locked', 'occupied'],
+    ['ERROR: cookie reader failed', 'other'],
+  ] as const;
+  for (const [raw,category] of cases) { const result = classifyCookieError(raw); assert.equal(result?.category,category); assert.match(result!.message,/Cookie 文件/); }
+  assert.equal(classifyCookieError('HTTP Error 412'),null);
+  assert.equal(classifyCookieError('cookie reader failed Cookie: synthetic-tripwire')?.message.includes('synthetic-tripwire'),false);
+  assert.match(downloadError('https://example.com','Failed to decrypt with DPAPI').message,/Cookie 文件/);
+});
+test('Cookie statistics distinguish expiry from session-only files', () => {
+  assert.match(cookieExpiryText({count:2,sessionCount:0,earliestExpiry:1,latestExpiry:2},3),/Cookie 已过期，请重新导出/);
+  assert.match(cookieExpiryText({count:2,sessionCount:2,earliestExpiry:null,latestExpiry:null},3),/会话.*有效期/);
+  assert.doesNotMatch(cookieExpiryText({count:2,sessionCount:1,earliestExpiry:1,latestExpiry:2},3),/Cookie 已过期/);
+});
 
 const task = (id: string, status: TaskStatus): DownloadTask => ({ id, status } as DownloadTask);
 test('selection survives progress events and removes only missing IDs', () => {
