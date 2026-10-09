@@ -8,7 +8,7 @@ export interface DownloadRequest {
 export interface DownloadTask {
   id: string; request: DownloadRequest; status: TaskStatus; phase: string;
   progress: { downloaded: number | null; total: number | null; speed: number | null; eta: number | null; percent: number | null };
-  outputDir: string; files: string[]; error: string | null; logs: string[]; createdAt: number; finishedAt: number | null;
+  outputDir: string; files: string[]; error: string | null; logs: string[]; createdAt: number; finishedAt: number | null; queueOrder: number;
 }
 export interface AppSettings {
   downloadDir: string; concurrency: number; cookieMode: string; browser: string;
@@ -26,3 +26,5 @@ export interface MediaPreview {
 }
 export interface PreviewResult { url: string; preview: MediaPreview | null; error: string | null }
 export interface EngineUpdate { version: string; currentVersion: string; available: boolean; publishedAt: string }
+export type BatchAction = 'pause' | 'resume' | 'cancel' | 'retry' | 'pin' | 'copy' | 'remove';
+export interface BatchResult { succeeded: string[]; skipped: {id: string; reason: string}[]; failed: {id: string; error: string}[] }

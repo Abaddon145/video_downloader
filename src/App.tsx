@@ -3,7 +3,8 @@ import { invoke, isTauri } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
 import { ArrowDownToLine, ArrowUpRight, Check, ChevronLeft, ChevronRight, CircleAlert, Clock3, Download, FileText, Folder, FolderOpen, Globe2, History, Link2, ListVideo, Loader2, Music2, Pause, Play, Plus, RefreshCw, Search, Settings2, ShieldCheck, SlidersHorizontal, Trash2, Video, X, Zap, type LucideIcon } from 'lucide-react';
-import { extractUrls, pageItems, downloadError } from './lib';
+import { extractUrls, pageItems, downloadError, taskActionAllowed, actionCount, keepSelection, selectFiltered, selectRange, batchConfirmation, batchSummary, escapeAction } from './lib';
+import type { BatchAction, BatchResult } from './types';
 import type { AppSettings, AppSnapshot, DownloadRequest, DownloadTask, EngineUpdate, MediaKind, MediaPreview, PreviewResult, TaskStatus, VideoMode } from './types';
 
 const initial: AppSnapshot = {
@@ -14,6 +15,7 @@ const statusText: Record<TaskStatus, string> = { queued: '等待中', resolving:
 const busyStatuses: TaskStatus[] = ['resolving', 'downloading', 'processing'];
 const kindText = { video: '视频', audio: '音频', subtitles: '字幕' };
 const languageName: Record<string, string> = { en: '英语', zh: '中文', 'zh-Hans': '简体中文', 'zh-Hant': '繁体中文', 'zh-CN': '简体中文', ja: '日语', ko: '韩语' };
+const batchLabels: Record<BatchAction, string> = { pause:'暂停', resume:'恢复', cancel:'取消', retry:'重试', pin:'置顶', copy:'复制链接', remove:'删除历史' };
 function errorText(error: unknown): string { return typeof error === 'string' ? error : error instanceof Error ? error.message : '操作未完成，请重试'; }
 function bytes(value?: number | null) { if (value == null) return '未知'; const units = ['B', 'KB', 'MB', 'GB']; let unit = 0; while (value >= 1024 && unit < 3) { value /= 1024; unit++; } return `${value.toFixed(unit ? 1 : 0)} ${units[unit]}`; }
 function duration(value?: number | null) { if (value == null) return '时长未知'; const seconds = Math.round(value); return seconds >= 3600 ? `${Math.floor(seconds / 3600)}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}` : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`; }
@@ -52,11 +54,12 @@ function Modal({ title, subtitle, onClose, children, wide = false }: { title: st
   }} onCancel={event => { event.preventDefault(); close.current(); }} onClick={event => { if (event.target === event.currentTarget) { const box = event.currentTarget.getBoundingClientRect(); if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) close.current(); } }}><div className="modal-header"><div><h2 id="modal-title">{title}</h2>{subtitle && <p>{subtitle}</p>}</div><IconButton icon={X} label="关闭对话框" onClick={onClose} /></div>{children}</dialog>;
 }
 
-function TaskRow({ task, act, details }: { task: DownloadTask; act: (command: string, args: Record<string, unknown>, message?: string) => Promise<unknown>; details: () => void }) {
+function TaskRow({ task, act, details, checked, select }: { task: DownloadTask; act: (command: string, args: Record<string, unknown>, message?: string) => Promise<unknown>; details: () => void; checked: boolean; select: (checked: boolean, shift: boolean) => void }) {
   const active = busyStatuses.includes(task.status);
   const percent = task.progress.percent;
-  const canPause = ['queued', 'resolving', 'downloading'].includes(task.status);
+  const canPause = taskActionAllowed(task.status, 'pause');
   return <article className={`task-row ${task.status}`}>
+    <input type="checkbox" aria-label={`选择任务：${task.request.title}`} aria-checked={checked} checked={checked} onChange={event => select(event.target.checked, (event.nativeEvent as MouseEvent).shiftKey)} />
     <Cover src={task.request.thumbnail} kind={task.request.kind} />
     <div className="task-main"><div className="task-title-line"><button className="task-title" onClick={details} title={task.request.title}>{task.request.title}</button><span className={`status-tag ${task.status}`}>{active && <span className="status-dot" />}{statusText[task.status]}</span></div>
       <div className="task-meta"><span>{siteName(task.request.url)}</span><span className="dot">·</span><span>{kindText[task.request.kind]}{task.request.kind === 'audio' ? ' / MP3' : task.request.kind === 'subtitles' ? ' / SRT' : task.request.videoMode === 'compatible' ? ' / MP4' : ' / 源格式'}</span><span className="dot">·</span><span>{task.request.maxHeight ? `最高 ${task.request.maxHeight}p` : '最佳可用画质'}</span>{task.status === 'completed' && <span className="task-date">{dateText(task.finishedAt ?? task.createdAt)}</span>}</div>
@@ -167,6 +170,11 @@ export default function App() {
   const [expected, setExpected] = useState(0);
   const [parsing, setParsing] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState(new Set<string>());
+  const [confirmBatch, setConfirmBatch] = useState<{action: BatchAction; ids: string[]} | null>(null);
+  const [batchResult, setBatchResult] = useState<BatchResult | null>(null);
+  const [batchBusy, setBatchBusy] = useState(false);
+  const selectionAnchor = useRef<string | null>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const previewButton = useRef<HTMLButtonElement>(null);
   const previewVisible = useRef(false); previewVisible.current = previewOpen;
@@ -196,13 +204,17 @@ export default function App() {
   useEffect(() => { if (!toast) return; const timer = setTimeout(() => setToast(''), 7000); return () => clearTimeout(timer); }, [toast]);
   useEffect(() => { const key = (event: KeyboardEvent) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'l') { event.preventDefault(); setPage('download'); requestAnimationFrame(() => input.current?.focus()); } }; document.addEventListener('keydown', key); return () => document.removeEventListener('keydown', key); }, []);
   useEffect(() => setListPage(1), [page, filter, search]);
+  useEffect(() => { setSelectedIds(previous => keepSelection(previous, snapshot.tasks)); }, [snapshot.tasks]);
   const urls = extractUrls(links);
   const active = snapshot.tasks.filter(task => busyStatuses.includes(task.status));
   const waiting = snapshot.tasks.filter(task => task.status === 'queued');
   const completed = snapshot.tasks.filter(task => task.status === 'completed');
   const speed = active.reduce((sum, task) => sum + (task.status === 'downloading' ? task.progress.speed ?? 0 : 0), 0);
   const history = snapshot.tasks.filter(task => ['completed', 'failed', 'cancelled'].includes(task.status));
-  const list = (page === 'history' ? history : snapshot.tasks.filter(task => !['completed', 'cancelled'].includes(task.status))).filter(task => (filter === 'all' || (filter === 'active' ? busyStatuses.includes(task.status) : task.status === filter)) && `${task.request.title} ${task.request.url}`.toLowerCase().includes(search.toLowerCase())).sort((a, b) => page === 'history' ? (b.finishedAt ?? b.createdAt) - (a.finishedAt ?? a.createdAt) : a.createdAt - b.createdAt);
+  const list = (page === 'history' ? history : snapshot.tasks).filter(task => (filter === 'all' || (filter === 'active' ? busyStatuses.includes(task.status) : task.status === filter)) && `${task.request.title} ${task.request.url}`.toLowerCase().includes(search.toLowerCase())).sort((a, b) => page === 'history' ? (b.finishedAt ?? b.createdAt) - (a.finishedAt ?? a.createdAt) : (b.queueOrder - a.queueOrder) || a.createdAt - b.createdAt);
+  const selectedTasks = snapshot.tasks.filter(task => selectedIds.has(task.id));
+  const filteredIds = list.map(task => task.id);
+  const visibleIds = pageItems(list, listPage).map(task => task.id);
   const detail = snapshot.tasks.find(task => task.id === detailId);
   const startPreview = async () => {
     if (!urls.length) { notify('请粘贴完整的视频或播放列表链接'); input.current?.focus(); return; }
@@ -211,6 +223,29 @@ export default function App() {
     try { const data = await invoke<PreviewResult[]>('preview_sources', { urls }); if (previewVisible.current) setResults(data); } catch (error) { notify(errorText(error)); if (previewVisible.current) setResults([{ url: urls[0], preview: null, error: errorText(error) }]); } finally { setParsing(false); }
   };
   const closePreview = () => { if (parsing) void act('cancel_preview', {}); setPreviewOpen(false); requestAnimationFrame(() => (parsing ? input.current : previewButton.current)?.focus()); };
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || (!previewOpen && (event.target as HTMLElement)?.closest('dialog'))) return;
+      const action = escapeAction(previewOpen, parsing || snapshot.previewing, selectedIds.size);
+      if (action === 'preview') { event.preventDefault(); if (parsing || snapshot.previewing) void act('cancel_preview', {}); setPreviewOpen(false); }
+      else if (action === 'selection') { event.preventDefault(); setSelectedIds(new Set()); }
+    };
+    document.addEventListener('keydown', key); return () => document.removeEventListener('keydown', key);
+  }, [previewOpen, parsing, snapshot.previewing, selectedIds.size, act]);
+  const runBatch = async (action: BatchAction, ids: string[]) => {
+    setConfirmBatch(null); setBatchBusy(true);
+    try {
+      const result = await act('batch_task_action', {ids,action}) as BatchResult | null;
+      if (result) {
+        if (action === 'copy') {
+          try { await navigator.clipboard.writeText(result.succeeded.map(id => snapshot.tasks.find(task => task.id === id)?.request.url).filter(Boolean).join('\n')); }
+          catch { result.failed.push(...result.succeeded.map(id => ({id,error:'剪贴板写入失败，请重试'}))); result.succeeded = []; }
+        }
+        setBatchResult(result);
+      }
+    } finally { setBatchBusy(false); }
+  };
+  const requestBatch = (action: BatchAction) => { const ids = [...selectedIds]; if (action === 'cancel' || action === 'remove') setConfirmBatch({action, ids}); else void runBatch(action,ids); };
   const enqueue = async (requests: DownloadRequest[]) => {
     const tasks = await act('enqueue_downloads', { requests }) as DownloadTask[] | null;
     if (tasks) { setPreviewOpen(false); setLinks(''); notify(tasks.length ? `${tasks.length} 个任务已加入下载队列` : '所选任务已在队列中'); setFilter('all'); setPage('download'); requestAnimationFrame(() => input.current?.focus()); }
@@ -225,14 +260,18 @@ export default function App() {
       {page === 'settings' ? <SettingsPanel snapshot={snapshot} act={act} notify={notify} /> : <>
         {page === 'download' && <><section className="link-card"><div className="link-card-heading"><span><Link2 size={18} />添加视频链接</span><kbd>Ctrl + L</kbd></div><div className="link-input-row"><textarea ref={input} aria-label="视频链接" value={links} onChange={event => setLinks(event.target.value)} onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); if (snapshot.engine.ready && !parsing) void startPreview(); } }} placeholder="粘贴视频、播放列表或分享文本，可一次添加多个链接" rows={2} spellCheck={false} /><button ref={previewButton} className="primary parse-button" disabled={!urls.length || parsing || snapshot.previewing || snapshot.updating || !snapshot.engine.ready} onClick={() => { void startPreview(); }}>{parsing ? <Loader2 size={18} className="spin" /> : <Search size={18} />}解析链接</button></div><div className="link-hint"><span><Globe2 size={14} />支持哔哩哔哩、YouTube 及 yt-dlp 支持的平台</span><span>{urls.length ? `识别到 ${urls.length} 个链接` : '先预览，再下载'}</span></div></section>
         <div className="stats-strip"><div><span className="stat-icon cyan"><Download size={19} /></span><div><span>正在下载</span><strong>{active.length}<small> / {snapshot.settings.concurrency}</small></strong></div></div><div><span className="stat-icon"><Clock3 size={19} /></span><div><span>等待下载</span><strong>{waiting.length}<small> 个任务</small></strong></div></div><div><span className="stat-icon green"><Check size={19} /></span><div><span>已保存</span><strong>{completed.length}<small> 个文件任务</small></strong></div></div><div><span className="stat-icon"><Zap size={19} /></span><div><span>当前速度</span><strong className="speed-stat">{speed ? bytes(speed) : '—'}<small>{speed ? '/s' : ''}</small></strong></div></div></div></>}
-        <section className="task-list"><div className="list-header"><div className="list-title"><h2>{page === 'history' ? '全部记录' : '下载队列'}</h2><span>{page === 'history' ? history.length : snapshot.tasks.filter(task => !['completed', 'cancelled'].includes(task.status)).length}</span></div><div className="list-tools">{page === 'history' && <div className="search-field"><Search size={15} /><input aria-label="搜索下载历史" placeholder="搜索标题或链接" value={search} onChange={event => setSearch(event.target.value)} /></div>}<select aria-label="筛选任务状态" value={filter} onChange={event => setFilter(event.target.value)}><option value="all">全部状态</option>{(page === 'history' ? ['completed', 'failed', 'cancelled'] : ['active', 'queued', 'paused', 'failed']).map(value => <option key={value} value={value}>{value === 'active' ? '正在运行' : statusText[value as TaskStatus]}</option>)}</select></div></div>
-          {list.length ? <div className="task-items">{pageItems(list, listPage).map(task => <TaskRow key={task.id} task={task} act={act} details={() => setDetailId(task.id)} />)}</div> : <div className="empty-state"><div className="empty-art"><div className="empty-line line-one" /><div className="empty-line line-two" /><div className="empty-sheet"><span /><span /><ArrowDownToLine size={28} /></div><span className="empty-spark"><Plus size={15} /></span></div><h3>{page === 'history' ? '下载记录会保存在这里' : filter === 'all' ? '准备好保存下一个好视频' : '没有此状态的任务'}</h3><p>{page === 'history' ? '完成、失败和取消的任务，都可以在这里查看。' : filter === 'all' ? '粘贴链接，选择画质，剩下的交给映流。' : '切换筛选条件，或添加一个新链接。'}</p>{page === 'download' && filter === 'all' && <button className="text-button" onClick={() => input.current?.focus()}>添加第一个链接 <ArrowUpRight size={15} /></button>}</div>}
+        <section className="task-list" tabIndex={0} aria-label="下载任务列表" onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a' && !(event.target as HTMLElement).matches('input:not([type=checkbox]),textarea,select')) { event.preventDefault(); setSelectedIds(previous => selectFiltered(previous,filteredIds,true)); } }}><div className="list-header"><div className="list-title"><h2>{page === 'history' ? '全部记录' : '下载队列'}</h2><span>{page === 'history' ? history.length : snapshot.tasks.length}</span></div><div className="list-tools">{page === 'history' && <div className="search-field"><Search size={15} /><input aria-label="搜索下载历史" placeholder="搜索标题或链接" value={search} onChange={event => setSearch(event.target.value)} /></div>}<select aria-label="筛选任务状态" value={filter} onChange={event => setFilter(event.target.value)}><option value="all">全部状态</option>{(page === 'history' ? ['completed', 'failed', 'cancelled'] : ['queued', 'active', 'paused', 'failed', 'completed', 'cancelled']).map(value => <option key={value} value={value}>{value === 'active' ? '下载中（含解析与处理）' : statusText[value as TaskStatus]}</option>)}</select></div></div>
+          <div className="selection-line"><label className="check-label"><input type="checkbox" aria-label="全选当前筛选结果" aria-checked={!!list.length && filteredIds.every(id => selectedIds.has(id))} checked={!!list.length && filteredIds.every(id => selectedIds.has(id))} onChange={event => setSelectedIds(previous => selectFiltered(previous,filteredIds,event.target.checked))} />全选当前筛选结果</label><span>已选 {selectedIds.size} 项，当前筛选共 {list.length} 项</span></div>
+          {!!selectedIds.size && <div className="batch-toolbar" role="group" aria-label="批量任务操作">{(Object.keys(batchLabels) as BatchAction[]).map(action => <button key={action} className="secondary" disabled={batchBusy || actionCount(selectedTasks,action) === 0} onClick={() => requestBatch(action)}>{batchLabels[action]}（{actionCount(selectedTasks,action)}）</button>)}<button className="text-button" disabled={batchBusy} onClick={() => setSelectedIds(new Set())}>清除选择</button></div>}
+          {list.length ? <div className="task-items">{pageItems(list, listPage).map(task => <TaskRow key={task.id} task={task} act={act} details={() => setDetailId(task.id)} checked={selectedIds.has(task.id)} select={(checked, shift) => { const anchor = selectionAnchor.current; setSelectedIds(previous => shift ? selectRange(previous,visibleIds,anchor,task.id,checked) : selectFiltered(previous,[task.id],checked)); selectionAnchor.current = task.id; }} />)}</div> : <div className="empty-state"><div className="empty-art"><div className="empty-line line-one" /><div className="empty-line line-two" /><div className="empty-sheet"><span /><span /><ArrowDownToLine size={28} /></div><span className="empty-spark"><Plus size={15} /></span></div><h3>{page === 'history' ? '下载记录会保存在这里' : filter === 'all' ? '准备好保存下一个好视频' : '没有此状态的任务'}</h3><p>{page === 'history' ? '完成、失败和取消的任务，都可以在这里查看。' : filter === 'all' ? '粘贴链接，选择画质，剩下的交给映流。' : '切换筛选条件，或添加一个新链接。'}</p>{page === 'download' && filter === 'all' && <button className="text-button" onClick={() => input.current?.focus()}>添加第一个链接 <ArrowUpRight size={15} /></button>}</div>}
           {!!list.length && <Pagination count={list.length} page={listPage} setPage={setListPage} />}
         </section>
         {page === 'download' && <div className="workspace-footer"><span className="save-location" title={snapshot.settings.downloadDir}><Folder size={15} /><span>{snapshot.settings.downloadDir || '默认保存至「下载 / 视频下载」'}</span></span><button className="text-button" onClick={() => navigate('settings')}>更改位置 <ChevronRight size={14} /></button></div>}
       </>}
     </main>
     {!!toast && <div className="toast" role="status"><CircleAlert size={18} /><span>{toast}</span><IconButton icon={X} label="关闭提示" onClick={() => setToast('')} /></div>}
+    {confirmBatch && <Modal title={`确认${batchLabels[confirmBatch.action]}`} onClose={() => setConfirmBatch(null)}><div className="details-body"><p>{batchConfirmation(confirmBatch.action,confirmBatch.ids.length)}</p><p className="help">不适用的任务会跳过并说明原因。</p></div><div className="modal-footer"><button className="secondary" onClick={() => setConfirmBatch(null)}>返回</button><button className="primary" onClick={() => { void runBatch(confirmBatch.action,confirmBatch.ids); }}>确认操作</button></div></Modal>}
+    {batchResult && <Modal title="批量操作结果" onClose={() => setBatchResult(null)}><div className="details-body"><p role="status">{batchSummary(batchResult)}</p>{!!(batchResult.skipped.length + batchResult.failed.length) && <details className="batch-details"><summary>查看逐项原因</summary>{batchResult.skipped.map(item => <p key={item.id}>{snapshot.tasks.find(task => task.id === item.id)?.request.title || item.id}：{item.reason}</p>)}{batchResult.failed.map(item => <p className="error-text" key={item.id}>{snapshot.tasks.find(task => task.id === item.id)?.request.title || item.id}：{item.error}</p>)}</details>}</div><div className="modal-footer"><button className="primary" onClick={() => setBatchResult(null)}>知道了</button></div></Modal>}
     {previewOpen && <PreviewPanel results={results} expected={expected} busy={parsing} directory={snapshot.settings.downloadDir} enqueue={enqueue} close={closePreview} configure={() => { closePreview(); navigate('settings'); }} retry={() => { void startPreview(); }} openSource={url => { void act('open_source', { url }); }} />}
     {detail && <Modal title="任务详情" subtitle={statusText[detail.status]} onClose={() => setDetailId(null)}><div className="details-body"><h3>{detail.request.title}</h3><dl><dt>来源链接</dt><dd>{detail.request.url}</dd><dt>保存目录</dt><dd>{detail.outputDir}</dd><dt>下载类型</dt><dd>{kindText[detail.request.kind]} · {detail.request.videoMode === 'compatible' ? '兼容优先' : '源格式'}</dd><dt>创建时间</dt><dd>{dateText(detail.createdAt)}</dd>{detail.files.length > 0 && <><dt>输出文件</dt><dd>{detail.files.map(file => <p key={file}>{file}</p>)}</dd></>}</dl>{detail.error && <div className="error-panel"><strong>{downloadError(detail.request.url, detail.error).title}</strong><p>{downloadError(detail.request.url, detail.error).message}</p><details className="task-logs"><summary>技术详情</summary><pre>{detail.error}</pre></details>{(detail.error.toLowerCase().includes('cookie') || downloadError(detail.request.url, detail.error).message !== detail.error) && <button className="secondary" onClick={() => { setDetailId(null); navigate('settings'); }}>到设置导入 Cookie</button>}</div>}<details className="task-logs" open={detail.status === 'failed'}><summary>内核日志（已脱敏）</summary><pre>{detail.logs.join('\n') || '暂无日志'}</pre></details></div><div className="modal-footer"><button className="secondary" onClick={() => { void act('open_source', { url: detail.request.url }); }}><ArrowUpRight size={16} />打开来源</button><button className="secondary" onClick={() => { void act('open_task_target', { id: detail.id, folder: true }); }}><FolderOpen size={16} />打开目录</button></div></Modal>}
   </div>;

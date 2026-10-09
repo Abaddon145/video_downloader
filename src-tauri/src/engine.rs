@@ -288,9 +288,13 @@ pub fn final_output_path(task: &DownloadTask, raw: &str) -> std::path::PathBuf {
     path.to_path_buf()
 }
 pub fn queued_ids(tasks: &[DownloadTask], limit: usize, running: &[String]) -> Vec<String> {
-    tasks
+    let mut queued: Vec<_> = tasks
         .iter()
         .filter(|task| task.status == TaskStatus::Queued && !running.contains(&task.id))
+        .collect();
+    queued.sort_by_key(|task| std::cmp::Reverse(task.queue_order));
+    queued
+        .into_iter()
         .take(limit.saturating_sub(running.len()))
         .map(|task| task.id.clone())
         .collect()

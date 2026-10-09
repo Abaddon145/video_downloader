@@ -90,6 +90,7 @@ pub struct Service {
     pub data: PathBuf,
     pub resources: PathBuf,
     pub yt: PathBuf,
+    batch_gate: Mutex<()>,
 }
 struct Context {
     args: Vec<String>,
@@ -152,6 +153,7 @@ impl Service {
             data,
             resources,
             yt,
+            batch_gate: Mutex::new(()),
             state: Mutex::new(Runtime {
                 disk,
                 running: HashMap::new(),
@@ -492,15 +494,67 @@ impl Service {
     }
     pub fn remove_task(&self, id: &str) -> AppResult<()> {
         let mut state = self.state.lock().unwrap();
-        if state.running.contains_key(id) {
-            return Err("请先取消任务，等待内核停止后再移除记录".into());
-        }
         let mut next = state.disk.clone();
-        next.tasks.retain(|task| task.id != id);
+        crate::batch::remove_record(
+            &mut next.tasks,
+            id,
+            &state.running.keys().cloned().collect::<Vec<_>>(),
+        )?;
         self.commit_disk(&mut state, next)?;
         drop(state);
         self.publish();
         Ok(())
+    }
+    pub fn batch_task_action(
+        self: &Arc<Self>,
+        ids: Vec<String>,
+        action: crate::batch::BatchAction,
+    ) -> AppResult<crate::batch::BatchResult> {
+        use crate::batch::{self, BatchAction};
+        let gate = self.batch_gate.lock().unwrap();
+        let result = if matches!(action, BatchAction::Remove | BatchAction::Pin) {
+            let mut state = self.state.lock().unwrap();
+            let running = state.running.keys().cloned().collect::<Vec<_>>();
+            batch::records(&mut state.disk, &ids, action, &running, |next| {
+                native::save_atomic(
+                    &self.data.join("state.json"),
+                    &serde_json::to_vec(next).map_err(|e| e.to_string())?,
+                )
+            })?
+        } else {
+            let plan = {
+                let state = self.state.lock().unwrap();
+                batch::prepare(&state.disk.tasks, &ids, action, &[])?
+            };
+            batch::execute(
+                plan,
+                |id| {
+                    if action == BatchAction::Copy {
+                        return Ok(());
+                    }
+                    {
+                        let state = self.state.lock().unwrap();
+                        let task = state
+                            .disk
+                            .tasks
+                            .iter()
+                            .find(|task| task.id == id)
+                            .ok_or("任务不存在")?;
+                        if let Some(reason) = batch::skip_reason(&task.status, action) {
+                            return Err(reason.into());
+                        }
+                    }
+                    self.control(id, action.command())
+                },
+                || {},
+            )
+        };
+        // Scheduler ticks cannot claim intermediate states while this gate is held.
+        Ok(batch::complete(result, || {
+            drop(gate);
+            self.publish();
+            self.schedule();
+        }))
     }
     pub fn save_settings(&self, input: SettingsInput) -> AppResult<AppSettings> {
         if !(1..=4).contains(&input.concurrency) {
@@ -575,6 +629,9 @@ impl Service {
         Ok(())
     }
     fn schedule(self: &Arc<Self>) {
+        let Ok(_gate) = self.batch_gate.try_lock() else {
+            return;
+        };
         let claims = {
             let mut state = self.state.lock().unwrap();
             if state.exiting || state.updating || !state.engine.ready {

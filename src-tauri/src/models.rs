@@ -63,6 +63,8 @@ pub struct DownloadTask {
     pub logs: Vec<String>,
     pub created_at: u64,
     pub finished_at: Option<u64>,
+    #[serde(default)]
+    pub queue_order: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

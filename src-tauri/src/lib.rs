@@ -1,3 +1,4 @@
+pub mod batch;
 pub mod domain;
 pub mod engine;
 pub mod models;
@@ -49,6 +50,17 @@ fn control_task(service: AppService<'_>, id: String, action: String) -> AppResul
 #[tauri::command]
 fn remove_task(service: AppService<'_>, id: String) -> AppResult<()> {
     service.remove_task(&id)
+}
+#[tauri::command]
+async fn batch_task_action(
+    service: AppService<'_>,
+    ids: Vec<String>,
+    action: batch::BatchAction,
+) -> AppResult<batch::BatchResult> {
+    let service = service.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || service.batch_task_action(ids, action))
+        .await
+        .map_err(|e| e.to_string())?
 }
 #[tauri::command]
 fn save_settings(service: AppService<'_>, input: SettingsInput) -> AppResult<AppSettings> {
@@ -107,6 +119,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             get_snapshot,
+            batch_task_action,
             preview_sources,
             cancel_preview,
             enqueue_downloads,

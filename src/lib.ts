@@ -1,3 +1,26 @@
+import type { BatchAction, BatchResult, DownloadTask, TaskStatus } from './types.ts';
+export function taskActionAllowed(status: TaskStatus, action: BatchAction): boolean {
+  switch (action) {
+    case 'pause': return ['queued','resolving','downloading'].includes(status);
+    case 'resume': return status === 'paused';
+    case 'cancel': return ['queued','resolving','downloading','processing','paused'].includes(status);
+    case 'retry': return ['failed','cancelled'].includes(status);
+    case 'pin': return ['queued','paused'].includes(status);
+    case 'remove': return ['completed','failed','cancelled'].includes(status);
+    case 'copy': return true;
+  }
+}
+export function actionCount(tasks: DownloadTask[], action: BatchAction) { return tasks.filter(task => taskActionAllowed(task.status, action)).length; }
+export function keepSelection(selected: Set<string>, tasks: DownloadTask[]) { const ids = new Set(tasks.map(task => task.id)); return new Set([...selected].filter(id => ids.has(id))); }
+export function selectFiltered(selected: Set<string>, visible: string[], checked: boolean) { const next = new Set(selected); visible.forEach(id => checked ? next.add(id) : next.delete(id)); return next; }
+export function selectRange(selected: Set<string>, visible: string[], anchor: string | null, id: string, checked: boolean) {
+  const start = anchor == null ? -1 : visible.indexOf(anchor), end = visible.indexOf(id);
+  return selectFiltered(selected, start < 0 || end < 0 ? [id] : visible.slice(Math.min(start,end),Math.max(start,end)+1),checked);
+}
+export function batchConfirmation(action: BatchAction, count: number) { return `确认${action === 'remove' ? '删除历史记录' : '取消任务'} ${count} 项？已下载的文件会保留。`; }
+export function batchSummary(result: BatchResult) { return `成功 ${result.succeeded.length} 项，跳过 ${result.skipped.length} 项，失败 ${result.failed.length} 项`; }
+export function escapeAction(preview: boolean, parsing: boolean, selected: number) { return preview || parsing ? 'preview' : selected ? 'selection' : 'none'; }
+
 export function extractUrls(text: string): string[] {
   const matches = text.match(/https?:\/\/[^\s<>"'\u3000-\u303f\uff00-\uffef]+/gi) ?? [];
   return [...new Set(matches.map(url => url.replace(/[),.;]+$/, '')))];
