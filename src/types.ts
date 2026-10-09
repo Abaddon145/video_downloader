@@ -13,9 +13,10 @@ export interface DownloadTask {
 export interface AppSettings {
   downloadDir: string; concurrency: number; cookieMode: string; browser: string;
   browserProfile: string; hasCookieFile: boolean; proxyEnabled: boolean; proxyUrl: string;
+  autoCheckCoreUpdate: boolean; lastCoreUpdateCheck: number | null;
 }
 export interface EngineInfo { version: string; ready: boolean; ffmpegVersion: string; denoVersion: string; error: string | null }
-export interface AppSnapshot { settings: AppSettings; tasks: DownloadTask[]; engine: EngineInfo; updating: boolean; previewing: boolean; notice: string | null }
+export interface AppSnapshot { settings: AppSettings; tasks: DownloadTask[]; engine: EngineInfo; updating: boolean; previewing: boolean; notice: string | null; coreUpdate: EngineUpdate | null }
 export interface PlaylistEntry { id: string; url: string; title: string; duration: number | null; thumbnail: string | null }
 export interface MediaPreview {
   url: string; title: string; thumbnail: string | null; duration: number | null; uploader: string; site: string; isPlaylist: boolean;

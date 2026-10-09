@@ -267,6 +267,12 @@ pub fn checksum_entry(sums: &str, filename: &str) -> AppResult<String> {
     }
     Err("官方 SHA256 清单缺少有效的 yt-dlp.exe 校验项，已拒绝更新".into())
 }
+pub fn core_update_due(enabled: bool, last: Option<u64>, now: u64) -> bool {
+    enabled && last.is_none_or(|last| now.saturating_sub(last) >= 24 * 60 * 60 * 1000)
+}
+pub fn core_update_notice(update: EngineUpdate) -> Option<EngineUpdate> {
+    update.available.then_some(update)
+}
 pub fn recover_tasks(tasks: &mut [DownloadTask]) {
     for task in tasks {
         if task.status.active() || task.status == TaskStatus::Queued {
@@ -342,6 +348,40 @@ pub fn transition(task: &mut DownloadTask, action: &str) -> AppResult<()> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn automatic_update_due_uses_24_hours_and_respects_disabled_and_future_clock() {
+        let day = 24 * 60 * 60 * 1000;
+        assert!(core_update_due(true, None, day));
+        assert!(!core_update_due(true, Some(1), day));
+        assert!(core_update_due(true, Some(1), day + 1));
+        assert!(!core_update_due(false, None, day));
+        assert!(!core_update_due(true, Some(day + 1), day));
+    }
+    #[test]
+    fn old_settings_default_auto_check_without_changing_existing_preferences() {
+        let settings: AppSettings = serde_json::from_value(json!({"downloadDir":"C:/saved","concurrency":3,"cookieMode":"none","browser":"firefox","browserProfile":"default","hasCookieFile":false,"proxyEnabled":false,"proxyUrl":""})).unwrap();
+        assert!(settings.auto_check_core_update);
+        assert_eq!(settings.last_core_update_check, None);
+        assert_eq!(settings.concurrency, 3);
+        assert_eq!(settings.browser, "firefox");
+    }
+    #[test]
+    fn automatic_check_only_produces_a_notice_and_never_an_install_action() {
+        let update = EngineUpdate {
+            version: "2099.01.01".into(),
+            current_version: "2026.01.01".into(),
+            available: true,
+            published_at: String::new(),
+        };
+        let notice = core_update_notice(update.clone());
+        assert_eq!(notice.unwrap().version, update.version);
+        assert!(core_update_notice(EngineUpdate {
+            available: false,
+            ..update
+        })
+        .is_none());
+    }
 
     #[test]
     fn preview_distinguishes_codec_compatibility_and_playlist_urls() {

@@ -83,6 +83,7 @@ pub struct Runtime {
     pub exiting: bool,
     pub engine: EngineInfo,
     pub notice: Option<String>,
+    pub core_update: Option<EngineUpdate>,
 }
 pub struct Service {
     pub app: AppHandle,
@@ -164,6 +165,7 @@ impl Service {
                 exiting: false,
                 engine: EngineInfo::default(),
                 notice: None,
+                core_update: None,
             }),
         });
         result.persist(&result.state.lock().unwrap())?;
@@ -193,6 +195,7 @@ impl Service {
             updating: state.updating,
             previewing: state.previewing,
             notice: state.notice.clone(),
+            core_update: state.core_update.clone(),
         }
     }
     fn publish(&self) {
@@ -202,6 +205,13 @@ impl Service {
         let _ = self.app.emit("task-updated", task);
     }
     pub fn start(self: &Arc<Self>) {
+        let checker = self.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_secs(30));
+            if checker.automatic_check().is_err() {
+                eprintln!("自动检查内核更新失败，可在设置中手动检查");
+            }
+        });
         let service = self.clone();
         std::thread::spawn(move || {
             let checked = service.initialize_tools();
@@ -596,6 +606,7 @@ impl Service {
         next.settings.browser = input.browser;
         next.settings.browser_profile = input.browser_profile.trim().into();
         next.settings.proxy_enabled = input.proxy_enabled;
+        next.settings.auto_check_core_update = input.auto_check_core_update;
         let settings = next.settings.clone();
         self.commit_disk(&mut state, next)?;
         drop(state);
@@ -993,6 +1004,31 @@ impl Service {
                 .join("System32/curl.exe");
         native::capture(&executable, &args)
     }
+    fn automatic_check(&self) -> AppResult<()> {
+        {
+            let mut state = self.state.lock().unwrap();
+            let settings = &state.disk.settings;
+            if state.exiting
+                || !engine::core_update_due(
+                    settings.auto_check_core_update,
+                    settings.last_core_update_check,
+                    now(),
+                )
+            {
+                return Ok(());
+            }
+            // Save the attempt before networking, so a failure cannot retry on every restart.
+            let mut next = state.disk.clone();
+            next.settings.last_core_update_check = Some(now());
+            self.commit_disk(&mut state, next)?;
+        }
+        let result = self.check_update();
+        if let Ok(update) = &result {
+            self.state.lock().unwrap().core_update = engine::core_update_notice(update.clone());
+        }
+        self.publish();
+        result.map(|_| ())
+    }
     pub fn check_update(&self) -> AppResult<EngineUpdate> {
         let json: Value = serde_json::from_str(&self.curl(
             "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest",
@@ -1081,6 +1117,7 @@ impl Service {
             state.updating = false;
             if let Ok(info) = &result {
                 state.engine = info.clone();
+                state.core_update = None;
             }
         }
         self.publish();

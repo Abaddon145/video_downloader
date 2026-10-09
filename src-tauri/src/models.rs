@@ -78,6 +78,13 @@ pub struct AppSettings {
     pub has_cookie_file: bool,
     pub proxy_enabled: bool,
     pub proxy_url: String,
+    #[serde(default = "enabled")]
+    pub auto_check_core_update: bool,
+    #[serde(default)]
+    pub last_core_update_check: Option<u64>,
+}
+fn enabled() -> bool {
+    true
 }
 impl Default for AppSettings {
     fn default() -> Self {
@@ -90,6 +97,8 @@ impl Default for AppSettings {
             has_cookie_file: false,
             proxy_enabled: false,
             proxy_url: String::new(),
+            auto_check_core_update: true,
+            last_core_update_check: None,
         }
     }
 }
@@ -104,6 +113,8 @@ pub struct SettingsInput {
     pub browser_profile: String,
     pub proxy_enabled: bool,
     pub proxy_url: Option<String>,
+    #[serde(default = "enabled")]
+    pub auto_check_core_update: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -185,6 +196,7 @@ pub struct AppSnapshot {
     pub updating: bool,
     pub previewing: bool,
     pub notice: Option<String>,
+    pub core_update: Option<EngineUpdate>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
