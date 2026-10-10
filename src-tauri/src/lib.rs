@@ -1,6 +1,8 @@
+pub mod batch;
 pub mod domain;
 pub mod engine;
 pub mod models;
+pub mod naming;
 pub mod native;
 pub mod service;
 
@@ -51,12 +53,30 @@ fn remove_task(service: AppService<'_>, id: String) -> AppResult<()> {
     service.remove_task(&id)
 }
 #[tauri::command]
+async fn batch_task_action(
+    service: AppService<'_>,
+    ids: Vec<String>,
+    action: batch::BatchAction,
+) -> AppResult<batch::BatchResult> {
+    let service = service.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || service.batch_task_action(ids, action))
+        .await
+        .map_err(|e| e.to_string())?
+}
+#[tauri::command]
 fn save_settings(service: AppService<'_>, input: SettingsInput) -> AppResult<AppSettings> {
     service.save_settings(input)
 }
 #[tauri::command]
 fn import_cookies(service: AppService<'_>, path: String) -> AppResult<()> {
     service.import_cookies(&path)
+}
+#[tauri::command]
+fn save_download_presets(
+    service: AppService<'_>,
+    presets: Vec<DownloadPreset>,
+) -> AppResult<AppSettings> {
+    service.save_presets(presets)
 }
 #[tauri::command]
 fn open_task_target(service: AppService<'_>, id: String, folder: bool) -> AppResult<()> {
@@ -107,6 +127,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             get_snapshot,
+            save_download_presets,
+            batch_task_action,
             preview_sources,
             cancel_preview,
             enqueue_downloads,

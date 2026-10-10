@@ -47,6 +47,23 @@ pub struct DownloadRequest {
     pub video_mode: VideoMode,
     pub max_height: u32,
     pub subtitle_languages: Vec<String>,
+    #[serde(default)]
+    pub filename_template: String,
+    #[serde(default)]
+    pub by_author: bool,
+    #[serde(default)]
+    pub playlist_index: Option<u32>,
+}
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct DownloadPreset {
+    pub name: String,
+    pub kind: MediaKind,
+    pub video_mode: VideoMode,
+    pub max_height: u32,
+    pub subtitle_languages: Vec<String>,
+    pub filename_template: String,
+    pub by_author: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -63,6 +80,8 @@ pub struct DownloadTask {
     pub logs: Vec<String>,
     pub created_at: u64,
     pub finished_at: Option<u64>,
+    #[serde(default)]
+    pub queue_order: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,6 +95,25 @@ pub struct AppSettings {
     pub has_cookie_file: bool,
     pub proxy_enabled: bool,
     pub proxy_url: String,
+    #[serde(default = "enabled")]
+    pub auto_check_core_update: bool,
+    #[serde(default)]
+    pub last_core_update_check: Option<u64>,
+    #[serde(default)]
+    pub cookie_summary: Option<CookieSummary>,
+    #[serde(default)]
+    pub download_presets: Vec<DownloadPreset>,
+}
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct CookieSummary {
+    pub count: u32,
+    pub session_count: u32,
+    pub earliest_expiry: Option<u64>,
+    pub latest_expiry: Option<u64>,
+}
+fn enabled() -> bool {
+    true
 }
 impl Default for AppSettings {
     fn default() -> Self {
@@ -88,6 +126,10 @@ impl Default for AppSettings {
             has_cookie_file: false,
             proxy_enabled: false,
             proxy_url: String::new(),
+            auto_check_core_update: true,
+            last_core_update_check: None,
+            cookie_summary: None,
+            download_presets: Vec::new(),
         }
     }
 }
@@ -102,6 +144,8 @@ pub struct SettingsInput {
     pub browser_profile: String,
     pub proxy_enabled: bool,
     pub proxy_url: Option<String>,
+    #[serde(default = "enabled")]
+    pub auto_check_core_update: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -138,6 +182,8 @@ pub struct PlaylistEntry {
     pub title: String,
     pub duration: Option<f64>,
     pub thumbnail: Option<String>,
+    #[serde(default)]
+    pub playlist_index: u32,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -183,6 +229,7 @@ pub struct AppSnapshot {
     pub updating: bool,
     pub previewing: bool,
     pub notice: Option<String>,
+    pub core_update: Option<EngineUpdate>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

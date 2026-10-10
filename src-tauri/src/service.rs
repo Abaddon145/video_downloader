@@ -83,6 +83,7 @@ pub struct Runtime {
     pub exiting: bool,
     pub engine: EngineInfo,
     pub notice: Option<String>,
+    pub core_update: Option<EngineUpdate>,
 }
 pub struct Service {
     pub app: AppHandle,
@@ -90,6 +91,7 @@ pub struct Service {
     pub data: PathBuf,
     pub resources: PathBuf,
     pub yt: PathBuf,
+    batch_gate: Mutex<()>,
 }
 struct Context {
     args: Vec<String>,
@@ -152,6 +154,7 @@ impl Service {
             data,
             resources,
             yt,
+            batch_gate: Mutex::new(()),
             state: Mutex::new(Runtime {
                 disk,
                 running: HashMap::new(),
@@ -162,6 +165,7 @@ impl Service {
                 exiting: false,
                 engine: EngineInfo::default(),
                 notice: None,
+                core_update: None,
             }),
         });
         result.persist(&result.state.lock().unwrap())?;
@@ -191,6 +195,7 @@ impl Service {
             updating: state.updating,
             previewing: state.previewing,
             notice: state.notice.clone(),
+            core_update: state.core_update.clone(),
         }
     }
     fn publish(&self) {
@@ -200,6 +205,13 @@ impl Service {
         let _ = self.app.emit("task-updated", task);
     }
     pub fn start(self: &Arc<Self>) {
+        let checker = self.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_secs(30));
+            if checker.automatic_check().is_err() {
+                eprintln!("自动检查内核更新失败，可在设置中手动检查");
+            }
+        });
         let service = self.clone();
         std::thread::spawn(move || {
             let checked = service.initialize_tools();
@@ -443,6 +455,9 @@ impl Service {
                         && task.request.video_mode == request.video_mode
                         && task.request.max_height == request.max_height
                         && task.request.subtitle_languages == request.subtitle_languages
+                        && task.request.filename_template == request.filename_template
+                        && task.request.by_author == request.by_author
+                        && task.request.playlist_index == request.playlist_index
                         && (task.status.active()
                             || matches!(task.status, TaskStatus::Queued | TaskStatus::Paused))
                 })
@@ -469,14 +484,31 @@ impl Service {
         Ok(tasks)
     }
     pub fn control(&self, id: &str, action: &str) -> AppResult<()> {
+        self.control_checked(id, action, None).map(|_| ())
+    }
+    fn control_checked(
+        &self,
+        id: &str,
+        action: &str,
+        batch_action: Option<crate::batch::BatchAction>,
+    ) -> AppResult<Option<String>> {
+        // Keep batch eligibility and the state transition under the same lock.
         let mut state = self.state.lock().unwrap();
         let mut next = state.disk.clone();
-        let task = next
-            .tasks
-            .iter_mut()
-            .find(|task| task.id == id)
-            .ok_or("任务不存在")?;
-        engine::transition(task, action)?;
+        let Some(task) = next.tasks.iter_mut().find(|task| task.id == id) else {
+            return if batch_action.is_some() {
+                Ok(Some("任务不存在，可能已被删除".into()))
+            } else {
+                Err("任务不存在".into())
+            };
+        };
+        if let Some(batch_action) = batch_action {
+            if let Some(reason) = crate::batch::apply_control(task, batch_action)? {
+                return Ok(Some(reason));
+            }
+        } else {
+            engine::transition(task, action)?;
+        }
         let job = if matches!(action, "pause" | "cancel") {
             state.running.get(id).cloned().flatten()
         } else {
@@ -488,19 +520,59 @@ impl Service {
             job.terminate()?;
         }
         self.publish();
-        Ok(())
+        Ok(None)
     }
     pub fn remove_task(&self, id: &str) -> AppResult<()> {
         let mut state = self.state.lock().unwrap();
-        if state.running.contains_key(id) {
-            return Err("请先取消任务，等待内核停止后再移除记录".into());
-        }
         let mut next = state.disk.clone();
-        next.tasks.retain(|task| task.id != id);
+        crate::batch::remove_record(
+            &mut next.tasks,
+            id,
+            &state.running.keys().cloned().collect::<Vec<_>>(),
+        )?;
         self.commit_disk(&mut state, next)?;
         drop(state);
         self.publish();
         Ok(())
+    }
+    pub fn batch_task_action(
+        self: &Arc<Self>,
+        ids: Vec<String>,
+        action: crate::batch::BatchAction,
+    ) -> AppResult<crate::batch::BatchResult> {
+        use crate::batch::{self, BatchAction};
+        let gate = self.batch_gate.lock().unwrap();
+        let result = if matches!(action, BatchAction::Remove | BatchAction::Pin) {
+            let mut state = self.state.lock().unwrap();
+            let running = state.running.keys().cloned().collect::<Vec<_>>();
+            batch::records(&mut state.disk, &ids, action, &running, |next| {
+                native::save_atomic(
+                    &self.data.join("state.json"),
+                    &serde_json::to_vec(next).map_err(|e| e.to_string())?,
+                )
+            })?
+        } else {
+            let plan = {
+                let state = self.state.lock().unwrap();
+                batch::prepare(&state.disk.tasks, &ids, action, &[])?
+            };
+            batch::execute(
+                plan,
+                |id| {
+                    if action == BatchAction::Copy {
+                        return Ok(None);
+                    }
+                    self.control_checked(id, action.command(), Some(action))
+                },
+                || {},
+            )
+        };
+        // Scheduler ticks cannot claim intermediate states while this gate is held.
+        Ok(batch::complete(result, || {
+            drop(gate);
+            self.publish();
+            self.schedule();
+        }))
     }
     pub fn save_settings(&self, input: SettingsInput) -> AppResult<AppSettings> {
         if !(1..=4).contains(&input.concurrency) {
@@ -542,6 +614,7 @@ impl Service {
         next.settings.browser = input.browser;
         next.settings.browser_profile = input.browser_profile.trim().into();
         next.settings.proxy_enabled = input.proxy_enabled;
+        next.settings.auto_check_core_update = input.auto_check_core_update;
         let settings = next.settings.clone();
         self.commit_disk(&mut state, next)?;
         drop(state);
@@ -550,31 +623,42 @@ impl Service {
     }
     pub fn import_cookies(&self, path: &str) -> AppResult<()> {
         let metadata = fs::metadata(path).map_err(|e| format!("Cookie 文件无法读取：{e}"))?;
-        if !metadata.is_file() || metadata.len() > 2 * 1024 * 1024 {
+        if !metadata.is_file() || metadata.len() >= 2 * 1024 * 1024 {
             return Err("请选择小于 2 MiB 的 Netscape 格式 Cookie 文件".into());
         }
         let bytes = fs::read(path).map_err(|e| e.to_string())?;
         let text = std::str::from_utf8(&bytes).map_err(|_| "Cookie 文件应使用 UTF-8 编码")?;
-        if !text.lines().any(|line| {
-            line.contains("Netscape HTTP Cookie File") || line.contains("HTTP Cookie File")
-        }) || !text.lines().any(|line| {
-            (!line.starts_with('#') || line.starts_with("#HttpOnly_"))
-                && line.split('\t').count() == 7
-        }) {
-            return Err("这不是有效的 Netscape Cookie 文件，请重新导出".into());
-        }
+        let summary = domain::cookie_summary(text)?;
         let sealed = native::protect(&bytes)?;
         let mut state = self.state.lock().unwrap();
         let mut next = state.disk.clone();
         next.cookie_secret = sealed;
         next.settings.has_cookie_file = true;
         next.settings.cookie_mode = "file".into();
+        next.settings.cookie_summary = Some(summary);
         self.commit_disk(&mut state, next)?;
         drop(state);
         self.publish();
         Ok(())
     }
+    pub fn save_presets(&self, mut presets: Vec<DownloadPreset>) -> AppResult<AppSettings> {
+        crate::naming::validate_presets(&presets)?;
+        for preset in &mut presets {
+            preset.name = preset.name.trim().into();
+        }
+        let mut state = self.state.lock().unwrap();
+        let mut next = state.disk.clone();
+        next.settings.download_presets = presets;
+        let settings = next.settings.clone();
+        self.commit_disk(&mut state, next)?;
+        drop(state);
+        self.publish();
+        Ok(settings)
+    }
     fn schedule(self: &Arc<Self>) {
+        let Ok(_gate) = self.batch_gate.try_lock() else {
+            return;
+        };
         let claims = {
             let mut state = self.state.lock().unwrap();
             if state.exiting || state.updating || !state.engine.ready {
@@ -936,6 +1020,31 @@ impl Service {
                 .join("System32/curl.exe");
         native::capture(&executable, &args)
     }
+    fn automatic_check(&self) -> AppResult<()> {
+        {
+            let mut state = self.state.lock().unwrap();
+            let settings = &state.disk.settings;
+            if state.exiting
+                || !engine::core_update_due(
+                    settings.auto_check_core_update,
+                    settings.last_core_update_check,
+                    now(),
+                )
+            {
+                return Ok(());
+            }
+            // Save the attempt before networking, so a failure cannot retry on every restart.
+            let mut next = state.disk.clone();
+            next.settings.last_core_update_check = Some(now());
+            self.commit_disk(&mut state, next)?;
+        }
+        let result = self.check_update();
+        if let Ok(update) = &result {
+            self.state.lock().unwrap().core_update = engine::core_update_notice(update.clone());
+        }
+        self.publish();
+        result.map(|_| ())
+    }
     pub fn check_update(&self) -> AppResult<EngineUpdate> {
         let json: Value = serde_json::from_str(&self.curl(
             "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest",
@@ -1024,6 +1133,7 @@ impl Service {
             state.updating = false;
             if let Ok(info) = &result {
                 state.engine = info.clone();
+                state.core_update = None;
             }
         }
         self.publish();
