@@ -173,3 +173,22 @@ fn local_paths_safe_names_and_recovery_are_strict() {
     assert!(runner::can_retry(MediaTaskStatus::Cancelled));
     assert!(!runner::can_retry(MediaTaskStatus::Processing));
 }
+
+#[test]
+fn media_paths_reject_all_network_and_device_namespaces_before_io() {
+    for path in [
+        r"\\?\unc\server\share\a.mp4",
+        r"\\?\GLOBALROOT\Device\HarddiskVolume1\a.mp4",
+        r"\\.\PhysicalDrive0",
+        r"\\server\share\a.mp4",
+    ] {
+        assert!(command::valid_path(path).is_err(), "{path}");
+    }
+    for path in [
+        "C:/视频 测试/a.mp4",
+        r"C:\视频 测试\a.mp4",
+        r"\\?\C:\视频 测试\a.mp4",
+    ] {
+        assert!(command::valid_path(path).is_ok(), "{path}");
+    }
+}

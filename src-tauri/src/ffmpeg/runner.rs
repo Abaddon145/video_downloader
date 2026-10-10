@@ -426,12 +426,10 @@ impl MediaService {
         }
         let result = (|| {
             let temp = temp_dir.join(format!(
-                "output.processing.{}",
+                "output-{}.processing.{}",
+                new_id(),
                 task.request.output_format.extension()
             ));
-            if temp.exists() {
-                return Err("旧临时结果仍在，请更换保存位置后重新开始".into());
-            }
             let built = command::build(&task.request, &info, &temp)?;
             {
                 let mut s = self.state.lock().unwrap();

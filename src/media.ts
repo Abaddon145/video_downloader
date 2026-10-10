@@ -29,3 +29,4 @@ export function mergeMediaTasks<T extends {id:string}>(tasks:T[],task:T):T[]{ret
 export function mediaBytes(n:number|null|undefined){if(n==null)return '未知';const units=['B','KB','MB','GB'];let u=0;while(n>=1024&&u<3){n/=1024;u++;}return `${n.toFixed(u?1:0)} ${units[u]}`;}
 export function mediaBitrate(n:number|null|undefined){if(n==null)return '未知';return n>=1000000?`${(n/1000000).toFixed(1)} Mbps`:`${Math.round(n/1000)} kbps`;}
 export function displayMediaPath(path:string){return path.replace(/^\\\\\?\\/,'');}
+export function mediaParentDirectory(path:string){return path.slice(0,Math.max(path.lastIndexOf('/'),path.lastIndexOf('\\'))+1);}

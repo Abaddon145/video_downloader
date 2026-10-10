@@ -4,7 +4,7 @@ import {listen} from '@tauri-apps/api/event';
 import {getCurrentWebviewWindow} from '@tauri-apps/api/webviewWindow';
 import {open} from '@tauri-apps/plugin-dialog';
 import {FileVideo,FolderOpen,Upload,RefreshCw,Scissors,Music2,Camera,ArrowRightLeft,Loader2,ChevronLeft,ChevronRight} from 'lucide-react';
-import {canUseOperation,createMediaRequest,displayMediaPath,formatsFor,formatMediaTime,isCurrentProbe,parseMediaTime} from '../media';
+import {canUseOperation,createMediaRequest,mediaParentDirectory,displayMediaPath,formatsFor,formatMediaTime,isCurrentProbe,parseMediaTime} from '../media';
 import type {MediaForm,MediaInfo,MediaOperation,MediaSnapshot,OutputFormat} from '../types/media';
 import {MediaInfoPanel} from '../components/media/MediaInfoPanel';
 import {MediaTaskRow} from '../components/media/MediaTaskRow';
@@ -18,17 +18,17 @@ export default function MediaToolsPage({notify}:{notify:(message:string)=>void})
  const change=<K extends keyof MediaForm>(key:K,value:MediaForm[K])=>setForm(f=>({...f,[key]:value}));
  const selectFile=useCallback(async(path:string)=>{
  const id=++probeId.current;setProbing(true);setError('');setInfo(null);
- try {const result=await invoke<MediaInfo>('probe_media',{path});if(!alive.current||!isCurrentProbe(id,probeId.current))return;setInfo(result);setDirectory(result.path.slice(0,Math.max(result.path.lastIndexOf('/'),result.path.lastIndexOf('\\'))));setForm({...initialForm,end:formatMediaTime(result.duration??0),operation:canUseOperation(result,'transcode')?'transcode':'extractAudio',outputFormat:canUseOperation(result,'transcode')?'mp4':'mp3'});}
+ try {const result=await invoke<MediaInfo>('probe_media',{path});if(!alive.current||!isCurrentProbe(id,probeId.current))return;setInfo(result);setDirectory(mediaParentDirectory(result.path));setForm({...initialForm,end:formatMediaTime(result.duration??0),operation:canUseOperation(result,'transcode')?'transcode':'extractAudio',outputFormat:canUseOperation(result,'transcode')?'mp4':'mp3'});}
  catch(e){if(alive.current&&isCurrentProbe(id,probeId.current))setError(errorText(e));}
  finally {if(alive.current&&isCurrentProbe(id,probeId.current))setProbing(false);}
  },[]);
  useEffect(()=>{
- let mounted=true;alive.current=true;const stops:(()=>void)[]=[];
+ let mounted=true,receivedSnapshot=false;alive.current=true;const stops:(()=>void)[]=[];
  if(!isTauri()){setError('请在 Windows 桌面软件中使用媒体工具');return;}
  const setup=async()=>{
- const stop=await listen<MediaSnapshot>('media-snapshot-updated',e=>{if(mounted)setSnapshot(e.payload);});if(!mounted)stop();else stops.push(stop);
+ const stop=await listen<MediaSnapshot>('media-snapshot-updated',e=>{if(mounted){receivedSnapshot=true;setSnapshot(e.payload);}});if(!mounted)stop();else stops.push(stop);
  const drop=await getCurrentWebviewWindow().onDragDropEvent(e=>{if(!mounted)return;setDragging(e.payload.type==='over'||e.payload.type==='enter');if(e.payload.type==='drop'){setDragging(false);if(e.payload.paths.length!==1){setError('首版一次处理一个文件，请只拖入一个媒体文件');return;}void selectFile(e.payload.paths[0]);}});if(!mounted)drop();else stops.push(drop);
- const state=await invoke<MediaSnapshot>('get_media_snapshot');if(mounted)setSnapshot(state);
+ const state=await invoke<MediaSnapshot>('get_media_snapshot');if(mounted&&!receivedSnapshot)setSnapshot(state);
  };void setup().catch(e=>setError(errorText(e)));
  return()=>{mounted=false;alive.current=false;++probeId.current;stops.forEach(stop=>stop());};
  },[selectFile]);

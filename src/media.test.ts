@@ -1,3 +1,4 @@
+import {mediaParentDirectory} from './media.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {parseMediaTime,formatMediaTime,canUseOperation,createMediaRequest,isCurrentProbe,mergeMediaTasks} from './media.ts';
@@ -20,4 +21,11 @@ test('late probe results are ignored and task updates preserve other records',()
  assert.equal(isCurrentProbe(1,2),false);assert.equal(isCurrentProbe(2,2),true);
  const a={id:'a',status:'queued'},b={id:'b',status:'processing'};
  assert.deepEqual(mergeMediaTasks([a,b],{...b,status:'completed'}),[a,{...b,status:'completed'}]);
+});
+
+test('source directory preserves normal and extended drive roots',()=>{
+ assert.equal(mediaParentDirectory('C:/clip.mp4'),'C:/');
+ assert.equal(mediaParentDirectory('C:\\clip.mp4'),'C:\\');
+ assert.equal(mediaParentDirectory('\\\\?\\C:\\clip.mp4'),'\\\\?\\C:\\');
+ assert.equal(mediaParentDirectory('C:/视频 测试/clip.mp4'),'C:/视频 测试/');
 });

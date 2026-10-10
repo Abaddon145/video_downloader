@@ -1,19 +1,21 @@
 use super::{models::*, probe::DEMUXERS};
 use crate::domain::AppResult;
-use std::path::Path;
+use std::path::{Component, Path, Prefix};
 pub struct BuiltCommand {
     pub args: Vec<String>,
     pub duration: Option<f64>,
 }
 pub fn valid_path(path: &str) -> AppResult<()> {
+    let disk_prefix = matches!(
+        Path::new(path).components().next(),
+        Some(Component::Prefix(prefix)) if matches!(prefix.kind(), Prefix::Disk(_) | Prefix::VerbatimDisk(_))
+    );
     if path.is_empty()
         || path.len() > 30000
         || path.chars().any(|c| c.is_control())
+        || !disk_prefix
         || !Path::new(path).is_absolute()
         || path.contains("://")
-        || path.starts_with("\\\\.\\")
-        || path.starts_with("\\\\") && !path.starts_with("\\\\?\\")
-        || path.starts_with("\\\\?\\UNC\\")
     {
         return Err("请选择本地磁盘上的有效文件或目录".into());
     }
