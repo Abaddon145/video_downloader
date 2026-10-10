@@ -1,6 +1,7 @@
 pub mod batch;
 pub mod domain;
 pub mod engine;
+pub mod ffmpeg;
 pub mod models;
 pub mod naming;
 pub mod native;
