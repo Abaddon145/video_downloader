@@ -109,12 +109,16 @@ pub fn prepare(
 }
 pub fn execute(
     mut result: BatchResult,
-    mut apply: impl FnMut(&str) -> AppResult<()>,
+    mut apply: impl FnMut(&str) -> AppResult<Option<String>>,
     finish: impl FnOnce(),
 ) -> BatchResult {
     for id in std::mem::take(&mut result.succeeded) {
         match apply(&id) {
-            Ok(()) => result.succeeded.push(id),
+            Ok(None) => result.succeeded.push(id),
+            Ok(Some(reason)) => result.skipped.push(Skipped {
+                id,
+                reason: domain::redact(&reason),
+            }),
             Err(error) => result.failed.push(Failed {
                 id,
                 error: domain::redact(&error),
@@ -122,6 +126,13 @@ pub fn execute(
         }
     }
     complete(result, finish)
+}
+pub fn apply_control(task: &mut DownloadTask, action: BatchAction) -> AppResult<Option<String>> {
+    if let Some(reason) = skip_reason(&task.status, action) {
+        return Ok(Some(reason.into()));
+    }
+    crate::engine::transition(task, action.command())?;
+    Ok(None)
 }
 pub fn complete(result: BatchResult, finish: impl FnOnce()) -> BatchResult {
     finish();
@@ -265,7 +276,7 @@ mod tests {
                 if id == "2" {
                     Err("测试写入失败".into())
                 } else {
-                    Ok(())
+                    Ok(None)
                 }
             },
             || schedules += 1,
@@ -310,6 +321,28 @@ mod tests {
         std::fs::remove_dir(dir.join(".video-downloader/test")).unwrap();
         std::fs::remove_dir(dir.join(".video-downloader")).unwrap();
         std::fs::remove_dir(dir).unwrap();
+    }
+    #[test]
+    fn task_entering_processing_during_batch_is_skipped_without_pausing() {
+        let mut task = DownloadTask {
+            id: "moving".into(),
+            status: TaskStatus::Downloading,
+            ..Default::default()
+        };
+        let plan = prepare(&[task.clone()], &[task.id.clone()], BatchAction::Pause, &[]).unwrap();
+        task.status = TaskStatus::Processing;
+        let mut schedules = 0;
+        let result = execute(
+            plan,
+            |_| apply_control(&mut task, BatchAction::Pause),
+            || schedules += 1,
+        );
+        assert!(result.failed.is_empty());
+        assert!(result.succeeded.is_empty());
+        assert_eq!(result.skipped.len(), 1);
+        assert!(result.skipped[0].reason.contains("合并或转换"));
+        assert_eq!(task.status, TaskStatus::Processing);
+        assert_eq!(schedules, 1);
     }
     #[test]
     fn repeated_pin_preserves_the_current_order_of_selected_and_other_tasks() {

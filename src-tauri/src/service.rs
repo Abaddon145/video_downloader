@@ -484,14 +484,31 @@ impl Service {
         Ok(tasks)
     }
     pub fn control(&self, id: &str, action: &str) -> AppResult<()> {
+        self.control_checked(id, action, None).map(|_| ())
+    }
+    fn control_checked(
+        &self,
+        id: &str,
+        action: &str,
+        batch_action: Option<crate::batch::BatchAction>,
+    ) -> AppResult<Option<String>> {
+        // Keep batch eligibility and the state transition under the same lock.
         let mut state = self.state.lock().unwrap();
         let mut next = state.disk.clone();
-        let task = next
-            .tasks
-            .iter_mut()
-            .find(|task| task.id == id)
-            .ok_or("任务不存在")?;
-        engine::transition(task, action)?;
+        let Some(task) = next.tasks.iter_mut().find(|task| task.id == id) else {
+            return if batch_action.is_some() {
+                Ok(Some("任务不存在，可能已被删除".into()))
+            } else {
+                Err("任务不存在".into())
+            };
+        };
+        if let Some(batch_action) = batch_action {
+            if let Some(reason) = crate::batch::apply_control(task, batch_action)? {
+                return Ok(Some(reason));
+            }
+        } else {
+            engine::transition(task, action)?;
+        }
         let job = if matches!(action, "pause" | "cancel") {
             state.running.get(id).cloned().flatten()
         } else {
@@ -503,7 +520,7 @@ impl Service {
             job.terminate()?;
         }
         self.publish();
-        Ok(())
+        Ok(None)
     }
     pub fn remove_task(&self, id: &str) -> AppResult<()> {
         let mut state = self.state.lock().unwrap();
@@ -543,21 +560,9 @@ impl Service {
                 plan,
                 |id| {
                     if action == BatchAction::Copy {
-                        return Ok(());
+                        return Ok(None);
                     }
-                    {
-                        let state = self.state.lock().unwrap();
-                        let task = state
-                            .disk
-                            .tasks
-                            .iter()
-                            .find(|task| task.id == id)
-                            .ok_or("任务不存在")?;
-                        if let Some(reason) = batch::skip_reason(&task.status, action) {
-                            return Err(reason.into());
-                        }
-                    }
-                    self.control(id, action.command())
+                    self.control_checked(id, action.command(), Some(action))
                 },
                 || {},
             )
