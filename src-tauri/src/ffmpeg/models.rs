@@ -186,3 +186,44 @@ pub struct MediaProgress {
     pub speed: Option<f64>,
     pub eta: Option<f64>,
 }
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum MediaTaskStatus {
+    #[default]
+    Queued,
+    Probing,
+    Processing,
+    Interrupted,
+    Completed,
+    Failed,
+    Cancelled,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaTask {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub kind: MediaOperation,
+    pub input_path: String,
+    pub output_path: Option<String>,
+    pub request: MediaRequest,
+    pub status: MediaTaskStatus,
+    pub phase: String,
+    pub progress: Option<f64>,
+    pub speed: Option<f64>,
+    pub processed_time: Option<f64>,
+    pub total_duration: Option<f64>,
+    pub eta: Option<f64>,
+    pub error: Option<String>,
+    pub logs: Vec<String>,
+    pub created_at: u64,
+    pub finished_at: Option<u64>,
+}
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaSnapshot {
+    pub tasks: Vec<MediaTask>,
+    pub ready: bool,
+    pub error: Option<String>,
+}

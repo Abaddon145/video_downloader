@@ -123,3 +123,53 @@ fn progress_uses_microseconds_and_allows_unknown_speed_and_eta() {
     let p = progress::parse("out_time_us=90000000\nspeed=1x", Some(60.));
     assert!(p.percent.unwrap() < 100.);
 }
+
+#[test]
+fn output_publication_preserves_existing_files_and_source() {
+    use super::output;
+    let dir = std::env::temp_dir().join(format!("映流 文件保护 {}", crate::service::now()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("input.mp4");
+    std::fs::write(&source, b"original").unwrap();
+    let first = dir.join("input-converted.mp4");
+    std::fs::write(&first, b"existing").unwrap();
+    let temp = dir.join("output.processing.mp4");
+    std::fs::write(&temp, b"result").unwrap();
+    let actual = output::publish(&temp, &dir, "input-converted", OutputFormat::Mp4).unwrap();
+    assert_eq!(actual.file_name().unwrap(), "input-converted (1).mp4");
+    assert_eq!(std::fs::read(&first).unwrap(), b"existing");
+    assert_eq!(std::fs::read(&source).unwrap(), b"original");
+    assert_eq!(std::fs::read(actual).unwrap(), b"result");
+    assert!(!temp.exists());
+    let empty = dir.join("empty.mp4");
+    std::fs::write(&empty, b"").unwrap();
+    assert!(output::publish(&empty, &dir, "bad", OutputFormat::Mp4).is_err());
+    std::fs::remove_dir_all(dir).unwrap();
+}
+#[test]
+fn local_paths_safe_names_and_recovery_are_strict() {
+    use super::{output, runner};
+    assert!(output::input("https://example.com/a.mp4").is_err());
+    assert!(output::input("C:/absent media file.mp4").is_err());
+    assert!(output::input("//server/share/video.mp4").is_err());
+    assert!(output::safe_stem("CON").starts_with('_'));
+    assert!(!output::safe_stem("a<>?* name").contains(['<', '>', '?', '*']));
+    assert!(output::safe_stem(&"长".repeat(500)).encode_utf16().count() <= 180);
+    for status in [
+        MediaTaskStatus::Queued,
+        MediaTaskStatus::Probing,
+        MediaTaskStatus::Processing,
+    ] {
+        assert_eq!(
+            runner::recovered_status(status),
+            MediaTaskStatus::Interrupted
+        );
+    }
+    assert_eq!(
+        runner::recovered_status(MediaTaskStatus::Completed),
+        MediaTaskStatus::Completed
+    );
+    assert!(runner::can_retry(MediaTaskStatus::Interrupted));
+    assert!(runner::can_retry(MediaTaskStatus::Cancelled));
+    assert!(!runner::can_retry(MediaTaskStatus::Processing));
+}

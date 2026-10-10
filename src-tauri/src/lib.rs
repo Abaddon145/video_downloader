@@ -102,9 +102,43 @@ async fn update_engine(service: AppService<'_>) -> AppResult<EngineInfo> {
         .map_err(|e| e.to_string())?
 }
 #[tauri::command]
-fn exit_app(app: tauri::AppHandle, service: AppService<'_>) {
+fn exit_app(app: tauri::AppHandle, service: AppService<'_>, media: AppMedia<'_>) -> AppResult<()> {
+    media.shutdown()?;
     service.shutdown();
     app.exit(0);
+    Ok(())
+}
+
+type AppMedia<'a> = State<'a, Arc<ffmpeg::runner::MediaService>>;
+#[tauri::command]
+fn get_media_snapshot(media: AppMedia<'_>) -> ffmpeg::models::MediaSnapshot {
+    media.snapshot()
+}
+#[tauri::command]
+async fn probe_media(media: AppMedia<'_>, path: String) -> AppResult<ffmpeg::models::MediaInfo> {
+    let media = media.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || media.probe(&path))
+        .await
+        .map_err(|_| "媒体探测线程异常")?
+}
+#[tauri::command]
+fn create_media_task(
+    media: AppMedia<'_>,
+    request: ffmpeg::models::MediaRequest,
+) -> AppResult<ffmpeg::models::MediaTask> {
+    media.create(request)
+}
+#[tauri::command]
+fn cancel_media_task(media: AppMedia<'_>, id: String) -> AppResult<()> {
+    media.cancel(&id)
+}
+#[tauri::command]
+fn retry_media_task(media: AppMedia<'_>, id: String) -> AppResult<()> {
+    media.retry(&id)
+}
+#[tauri::command]
+fn open_media_output(media: AppMedia<'_>, id: String, folder: bool) -> AppResult<()> {
+    media.open_output(&id, folder)
 }
 
 fn show_main(app: &tauri::AppHandle) {
@@ -128,6 +162,12 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             get_snapshot,
+            get_media_snapshot,
+            probe_media,
+            create_media_task,
+            cancel_media_task,
+            retry_media_task,
+            open_media_output,
             save_download_presets,
             batch_task_action,
             preview_sources,
@@ -146,6 +186,14 @@ pub fn run() {
         .setup(|app| {
             let service = Service::new(app.handle().clone()).map_err(std::io::Error::other)?;
             app.manage(service.clone());
+            let media = ffmpeg::runner::MediaService::new(
+                app.handle().clone(),
+                &service.data,
+                &service.resources,
+            )
+            .map_err(std::io::Error::other)?;
+            app.manage(media.clone());
+            media.start();
             let show = MenuItem::with_id(app, "show", "打开视频下载器", true, None::<&str>)?;
             let exit = MenuItem::with_id(app, "exit", "保存任务并退出", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &exit])?;
@@ -156,10 +204,13 @@ pub fn run() {
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => show_main(app),
-                    "exit" => {
-                        app.state::<Arc<Service>>().shutdown();
-                        app.exit(0);
-                    }
+                    "exit" => match app.state::<Arc<ffmpeg::runner::MediaService>>().shutdown() {
+                        Ok(()) => {
+                            app.state::<Arc<Service>>().shutdown();
+                            app.exit(0);
+                        }
+                        Err(error) => native::message(&error),
+                    },
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
@@ -191,6 +242,7 @@ pub fn run() {
                 event,
                 tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit
             ) {
+                let _ = app.state::<Arc<ffmpeg::runner::MediaService>>().shutdown();
                 app.state::<Arc<Service>>().shutdown();
             }
         }),
