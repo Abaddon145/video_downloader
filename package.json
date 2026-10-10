@@ -1,13 +1,13 @@
 {
   "name": "video-downloader",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "node --test src/lib.test.ts",
+    "test": "node --test src/lib.test.ts src/media.test.ts",
     "tauri": "tauri",
     "prepare:tools": "node scripts/prepare-tools.mjs"
   },

@@ -14,6 +14,12 @@
 
 快捷键：`Ctrl+L` 定位链接输入；`Ctrl+Enter` 解析；`Esc` 关闭预览并停止解析。删除历史记录会保留下载文件。
 
+## 本地媒体工具（v0.2.0）
+
+左侧「媒体工具」支持查看媒体信息、无损封装、H.264/H.265 格式转换、单段裁剪、音频提取和视频截图。选择或拖入一个文件，设置格式与保存位置，再开始处理。默认输出到源文件目录，保留原文件，同名结果自动编号。
+
+媒体队列独立运行，一次处理 1 个任务；支持取消，失败/取消/中断后可重新开始。关闭窗口继续后台处理，主动退出保存为中断，下次手动重新开始。WebM 首版只做兼容源流的无损封装。具体选项、轨道规则与边界见 [媒体工具说明](docs/media-tools.md)。
+
 ## 登录、代理与更新
 
 - 默认直接连接，不使用 Cookie。设置页可以读取 Edge / Chrome / Firefox 登录状态。浏览器占用或加密可能使读取失败，错误详情会提示改用文件导入。
@@ -52,4 +58,4 @@ npm run tauri -- build --bundles nsis
 
 组件版本、来源与摘要：`src-tauri/resources/components.json`、生成的 `tools/binaries.json`；上游许可：`resources/licenses/`、`THIRD-PARTY-NOTICES.txt`。桌面界面源码采用 MIT；官方 yt-dlp 源码采用 Unlicense，捆绑的 PyInstaller 独立 exe 和 FFmpeg GPL 构建保留各自上游许可。
 
-本地验收可以设置 `VIDEO_DOWNLOADER_DATA_DIR` 将测试数据与日常数据分开；默认无需设置。
+本地验收可以设置 `VIDEO_DOWNLOADER_DATA_DIR` 将测试数据与日常数据分开；默认无需设置。\n
