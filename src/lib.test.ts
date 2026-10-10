@@ -6,6 +6,17 @@ import type { DownloadTask, TaskStatus } from './types.ts';
 import { classifyCookieError, cookieExpiryText } from './lib.ts';
 import { applyPreset } from './lib.ts';
 import type { DownloadPreset } from './types.ts';
+import { latestCookieFailure } from './lib.ts';
+
+test('only new Cookie failures are detected after import and old progress snapshots stay quiet', () => {
+  const failed = {...task('cookie-task','failed'),error:'Failed to decrypt with DPAPI',finishedAt:1};
+  assert.equal(latestCookieFailure([failed],[])?.id,'cookie-task');
+  assert.equal(latestCookieFailure([{...failed,phase:'更新进度'}],[failed]),undefined);
+  assert.equal(latestCookieFailure([{...failed,finishedAt:2}],[failed])?.id,'cookie-task');
+  assert.equal(latestCookieFailure([{...failed,error:'cookie reader failed'}],[failed])?.id,'cookie-task');
+  assert.equal(latestCookieFailure([failed],[{...failed,status:'downloading'}])?.id,'cookie-task');
+  assert.equal(latestCookieFailure([], [failed]),undefined);
+});
 test('preset application copies all existing choices and naming without retaining mutable arrays', () => {
   const preset: DownloadPreset = {name:'音频',kind:'audio',videoMode:'source',maxHeight:720,subtitleLanguages:['en'],filenameTemplate:'{作者}_{标题}',byAuthor:true};
   const options=applyPreset(preset);preset.subtitleLanguages.push('zh-Hans');preset.filenameTemplate='{日期}';

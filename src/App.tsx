@@ -3,7 +3,7 @@ import { invoke, isTauri } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
 import { ArrowDownToLine, ArrowUpRight, Check, ChevronLeft, ChevronRight, CircleAlert, Clock3, Download, FileText, Folder, FolderOpen, Globe2, History, Link2, ListVideo, Loader2, Music2, Pause, Play, Plus, RefreshCw, Search, Settings2, ShieldCheck, SlidersHorizontal, Trash2, Video, X, Zap, type LucideIcon } from 'lucide-react';
-import { extractUrls, pageItems, downloadError, taskActionAllowed, actionCount, keepSelection, selectFiltered, selectRange, batchConfirmation, batchSummary, escapeAction, classifyCookieError, cookieExpiryText, applyPreset } from './lib';
+import { extractUrls, pageItems, downloadError, taskActionAllowed, actionCount, keepSelection, selectFiltered, selectRange, batchConfirmation, batchSummary, escapeAction, classifyCookieError, cookieExpiryText, applyPreset, latestCookieFailure } from './lib';
 import type { BatchAction, BatchResult, DownloadPreset, PlaylistEntry } from './types';
 import { emptyPreset, NamingFields, PresetSettings } from './Presets';
 import type { AppSettings, AppSnapshot, DownloadRequest, DownloadTask, EngineUpdate, MediaKind, MediaPreview, PreviewResult, TaskStatus, VideoMode } from './types';
@@ -198,14 +198,19 @@ export default function App() {
   const input = useRef<HTMLTextAreaElement>(null);
   const previewButton = useRef<HTMLButtonElement>(null);
   const previewVisible = useRef(false); previewVisible.current = previewOpen;
+  const lastSnapshot = useRef<AppSnapshot|null>(null);
+  const cookieFailureTask = useRef<string|null>(null);
   const notify = useCallback((message: string) => setToast(message), []);
   const receiveSnapshot = useCallback((data: AppSnapshot) => {
+    const previous=lastSnapshot.current;
+    lastSnapshot.current=data;
     setSnapshot(data);
-    const failed = data.tasks.filter(task => task.status === 'failed' && task.error && classifyCookieError(task.error)).sort((a,b) => (b.finishedAt ?? b.createdAt) - (a.finishedAt ?? a.createdAt))[0];
-    if (failed?.error) setCookieFailure(classifyCookieError(failed.error));
+    const failed = latestCookieFailure(data.tasks,previous?.tasks ?? (data.settings.cookieMode==='file' && data.settings.hasCookieFile ? data.tasks : []));
+    if (failed?.error) { cookieFailureTask.current=failed.id;setCookieFailure(classifyCookieError(failed.error)); }
+    else if (cookieFailureTask.current && !data.tasks.some(task=>task.id===cookieFailureTask.current && task.status==='failed' && !!task.error && !!classifyCookieError(task.error))) { cookieFailureTask.current=null;setCookieFailure(null); }
   }, []);
   const act = useCallback(async (command: string, args: Record<string, unknown>, message?: string): Promise<unknown> => {
-    try { if (!isTauri()) throw new Error('请在 Windows 桌面软件中使用此功能'); const result = await invoke(command, args); if (message) notify(message); return result ?? true; } catch (error) { notify(errorText(error)); return null; }
+    try { if (!isTauri()) throw new Error('请在 Windows 桌面软件中使用此功能'); const result = await invoke(command, args); if(command==='import_cookies') {cookieFailureTask.current=null;setCookieFailure(null);} if (message) notify(message); return result ?? true; } catch (error) { notify(errorText(error)); return null; }
   }, [notify]);
   useEffect(() => {
     if (!isTauri()) { setSnapshot(previous => ({ ...previous, notice: '当前为界面预览。下载功能在 Windows 桌面软件中运行。' })); return; }
@@ -214,8 +219,8 @@ export default function App() {
     const subscribe = async () => {
       for (const [event, handler] of [
         ['snapshot-updated', receiveSnapshot],
-        ['task-updated', (task: DownloadTask) => { if (task.status === 'failed' && task.error) setCookieFailure(classifyCookieError(task.error)); setSnapshot(previous => ({ ...previous, tasks: previous.tasks.some(item => item.id === task.id) ? previous.tasks.map(item => item.id === task.id ? task : item) : [...previous.tasks, task] })); }],
-        ['preview-result', (result: PreviewResult) => { setCookieFailure(result.error ? classifyCookieError(result.error) : null); if (previewVisible.current) setResults(previous => [...previous.filter(item => item.url !== result.url), result]); }],
+        ['task-updated', (task: DownloadTask) => { const previous=lastSnapshot.current??initial;receiveSnapshot({...previous,tasks:previous.tasks.some(item=>item.id===task.id) ? previous.tasks.map(item=>item.id===task.id ? task : item) : [...previous.tasks,task]}); }],
+        ['preview-result', (result: PreviewResult) => { cookieFailureTask.current=null;setCookieFailure(result.error ? classifyCookieError(result.error) : null); if (previewVisible.current) setResults(previous => [...previous.filter(item => item.url !== result.url), result]); }],
       ] as const) {
         const stop = await listen(event, event => { if (!cancelled) handler(event.payload as never); });
         if (cancelled) stop(); else stops.push(stop);

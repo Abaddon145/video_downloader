@@ -37,6 +37,13 @@ export function classifyCookieError(raw: string): {category: 'occupied' | 'encry
   if (/could not find.*(?:cookies|profile|browser)|(?:cookies|profile|browser).*not found/i.test(raw)) return {category:'missing',title:'未找到浏览器或配置',message:'请检查所选浏览器和配置名称，先在该配置中登录并访问视频页面。仍无法读取时可导出自己的 Cookie 文件并导入。'};
   return {category:'other',title:'读取 Cookie 未完成',message:'请检查浏览器登录状态和配置后重试；也可以导出自己的 Cookie 文件，在设置中导入。'};
 }
+export function latestCookieFailure(tasks: DownloadTask[], previous: DownloadTask[]): DownloadTask | undefined {
+  const oldById = new Map(previous.map(task=>[task.id,task]));
+  return tasks.filter(task=>{
+    const old=oldById.get(task.id);
+    return task.status==='failed' && !!task.error && !!classifyCookieError(task.error) && (old?.status!=='failed' || old.error!==task.error || old.finishedAt!==task.finishedAt);
+  }).sort((a,b)=>(b.finishedAt??b.createdAt)-(a.finishedAt??a.createdAt))[0];
+}
 export function cookieExpiryText(summary: CookieSummary, nowSeconds = Date.now()/1000): string {
   if (!summary.sessionCount && summary.latestExpiry != null && summary.latestExpiry <= nowSeconds) return 'Cookie 已过期，请重新导出';
   if (summary.latestExpiry == null) return `共 ${summary.count} 条会话 Cookie，浏览器未提供固定有效期`;
