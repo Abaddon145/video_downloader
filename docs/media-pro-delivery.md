@@ -128,3 +128,5 @@ SHA256：`7bdfe5a1db6f9bd458dcc19b345a0c6c4f5116683aa421160de2bc57dfcdd921`。
 ## 7. 下一阶段建议
 
 先处理StrictMode会话并补真实GPU/干净Win10/高DPI验收；再按优先级独立实现AV1、媒体库索引、语音识别字幕和素材分析。多段拼接、多轨非线性编辑及完整设备预设库需另立范围。全部代办与本次裁定见 `media-pro-execution.md`。
+
+GitHub交付：[草稿PR #4](https://github.com/Abaddon145/video_downloader/pull/4)，源码分支 `codex/media-pro-v0.3`。本地交付目录 `artifacts/releases/2026-10-11-media-pro-v0.3.0`，包括中文安装包、Git源码ZIP、SHA256文件、使用说明与验收记录。

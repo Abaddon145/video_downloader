@@ -31,3 +31,5 @@ Final: fixed shared timeline coordinates — 1200/880 track and shading check RE
 Final: fixed stale discovery selection — inverse single/batch completions RED→GREEN, review UI4/4; build passes.
 
 Task9 final verification: Rust53/53, Node17/17, UI14+4+download13, final Windows16/16, production build and NSIS succeeded; final source hash equals original. Installer checksum recorded; GitHub upload next.
+
+Task9: complete — 中文NSIS最终包及SHA256、完整源码ZIP（CRC验证）、交付/使用/组件说明齐全；已推送codex/media-pro-v0.3并创建附加草稿PR https://github.com/Abaddon145/video_downloader/pull/4 。无合并/Release；由现有管理工作树继续保存，保留根目录验收证据。
