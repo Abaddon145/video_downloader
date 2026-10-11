@@ -160,6 +160,7 @@ pub struct MediaRequest {
     pub hardware_acceleration: crate::media::preset::HardwareAcceleration,
     pub generate_thumbnails: bool,
     pub source_download_id: Option<String>,
+    pub subtitle_path: Option<String>,
 }
 impl Default for MediaRequest {
     fn default() -> Self {
@@ -182,6 +183,7 @@ impl Default for MediaRequest {
             hardware_acceleration: Default::default(),
             generate_thumbnails: false,
             source_download_id: None,
+            subtitle_path: None,
         }
     }
 }

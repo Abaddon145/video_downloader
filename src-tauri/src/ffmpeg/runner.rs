@@ -15,7 +15,7 @@ use std::{
     },
     time::{Duration, Instant},
 };
-use tauri::Emitter;
+use tauri::{Emitter,Manager};
 static SEQUENCE: AtomicU64 = AtomicU64::new(0);
 pub fn new_id() -> String {
     format!(
@@ -169,6 +169,7 @@ impl MediaService {
                 }
             }
             service.emit();
+            if let Some(download)=service.app.try_state::<Arc<crate::service::Service>>(){for task in download.snapshot().tasks{if let Err(e)=service.after_download(&task){let _=service.app.emit("media-automation-error",e);}}}
             loop {
                 if service.state.lock().unwrap().exiting {
                     break;
@@ -287,6 +288,8 @@ impl MediaService {
             if s.exiting {
                 return Err("程序正在退出".into());
             }
+            if task.request.source_download_id.as_ref().is_some_and(|id|id.len()>140||id.chars().any(char::is_control)){return Err("来源下载标识无效".into());}
+            if let Some(existing)=s.tasks.iter().find(|t|task.request.source_download_id.is_some()&&t.request.source_download_id==task.request.source_download_id&&t.input_path==task.input_path){return Ok(existing.clone());}
             let mut next = s.tasks.clone();
             next.push(task.clone());
             self.commit(&mut s, next)?;
