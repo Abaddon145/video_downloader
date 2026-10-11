@@ -4,3 +4,4 @@ pub mod preset;
 pub mod automation;
 pub mod gpu;
 pub mod subtitle;
+pub mod batch;

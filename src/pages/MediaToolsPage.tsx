@@ -6,6 +6,7 @@ import {open} from '@tauri-apps/plugin-dialog';
 import {FileVideo,FolderOpen,Upload,RefreshCw,Scissors,Music2,Camera,ArrowRightLeft,Loader2,ChevronLeft,ChevronRight} from 'lucide-react';
 import {canUseOperation,createMediaRequest,mediaParentDirectory,displayMediaPath,formatsFor,formatMediaTime,isCurrentProbe,parseMediaTime} from '../media';
 import type {MediaForm,MediaInfo,MediaOperation,MediaSnapshot,OutputFormat} from '../types/media';
+import {BatchPanel} from '../components/media/batch/BatchPanel';
 import {SubtitlePanel} from '../components/media/subtitle/SubtitlePanel';
 import {PresetManager} from '../components/media/preset/PresetManager';
 import {CompressorPanel} from '../components/media/compress/CompressorPanel';
@@ -18,6 +19,7 @@ const errorText=(e:unknown)=>typeof e==='string'?e:e instanceof Error?e.message:
 export default function MediaToolsPage({notify}:{notify:(message:string)=>void}){
  const [snapshot,setSnapshot]=useState<MediaSnapshot>({tasks:[],ready:false,error:null});
  const [info,setInfo]=useState<MediaInfo|null>(null),[form,setForm]=useState<MediaForm>(initialForm),[directory,setDirectory]=useState(''),[probing,setProbing]=useState(false),[error,setError]=useState(''),[dragging,setDragging]=useState(false),[adding,setAdding]=useState(false),[listPage,setListPage]=useState(1);
+ const [dropped,setDropped]=useState<string[]>([]);
  const probeId=useRef(0),alive=useRef(true);
  const change=<K extends keyof MediaForm>(key:K,value:MediaForm[K])=>setForm(f=>({...f,[key]:value}));
  const selectFile=useCallback(async(path:string)=>{
@@ -31,7 +33,7 @@ export default function MediaToolsPage({notify}:{notify:(message:string)=>void})
  if(!isTauri()){setError('请在 Windows 桌面软件中使用媒体工具');return;}
  const setup=async()=>{
  const stop=await listen<MediaSnapshot>('media-snapshot-updated',e=>{if(mounted){receivedSnapshot=true;setSnapshot(e.payload);}});if(!mounted)stop();else stops.push(stop);
- const drop=await getCurrentWebviewWindow().onDragDropEvent(e=>{if(!mounted)return;setDragging(e.payload.type==='over'||e.payload.type==='enter');if(e.payload.type==='drop'){setDragging(false);if(e.payload.paths.length!==1){setError('首版一次处理一个文件，请只拖入一个媒体文件');return;}void selectFile(e.payload.paths[0]);}});if(!mounted)drop();else stops.push(drop);
+ const drop=await getCurrentWebviewWindow().onDragDropEvent(e=>{if(!mounted)return;setDragging(e.payload.type==='over'||e.payload.type==='enter');if(e.payload.type==='drop'){setDragging(false);if(e.payload.paths.length!==1){setDropped(e.payload.paths);return;}void invoke<string[]>('discover_media',{paths:e.payload.paths}).then(files=>{if(files.length===1&&files[0].replaceAll('\\','/').toLowerCase()===e.payload.paths[0].replaceAll('\\','/').toLowerCase())void selectFile(files[0]);else setDropped(e.payload.paths);}).catch(()=>void selectFile(e.payload.paths[0]));}});if(!mounted)drop();else stops.push(drop);
  const state=await invoke<MediaSnapshot>('get_media_snapshot');if(mounted&&!receivedSnapshot)setSnapshot(state);
  };void setup().catch(e=>setError(errorText(e)));
  return()=>{mounted=false;alive.current=false;++probeId.current;stops.forEach(stop=>stop());};
@@ -45,7 +47,7 @@ export default function MediaToolsPage({notify}:{notify:(message:string)=>void})
  const videoOptions=form.operation==='transcode'||form.operation==='compress'||form.operation==='trim'&&form.trimMode==='accurate';
  const items=[...snapshot.tasks].reverse(),pages=Math.max(1,Math.ceil(items.length/50)),page=Math.min(listPage,pages);
  return <div className="media-workspace">{snapshot.error&&<div className="error-panel" role="alert">{snapshot.error}</div>}
- <section className={`media-drop ${dragging?'dragging':''} ${info?'compact':''}`} aria-label="媒体文件选择区域"><span className="media-drop-icon"><Upload size={info?20:30} aria-hidden="true"/></span><div><h2>{info?'选择其他媒体文件':'把媒体文件拖到这里'}</h2><p>{info?'一次处理一个文件，原文件始终保留。':'MP4、MKV、MOV、WebM、音频文件及其他常见媒体格式'}</p></div><button className="primary" disabled={probing||!snapshot.ready} onClick={()=>void choose()}>{probing?<Loader2 size={17} className="spin" aria-hidden="true"/>:<FolderOpen size={17} aria-hidden="true"/>}{probing?'正在分析':'选择媒体文件'}</button>{!snapshot.ready&&!snapshot.error&&<p className="help">正在校验媒体组件…</p>}</section>
+ <section className={`media-drop ${dragging?'dragging':''} ${info?'compact':''}`} aria-label="媒体文件选择区域"><span className="media-drop-icon"><Upload size={info?20:30} aria-hidden="true"/></span><div><h2>{info?'选择其他媒体文件':'把媒体文件拖到这里'}</h2><p>{info?'单文件精细处理；批量拖入请使用下方批处理。':'MP4、MKV、MOV、WebM、音频文件及其他常见媒体格式'}</p></div><button className="primary" disabled={probing||!snapshot.ready} onClick={()=>void choose()}>{probing?<Loader2 size={17} className="spin" aria-hidden="true"/>:<FolderOpen size={17} aria-hidden="true"/>}{probing?'正在分析':'选择媒体文件'}</button>{!snapshot.ready&&!snapshot.error&&<p className="help">正在校验媒体组件…</p>}</section>
  {error&&<div className="error-panel" role="alert"><strong>操作未完成</strong><p>{error}</p></div>}{probing&&<p role="status">正在读取媒体信息，请稍候…</p>}
  {info&&<><MediaInfoPanel info={info}/><PresetManager form={form} change={setForm}/><div className="media-tools" role="tablist" aria-label="媒体操作">{tools.map(({id,title,icon:Icon})=><button key={id} role="tab" aria-selected={form.operation===id} aria-controls="media-tool-panel" disabled={!canUseOperation(info,id)} title={!canUseOperation(info,id)?id==='extractAudio'?'文件没有音轨':'文件没有可处理的视频流':undefined} className={form.operation===id?'active':''} onClick={()=>chooseTool(id)}><Icon size={19} aria-hidden="true"/>{title}</button>)}</div>
  <section className="media-operation-card" id="media-tool-panel" role="tabpanel" aria-label={tools.find(t=>t.id===form.operation)?.title}><div className="media-operation-heading"><h2>{tools.find(t=>t.id===form.operation)?.title}</h2><span className="help">{form.operation==='remux'?'保留全部兼容音视频和字幕轨道':'默认使用第一条对应轨道'}</span></div>
@@ -64,5 +66,6 @@ export default function MediaToolsPage({notify}:{notify:(message:string)=>void})
  {form.operation==='extractAudio'&&<p className="help">转换为更高码率不会提升原始音频的音质。无损提取需原始编码与目标格式兼容。</p>}
  <label className="field-label">保存目录</label><div className="input-with-button"><input aria-label="媒体保存目录" readOnly value={displayMediaPath(directory)}/><button className="secondary" onClick={()=>void chooseDirectory()}><FolderOpen size={16} aria-hidden="true"/>更改位置</button></div>
  <div className="media-submit"><p className="help">原文件保留，同名结果自动编号。</p><button className="primary" disabled={adding||!snapshot.ready} onClick={()=>void submit()}>{adding?<Loader2 size={17} className="spin" aria-hidden="true"/>:<FileVideo size={17} aria-hidden="true"/>}{adding?'正在加入队列':form.operation==='screenshot'?'截取当前帧':'开始处理'}</button></div></section></>}
+ <BatchPanel ready={snapshot.ready} dropped={dropped}/>
  <section className="media-queue" aria-label="媒体处理任务"><div className="list-header"><div className="list-title"><h2>媒体任务</h2><span>{items.length}</span></div><span className="help">一次处理 1 个任务 · 关闭窗口后继续</span></div>{items.length?items.slice((page-1)*50,page*50).map(task=><MediaTaskRow key={task.id} task={task} act={act}/>):<div className="media-queue-empty"><p>处理任务会显示在这里</p><span>选择文件，完成后直接打开结果。</span></div>}{pages>1&&<div className="media-pagination"><button className="secondary" disabled={page<=1} onClick={()=>setListPage(page-1)} aria-label="媒体任务上一页"><ChevronLeft size={16}/></button><span>{page} / {pages}</span><button className="secondary" disabled={page>=pages} onClick={()=>setListPage(page+1)} aria-label="媒体任务下一页"><ChevronRight size={16}/></button></div>}</section></div>;
 }

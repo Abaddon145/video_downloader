@@ -143,6 +143,10 @@ fn open_media_output(media: AppMedia<'_>, id: String, folder: bool) -> AppResult
 }
 
 #[tauri::command]
+async fn discover_media(paths:Vec<String>)->AppResult<Vec<String>>{tauri::async_runtime::spawn_blocking(move||media::batch::discover(&paths)).await.map_err(|_|"批量扫描线程异常")?}
+#[tauri::command]
+async fn create_batch_media(media:AppMedia<'_>,request:ffmpeg::models::MediaRequest,paths:Vec<String>)->AppResult<media::batch::BatchMediaTask>{let media=media.inner().clone();tauri::async_runtime::spawn_blocking(move||media.create_batch(request,paths)).await.map_err(|_|"批量入队线程异常")?}
+#[tauri::command]
 async fn get_media_capabilities(media:AppMedia<'_>)->AppResult<Vec<String>>{let media=media.inner().clone();tauri::async_runtime::spawn_blocking(move||media.capabilities("gpu-settings")).await.map_err(|_|"GPU 检测线程异常")?}
 #[tauri::command]
 fn get_media_settings(media:AppMedia<'_>)->media::preset::MediaProSettings{media.pro_settings()}
@@ -174,6 +178,7 @@ pub fn run() {
     let application = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            discover_media,create_batch_media,
             get_media_capabilities,
             get_media_settings,save_media_settings,
             preview_media,media_thumbnails,cancel_media_preview,
