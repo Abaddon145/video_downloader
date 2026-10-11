@@ -30,3 +30,11 @@ export function mediaBytes(n:number|null|undefined){if(n==null)return '未知';c
 export function mediaBitrate(n:number|null|undefined){if(n==null)return '未知';return n>=1000000?`${(n/1000000).toFixed(1)} Mbps`:`${Math.round(n/1000)} kbps`;}
 export function displayMediaPath(path:string){return path.replace(/^\\\\\?\\/,'');}
 export function mediaParentDirectory(path:string){return path.slice(0,Math.max(path.lastIndexOf('/'),path.lastIndexOf('\\'))+1);}
+
+export function editorRange(start:number,end:number,duration:number):[number,number]{
+ const d=Number.isFinite(duration)?Math.max(.001,duration):.001;
+ const s=Math.min(d-.001,Math.max(0,Number.isFinite(start)?start:0));
+ return [s,Math.min(d,Math.max(s+.001,Number.isFinite(end)?end:d))];
+}
+export function thumbnailInterval(duration:number){return duration<60?2:duration<=1800?5:30;}
+export function frameStep(fps:number|null|undefined){return fps&&Number.isFinite(fps)&&fps>0?1/fps:null;}

@@ -2,6 +2,7 @@ pub mod batch;
 pub mod domain;
 pub mod engine;
 pub mod ffmpeg;
+pub mod media;
 pub mod models;
 pub mod naming;
 pub mod native;
@@ -141,6 +142,12 @@ fn open_media_output(media: AppMedia<'_>, id: String, folder: bool) -> AppResult
     media.open_output(&id, folder)
 }
 
+#[tauri::command]
+async fn preview_media(media:AppMedia<'_>,path:String,session:String,proxy:bool)->AppResult<String>{let media=media.inner().clone();tauri::async_runtime::spawn_blocking(move||media.editor_preview(&path,&session,proxy)).await.map_err(|_|"预览线程异常")?}
+#[tauri::command]
+async fn media_thumbnails(media:AppMedia<'_>,path:String,session:String,offset:u32)->AppResult<Vec<media::trim::thumbnail::TimelineThumbnail>>{let media=media.inner().clone();tauri::async_runtime::spawn_blocking(move||media.editor_thumbnails(&path,&session,offset)).await.map_err(|_|"缩略图线程异常")?}
+#[tauri::command]
+fn cancel_media_preview(media:AppMedia<'_>,session:String)->AppResult<()>{media.cancel_editor(&session)}
 fn show_main(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
@@ -161,6 +168,7 @@ pub fn run() {
     let application = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            preview_media,media_thumbnails,cancel_media_preview,
             get_snapshot,
             get_media_snapshot,
             probe_media,

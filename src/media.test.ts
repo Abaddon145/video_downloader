@@ -29,3 +29,12 @@ test('source directory preserves normal and extended drive roots',()=>{
  assert.equal(mediaParentDirectory('\\\\?\\C:\\clip.mp4'),'\\\\?\\C:\\');
  assert.equal(mediaParentDirectory('C:/视频 测试/clip.mp4'),'C:/视频 测试/');
 });
+
+test('v03 editor clamps ranges, preserves frame timing and pages thumbnails at exact intervals',async()=>{
+ const m=await import('./media.ts');
+ assert.equal(typeof m.editorRange,'function');
+ assert.deepEqual(m.editorRange(10,5,20),[10,10.001]);
+ assert.deepEqual(m.editorRange(-1,30,20),[0,20]);
+ assert.equal(m.thumbnailInterval(59),2);assert.equal(m.thumbnailInterval(60),5);assert.equal(m.thumbnailInterval(1801),30);
+ assert.equal(m.frameStep(25),.04);assert.equal(m.frameStep(null),null);
+});

@@ -5,7 +5,7 @@ use crate::{
     service::{now, verify_hash},
 };
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs,
     io::{BufRead, BufReader},
     path::{Path, PathBuf},
@@ -58,19 +58,20 @@ pub fn friendly_error(raw: &str) -> String {
         "媒体处理失败，原始文件已保留；可展开技术详情".into()
     }
 }
-struct Runtime {
+pub(crate) struct Runtime {
+    pub(crate) cancelled_previews: HashSet<String>,
     tasks: Vec<MediaTask>,
     jobs: HashMap<String, Arc<Job>>,
     running: Option<String>,
     ready: bool,
     error: Option<String>,
-    exiting: bool,
+    pub(crate) exiting: bool,
 }
 pub struct MediaService {
-    app: tauri::AppHandle,
-    state_file: PathBuf,
-    resources: PathBuf,
-    state: Mutex<Runtime>,
+    pub(crate) app: tauri::AppHandle,
+    pub(crate) state_file: PathBuf,
+    pub(crate) resources: PathBuf,
+    pub(crate) state: Mutex<Runtime>,
 }
 impl MediaService {
     pub fn new(app: tauri::AppHandle, data: &Path, resources: &Path) -> AppResult<Arc<Self>> {
@@ -118,6 +119,7 @@ impl MediaService {
             state_file,
             resources: resources.into(),
             state: Mutex::new(Runtime {
+                cancelled_previews: HashSet::new(),
                 tasks,
                 jobs: HashMap::new(),
                 running: None,
@@ -190,7 +192,7 @@ impl MediaService {
         }
         Ok(())
     }
-    fn ensure_ready(&self) -> AppResult<()> {
+    pub(crate) fn ensure_ready(&self) -> AppResult<()> {
         let s = self.state.lock().unwrap();
         if s.exiting {
             return Err("程序正在退出".into());
@@ -205,7 +207,7 @@ impl MediaService {
     }
     fn register(&self, id: &str, job: Arc<Job>, task: bool) -> AppResult<()> {
         let mut s = self.state.lock().unwrap();
-        if s.exiting
+        if s.exiting || s.cancelled_previews.iter().any(|session|id.starts_with(&format!("{session}-")))
             || task
                 && !s.tasks.iter().any(|t| {
                     t.id == id
@@ -221,7 +223,7 @@ impl MediaService {
         s.jobs.insert(id.into(), job);
         Ok(())
     }
-    fn probe_file(&self, path: &Path, id: &str, task: bool) -> AppResult<MediaInfo> {
+    pub(crate) fn probe_file(&self, path: &Path, id: &str, task: bool) -> AppResult<MediaInfo> {
         let (done_tx, done_rx) = mpsc::channel();
         let mut registration = Ok(());
         let mut watcher = None;
@@ -520,6 +522,30 @@ impl MediaService {
         })();
         output::cleanup(&directory, &task.id);
         result
+    }
+    pub(crate) fn preview_directory(&self,session:&str)->AppResult<PathBuf>{
+        crate::media::trim::timeline::validate_session(session)?;
+        let data=fs::canonicalize(self.state_file.parent().ok_or("数据目录无效")?).map_err(|_|"数据目录不可访问")?;
+        let root=data.join("media-preview").join(session);
+        fs::create_dir_all(&root).map_err(|_|"无法创建预览缓存")?;
+        let actual=fs::canonicalize(&root).map_err(|_|"预览缓存不可访问")?;
+        if !actual.starts_with(&data){return Err("预览缓存目录无效".into());}Ok(actual)
+    }
+    pub(crate) fn auxiliary(&self,session:&str,args:&[String],seconds:u64)->AppResult<String>{
+        let id=format!("{session}-{}",new_id());let (tx,rx)=mpsc::channel();let mut registration=Ok(());let mut watcher=None;
+        let result=native::capture_with(&self.resources.join("tools/ffmpeg.exe"),args,|job|{
+            registration=self.register(&id,job.clone(),false);
+            watcher=Some(std::thread::spawn(move||{if rx.recv_timeout(Duration::from_secs(seconds)).is_err(){let _=job.terminate();}}));
+        });let _=tx.send(());if let Some(w)=watcher{let _=w.join();}
+        self.state.lock().unwrap().jobs.remove(&id);registration?;result
+    }
+    pub fn cancel_editor(&self,session:&str)->AppResult<()>{
+        crate::media::trim::timeline::validate_session(session)?;
+        let mut s=self.state.lock().unwrap();
+        if s.cancelled_previews.len()>1024{return Err("预览会话过多，请重启程序".into());}
+        s.cancelled_previews.insert(session.into());
+        for (id,job) in &s.jobs{if id.starts_with(&format!("{session}-")){job.terminate()?;}}
+        Ok(())
     }
     pub fn open_output(&self, id: &str, folder: bool) -> AppResult<()> {
         let s = self.state.lock().unwrap();

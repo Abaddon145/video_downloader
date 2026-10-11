@@ -1,0 +1,2 @@
+import {formatMediaTime} from '../../../media';
+export function RangeSelector({start,end,current,set}:{start:number;end:number;current:number;set:(start:number,end:number)=>void}){return <div className="range-actions"><button className="secondary" onClick={()=>set(current,end)}>设为入点 I</button><button className="secondary" onClick={()=>set(start,current)}>设为出点 O</button><span>片段 {formatMediaTime(end-start)}</span></div>}
