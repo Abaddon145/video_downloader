@@ -5,7 +5,7 @@ use crate::{
     service::{now, verify_hash},
 };
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs,
     io::{BufRead, BufReader},
     path::{Path, PathBuf},
@@ -15,7 +15,7 @@ use std::{
     },
     time::{Duration, Instant},
 };
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 static SEQUENCE: AtomicU64 = AtomicU64::new(0);
 pub fn new_id() -> String {
     format!(
@@ -58,19 +58,22 @@ pub fn friendly_error(raw: &str) -> String {
         "媒体处理失败，原始文件已保留；可展开技术详情".into()
     }
 }
-struct Runtime {
+pub(crate) struct Runtime {
+    pub(crate) cancelled_previews: HashSet<String>,
     tasks: Vec<MediaTask>,
     jobs: HashMap<String, Arc<Job>>,
     running: Option<String>,
     ready: bool,
     error: Option<String>,
-    exiting: bool,
+    pub(crate) exiting: bool,
 }
 pub struct MediaService {
-    app: tauri::AppHandle,
-    state_file: PathBuf,
-    resources: PathBuf,
-    state: Mutex<Runtime>,
+    pub(crate) app: tauri::AppHandle,
+    pub(crate) state_file: PathBuf,
+    pub(crate) resources: PathBuf,
+    pub(crate) state: Mutex<Runtime>,
+    pub(crate) pro: Mutex<crate::media::preset::MediaProSettings>,
+    pub(crate) gpu_cache: Mutex<Option<Vec<String>>>,
 }
 impl MediaService {
     pub fn new(app: tauri::AppHandle, data: &Path, resources: &Path) -> AppResult<Arc<Self>> {
@@ -113,11 +116,34 @@ impl MediaService {
                 startup_error = Some("无法保存媒体任务记录，请检查数据目录权限".into());
             }
         }
+        let settings_file = data.join("media-settings.json");
+        let pro = if settings_file.exists() {
+            match native::load_with_backup(&settings_file)
+                .and_then(|v| {
+                    serde_json::from_value::<crate::media::preset::MediaProSettings>(v)
+                        .map_err(|_| "媒体设置损坏".into())
+                })
+                .and_then(|s| {
+                    crate::media::preset::validate(&s)?;
+                    Ok(s)
+                }) {
+                Ok(s) => s,
+                Err(e) => {
+                    startup_error = Some(e);
+                    Default::default()
+                }
+            }
+        } else {
+            Default::default()
+        };
         Ok(Arc::new(Self {
+            pro: Mutex::new(pro),
+            gpu_cache: Mutex::new(None),
             app,
             state_file,
             resources: resources.into(),
             state: Mutex::new(Runtime {
+                cancelled_previews: HashSet::new(),
                 tasks,
                 jobs: HashMap::new(),
                 running: None,
@@ -163,6 +189,13 @@ impl MediaService {
                 }
             }
             service.emit();
+            if let Some(download) = service.app.try_state::<Arc<crate::service::Service>>() {
+                for task in download.snapshot().tasks {
+                    if let Err(e) = service.after_download(&task) {
+                        let _ = service.app.emit("media-automation-error", e);
+                    }
+                }
+            }
             loop {
                 if service.state.lock().unwrap().exiting {
                     break;
@@ -190,7 +223,7 @@ impl MediaService {
         }
         Ok(())
     }
-    fn ensure_ready(&self) -> AppResult<()> {
+    pub(crate) fn ensure_ready(&self) -> AppResult<()> {
         let s = self.state.lock().unwrap();
         if s.exiting {
             return Err("程序正在退出".into());
@@ -206,6 +239,16 @@ impl MediaService {
     fn register(&self, id: &str, job: Arc<Job>, task: bool) -> AppResult<()> {
         let mut s = self.state.lock().unwrap();
         if s.exiting
+            || s.tasks.iter().any(|t| {
+                id.starts_with(&format!("{}-", t.id))
+                    && matches!(
+                        t.status,
+                        MediaTaskStatus::Cancelled | MediaTaskStatus::Interrupted
+                    )
+            })
+            || s.cancelled_previews
+                .iter()
+                .any(|session| id.starts_with(&format!("{session}-")))
             || task
                 && !s.tasks.iter().any(|t| {
                     t.id == id
@@ -221,7 +264,7 @@ impl MediaService {
         s.jobs.insert(id.into(), job);
         Ok(())
     }
-    fn probe_file(&self, path: &Path, id: &str, task: bool) -> AppResult<MediaInfo> {
+    pub(crate) fn probe_file(&self, path: &Path, id: &str, task: bool) -> AppResult<MediaInfo> {
         let (done_tx, done_rx) = mpsc::channel();
         let mut registration = Ok(());
         let mut watcher = None;
@@ -254,6 +297,15 @@ impl MediaService {
     }
     pub fn create(&self, mut request: MediaRequest) -> AppResult<MediaTask> {
         self.ensure_ready()?;
+        crate::media::metadata::validate(&request)?;
+        if request
+            .subtitle_path
+            .as_ref()
+            .is_some_and(|p| p.len() > 30000)
+            || request.cover_path.as_ref().is_some_and(|p| p.len() > 30000)
+        {
+            return Err("辅助文件路径过长".into());
+        }
         let input = output::input(&request.input_path)?;
         let directory = output::directory(&request.output_dir)?;
         request.input_path = input.to_string_lossy().into_owned();
@@ -281,6 +333,21 @@ impl MediaService {
             if s.exiting {
                 return Err("程序正在退出".into());
             }
+            if task
+                .request
+                .source_download_id
+                .as_ref()
+                .is_some_and(|id| id.len() > 140 || id.chars().any(char::is_control))
+            {
+                return Err("来源下载标识无效".into());
+            }
+            if let Some(existing) = s.tasks.iter().find(|t| {
+                task.request.source_download_id.is_some()
+                    && t.request.source_download_id == task.request.source_download_id
+                    && t.input_path == task.input_path
+            }) {
+                return Ok(existing.clone());
+            }
             let mut next = s.tasks.clone();
             next.push(task.clone());
             self.commit(&mut s, next)?;
@@ -307,8 +374,10 @@ impl MediaService {
             t.finished_at = Some(now());
             t.speed = None;
             t.eta = None;
-            if let Some(job) = s.jobs.get(id) {
-                job.terminate().map_err(|_| "无法终止媒体进程，请重试")?;
+            for (job_id, job) in &s.jobs {
+                if job_id == id || job_id.starts_with(&format!("{id}-")) {
+                    job.terminate().map_err(|_| "无法终止媒体进程，请重试")?;
+                }
             }
             self.commit(&mut s, next)?;
             None::<Arc<Job>>
@@ -425,12 +494,58 @@ impl MediaService {
             return Err("原始文件不能位于此任务的临时目录中".into());
         }
         let result = (|| {
-            let temp = temp_dir.join(format!(
+            if let Some(path) = &task.request.subtitle_path {
+                crate::media::subtitle::stage(path, &temp_dir)?;
+            }
+            let mut temp = temp_dir.join(format!(
                 "output-{}.processing.{}",
                 new_id(),
                 task.request.output_format.extension()
             ));
-            let built = command::build(&task.request, &info, &temp)?;
+            if task.request.operation == MediaOperation::ExtractFrames {
+                fs::create_dir(&temp).map_err(|_| "无法创建图片输出目录")?;
+            }
+            if task.request.operation == MediaOperation::ContactSheet {
+                fs::write(
+                    temp_dir.join("sheet-title.txt"),
+                    crate::media::contact_sheet::title(&info),
+                )
+                .map_err(|_| "无法创建联系表标题")?;
+            }
+            if let Some(path) = &task.request.cover_path {
+                crate::media::metadata::stage_cover(path, &temp_dir)?;
+            }
+            let mut built = command::build(&task.request, &info, &temp)?;
+            let cpu_args = built.args.clone();
+            let mode = if task.request.hardware_acceleration
+                == crate::media::preset::HardwareAcceleration::Auto
+            {
+                self.pro_settings().hardware_acceleration
+            } else {
+                task.request.hardware_acceleration
+            };
+            let encoding = built.args.iter().any(|a| a == "libx264" || a == "libx265");
+            let selected = if encoding && mode != crate::media::preset::HardwareAcceleration::Cpu {
+                crate::media::gpu::choose(
+                    mode,
+                    task.request.video_codec,
+                    &self.capabilities(&task.id)?,
+                )
+            } else {
+                None
+            };
+            if let Some(encoder) = &selected {
+                crate::media::gpu::apply(
+                    &mut built.args,
+                    encoder,
+                    task.request
+                        .crf
+                        .unwrap_or(crate::media::compressor::quality_value(
+                            task.request.video_codec,
+                            task.request.quality,
+                        )),
+                );
+            }
             {
                 let mut s = self.state.lock().unwrap();
                 let mut next = s.tasks.clone();
@@ -442,46 +557,47 @@ impl MediaService {
                     return Err("媒体任务已取消或中断".into());
                 }
                 t.status = MediaTaskStatus::Processing;
-                t.phase = "正在处理".into();
+                t.phase = selected
+                    .as_ref()
+                    .map(|e| format!("硬件编码 {e}"))
+                    .unwrap_or_else(|| {
+                        if encoding && mode != crate::media::preset::HardwareAcceleration::Cpu {
+                            "GPU 不可用，使用 CPU 编码".into()
+                        } else {
+                            "正在处理".into()
+                        }
+                    });
                 t.total_duration = built.duration;
                 self.commit(&mut s, next)?;
             }
             self.emit();
-            let (process, stdout, stderr) =
-                native::spawn(&self.resources.join("tools/ffmpeg.exe"), &built.args)?;
-            self.register(&task.id, process.job.clone(), true)?;
-            let error_reader = std::thread::spawn(move || native::read_bounded(stderr, 64 * 1024));
-            let mut block = String::new();
-            for line in BufReader::new(stdout).lines() {
-                let line = line.map_err(|_| "媒体进度读取失败")?;
-                if block.len() < 4096 {
-                    block.push_str(&line);
-                    block.push('\n');
-                }
-                if line.starts_with("progress=") {
-                    let p = progress::parse(&block, built.duration);
-                    block.clear();
-                    {
-                        let mut s = self.state.lock().unwrap();
-                        if let Some(t) = s.tasks.iter_mut().find(|t| t.id == task.id) {
-                            if t.status == MediaTaskStatus::Processing {
-                                t.progress = p.percent;
-                                t.speed = p.speed;
-                                t.processed_time = p.processed_time;
-                                t.eta = p.eta;
-                            }
-                        }
+            let (mut code, mut logs) =
+                self.run_ffmpeg(&task.id, &built.args, built.duration, &temp_dir)?;
+            if code != 0 && selected.is_some() {
+                {
+                    let mut s = self.state.lock().unwrap();
+                    let Some(t) = s.tasks.iter_mut().find(|t| t.id == task.id) else {
+                        return Err("任务不存在".into());
+                    };
+                    if t.status != MediaTaskStatus::Processing {
+                        return Ok(());
                     }
-                    self.emit();
+                    t.phase = "硬件编码失败，正在回退 CPU".into();
+                    t.progress = None;
                 }
+                self.emit();
+                temp = temp_dir.join(format!(
+                    "cpu-{}.{}",
+                    new_id(),
+                    task.request.output_format.extension()
+                ));
+                let mut args = cpu_args;
+                *args.last_mut().ok_or("编码参数为空")? = temp.to_string_lossy().into_owned();
+                let retried = self.run_ffmpeg(&task.id, &args, built.duration, &temp_dir)?;
+                code = retried.0;
+                logs.push("硬件编码失败，已自动回退 CPU".into());
+                logs.extend(retried.1);
             }
-            let code = process.wait()?;
-            let logs = error_reader.join().map_err(|_| "读取媒体日志失败")??;
-            let logs = redact(&String::from_utf8_lossy(&logs))
-                .lines()
-                .take(120)
-                .map(|s| s.chars().take(2048).collect::<String>())
-                .collect::<Vec<_>>();
             let mut s = self.state.lock().unwrap();
             let mut next = s.tasks.clone();
             let t = next
@@ -500,6 +616,7 @@ impl MediaService {
                     detail
                 });
             }
+            // Optional preset thumbnails are a separate queue task, retaining the original result.
             // Completion and cancellation cannot cross the publication boundary.
             let destination = output::publish(
                 &temp,
@@ -519,7 +636,155 @@ impl MediaService {
             Ok(())
         })();
         output::cleanup(&directory, &task.id);
+        if result.is_ok()
+            && task.request.generate_thumbnails
+            && self
+                .snapshot()
+                .tasks
+                .iter()
+                .any(|t| t.id == task.id && t.status == MediaTaskStatus::Completed)
+        {
+            let mut request = task.request.clone();
+            request.operation = MediaOperation::ExtractFrames;
+            request.output_format = OutputFormat::Jpg;
+            request.frame_mode = FrameMode::Count;
+            request.frame_count = 20;
+            request.generate_thumbnails = false;
+            request.source_download_id = None;
+            request.subtitle_path = None;
+            request.cover_path = None;
+            self.create(request)?;
+        }
         result
+    }
+    fn run_ffmpeg(
+        &self,
+        id: &str,
+        args: &[String],
+        duration: Option<f64>,
+        directory: &Path,
+    ) -> AppResult<(u32, Vec<String>)> {
+        let (process, stdout, stderr) = native::spawn_in(
+            &self.resources.join("tools/ffmpeg.exe"),
+            args,
+            Some(directory),
+        )?;
+        self.register(id, process.job.clone(), true)?;
+        let error_reader = std::thread::spawn(move || native::read_bounded(stderr, 64 * 1024));
+        let mut block = String::new();
+        for line in BufReader::new(stdout).lines() {
+            let line = line.map_err(|_| "媒体进度读取失败")?;
+            if block.len() < 4096 {
+                block.push_str(&line);
+                block.push('\n');
+            }
+            if line.starts_with("progress=") {
+                let p = progress::parse(&block, duration);
+                block.clear();
+                {
+                    let mut s = self.state.lock().unwrap();
+                    if let Some(t) = s.tasks.iter_mut().find(|t| t.id == id) {
+                        if t.status == MediaTaskStatus::Processing {
+                            t.progress = p.percent;
+                            t.speed = p.speed;
+                            t.processed_time = p.processed_time;
+                            t.eta = p.eta;
+                        }
+                    }
+                }
+                self.emit();
+            }
+        }
+        let code = process.wait()?;
+        let logs = error_reader.join().map_err(|_| "读取媒体日志失败")??;
+        let logs = redact(&String::from_utf8_lossy(&logs))
+            .lines()
+            .take(120)
+            .map(|s| s.chars().take(2048).collect::<String>())
+            .collect::<Vec<_>>();
+        Ok((code, logs))
+    }
+    pub(crate) fn preview_directory(&self, session: &str) -> AppResult<PathBuf> {
+        crate::media::trim::timeline::validate_session(session)?;
+        let data = fs::canonicalize(self.state_file.parent().ok_or("数据目录无效")?)
+            .map_err(|_| "数据目录不可访问")?;
+        let root = data.join("media-preview").join(session);
+        fs::create_dir_all(&root).map_err(|_| "无法创建预览缓存")?;
+        let actual = fs::canonicalize(&root).map_err(|_| "预览缓存不可访问")?;
+        if !actual.starts_with(&data) {
+            return Err("预览缓存目录无效".into());
+        }
+        Ok(actual)
+    }
+    pub(crate) fn auxiliary(
+        &self,
+        session: &str,
+        args: &[String],
+        seconds: u64,
+    ) -> AppResult<String> {
+        let id = format!("{session}-{}", new_id());
+        let (tx, rx) = mpsc::channel();
+        let mut registration = Ok(());
+        let mut watcher = None;
+        let result = native::capture_with(&self.resources.join("tools/ffmpeg.exe"), args, |job| {
+            registration = self.register(&id, job.clone(), false);
+            watcher = Some(std::thread::spawn(move || {
+                if rx.recv_timeout(Duration::from_secs(seconds)).is_err() {
+                    let _ = job.terminate();
+                }
+            }));
+        });
+        let _ = tx.send(());
+        if let Some(w) = watcher {
+            let _ = w.join();
+        }
+        self.state.lock().unwrap().jobs.remove(&id);
+        registration?;
+        result
+    }
+    pub fn cancel_editor(self: &Arc<Self>, session: &str) -> AppResult<()> {
+        crate::media::trim::timeline::validate_session(session)?;
+        let mut s = self.state.lock().unwrap();
+        if s.cancelled_previews.len() > 1024 {
+            return Err("预览会话过多，请重启程序".into());
+        }
+        s.cancelled_previews.insert(session.into());
+        for (id, job) in &s.jobs {
+            if id.starts_with(&format!("{session}-")) {
+                job.terminate()?;
+            }
+        }
+        drop(s);
+        let service = self.clone();
+        let session = session.to_string();
+        std::thread::spawn(move || {
+            let end = Instant::now() + Duration::from_secs(5);
+            loop {
+                let busy = service
+                    .state
+                    .lock()
+                    .unwrap()
+                    .jobs
+                    .keys()
+                    .any(|id| id.starts_with(&format!("{session}-")));
+                if !busy {
+                    break;
+                }
+                if Instant::now() > end {
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(20));
+            }
+            if let Ok(data) = fs::canonicalize(service.state_file.parent().unwrap()) {
+                let root = data.join("media-preview").join(&session);
+                if let Ok(actual) = fs::canonicalize(&root) {
+                    if actual == root && actual.starts_with(&data) {
+                        let _ = fs::remove_dir_all(actual);
+                    }
+                }
+            }
+        });
+        Ok(())
     }
     pub fn open_output(&self, id: &str, folder: bool) -> AppResult<()> {
         let s = self.state.lock().unwrap();

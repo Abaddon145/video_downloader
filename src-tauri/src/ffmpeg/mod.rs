@@ -1,3 +1,4 @@
+pub mod capabilities;
 pub mod command;
 pub mod models;
 pub mod output;

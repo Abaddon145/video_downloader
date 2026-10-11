@@ -71,8 +71,17 @@ pub fn stem(r: &MediaRequest) -> String {
     let suffix = match r.operation {
         MediaOperation::Remux => "remuxed".into(),
         MediaOperation::Transcode => "converted".into(),
+        MediaOperation::Compress => "compressed".into(),
         MediaOperation::Trim => "trimmed".into(),
         MediaOperation::ExtractAudio => "audio".into(),
+        MediaOperation::ExtractFrames => "frames".into(),
+        MediaOperation::ContactSheet => "storyboard".into(),
+        MediaOperation::CoverExtract => "cover".into(),
+        MediaOperation::CoverSet => "with-cover".into(),
+        MediaOperation::Metadata => "metadata".into(),
+        MediaOperation::SubtitleConvert => "subtitles".into(),
+        MediaOperation::SubtitleMux => "subtitled".into(),
+        MediaOperation::SubtitleBurn => "burned".into(),
         MediaOperation::Screenshot => {
             let ms = (r.start * 1000.).round() as u64;
             format!(
@@ -106,7 +115,21 @@ pub fn publish(
 ) -> AppResult<PathBuf> {
     use std::os::windows::ffi::OsStrExt;
     use windows_sys::Win32::Storage::FileSystem::{MoveFileExW, MOVEFILE_WRITE_THROUGH};
-    if !temp.is_file() || fs::metadata(temp).map_err(|_| "无法读取处理结果")?.len() == 0 {
+    let folder = temp.is_dir();
+    let valid = if folder {
+        let entries = fs::read_dir(temp)
+            .map_err(|_| "无法读取图片结果目录")?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|_| "无法读取图片结果")?;
+        !entries.is_empty()
+            && entries.iter().all(|entry| {
+                entry.file_type().is_ok_and(|t| t.is_file())
+                    && entry.metadata().is_ok_and(|m| m.len() > 0)
+            })
+    } else {
+        temp.is_file() && fs::metadata(temp).is_ok_and(|m| m.len() > 0)
+    };
+    if !valid {
         return Err("处理结果为空，原始文件已保留".into());
     }
     let name = safe_stem(name);
@@ -116,7 +139,15 @@ pub fn publish(
         } else {
             format!("{name} ({n}).{}", format.extension())
         };
-        let destination = directory.join(filename);
+        let destination = directory.join(if folder {
+            if n == 0 {
+                name.clone()
+            } else {
+                format!("{name} ({n})")
+            }
+        } else {
+            filename
+        });
         if destination == temp {
             return Err("发布路径不能是临时文件".into());
         }

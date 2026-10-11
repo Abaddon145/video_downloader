@@ -2,6 +2,7 @@ pub mod batch;
 pub mod domain;
 pub mod engine;
 pub mod ffmpeg;
+pub mod media;
 pub mod models;
 pub mod naming;
 pub mod native;
@@ -141,6 +142,69 @@ fn open_media_output(media: AppMedia<'_>, id: String, folder: bool) -> AppResult
     media.open_output(&id, folder)
 }
 
+#[tauri::command]
+async fn discover_media(paths: Vec<String>) -> AppResult<Vec<String>> {
+    tauri::async_runtime::spawn_blocking(move || media::batch::discover(&paths))
+        .await
+        .map_err(|_| "批量扫描线程异常")?
+}
+#[tauri::command]
+async fn create_batch_media(
+    media: AppMedia<'_>,
+    request: ffmpeg::models::MediaRequest,
+    paths: Vec<String>,
+) -> AppResult<media::batch::BatchMediaTask> {
+    let media = media.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || media.create_batch(request, paths))
+        .await
+        .map_err(|_| "批量入队线程异常")?
+}
+#[tauri::command]
+async fn get_media_capabilities(media: AppMedia<'_>) -> AppResult<Vec<String>> {
+    let media = media.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || media.capabilities("gpu-settings"))
+        .await
+        .map_err(|_| "GPU 检测线程异常")?
+}
+#[tauri::command]
+fn get_media_settings(media: AppMedia<'_>) -> media::preset::MediaProSettings {
+    media.pro_settings()
+}
+#[tauri::command]
+fn save_media_settings(
+    media: AppMedia<'_>,
+    settings: media::preset::MediaProSettings,
+) -> AppResult<media::preset::MediaProSettings> {
+    media.save_pro_settings(settings)
+}
+#[tauri::command]
+async fn preview_media(
+    media: AppMedia<'_>,
+    path: String,
+    session: String,
+    proxy: bool,
+) -> AppResult<String> {
+    let media = media.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || media.editor_preview(&path, &session, proxy))
+        .await
+        .map_err(|_| "预览线程异常")?
+}
+#[tauri::command]
+async fn media_thumbnails(
+    media: AppMedia<'_>,
+    path: String,
+    session: String,
+    offset: u32,
+) -> AppResult<Vec<media::trim::thumbnail::TimelineThumbnail>> {
+    let media = media.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || media.editor_thumbnails(&path, &session, offset))
+        .await
+        .map_err(|_| "缩略图线程异常")?
+}
+#[tauri::command]
+fn cancel_media_preview(media: AppMedia<'_>, session: String) -> AppResult<()> {
+    media.cancel_editor(&session)
+}
 fn show_main(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
@@ -161,6 +225,14 @@ pub fn run() {
     let application = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            discover_media,
+            create_batch_media,
+            get_media_capabilities,
+            get_media_settings,
+            save_media_settings,
+            preview_media,
+            media_thumbnails,
+            cancel_media_preview,
             get_snapshot,
             get_media_snapshot,
             probe_media,

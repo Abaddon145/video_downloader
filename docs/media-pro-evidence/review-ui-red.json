@@ -1,0 +1,24 @@
+{
+  "passed": 0,
+  "failed": 4,
+  "checks": [],
+  "failures": [
+    {
+      "name": "late single discovery cannot replace newer selected source",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n0 !== 1\n"
+    },
+    {
+      "name": "late batch discovery cannot replace latest batch files or busy state",
+      "error": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /new-a\\.mkv/. Input:\n\n'C:/scan-slow-a.mkvC:/scan-slow-b.mkv'\n"
+    },
+    {
+      "name": "subtitle burn offers external file only while mux retains embedded text option",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n1 !== 0\n"
+    },
+    {
+      "name": "all timeline axes and selection boundaries share the same coordinates",
+      "error": "AssertionError [ERR_ASSERTION]: track start must align"
+    }
+  ],
+  "errors": []
+}

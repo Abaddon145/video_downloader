@@ -270,6 +270,14 @@ fn pipe() -> AppResult<(File, OwnedHandle)> {
     }
 }
 pub fn spawn(exe: &Path, args: &[String]) -> AppResult<(RunningProcess, File, File)> {
+    spawn_in(exe, args, None)
+}
+pub fn spawn_in(
+    exe: &Path,
+    args: &[String],
+    directory: Option<&Path>,
+) -> AppResult<(RunningProcess, File, File)> {
+    let current = directory.map(|p| wide(p.as_os_str()));
     if args.iter().any(|s| s.contains('\0')) {
         return Err("参数包含无效字符".into());
     }
@@ -327,7 +335,7 @@ pub fn spawn(exe: &Path, args: &[String]) -> AppResult<(RunningProcess, File, Fi
                 1,
                 CREATE_NO_WINDOW | CREATE_SUSPENDED | EXTENDED_STARTUPINFO_PRESENT,
                 std::ptr::null(),
-                std::ptr::null(),
+                current.as_ref().map_or(std::ptr::null(), |p| p.as_ptr()),
                 &startup.StartupInfo,
                 &mut info,
             ))?;

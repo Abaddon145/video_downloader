@@ -3,7 +3,7 @@ use crate::domain::AppResult;
 use serde_json::Value;
 use std::{collections::BTreeMap, path::Path};
 pub const DEMUXERS: &str =
-    "mov,matroska,webm,avi,mp3,aac,flac,wav,ogg,asf,mpeg,mpegts,flv,amr,aiff,ape,ac3,eac3,dts";
+    "srt,ass,webvtt,image2,jpeg_pipe,png_pipe,webp_pipe,mov,matroska,webm,avi,mp3,aac,flac,wav,ogg,asf,mpeg,mpegts,flv,amr,aiff,ape,ac3,eac3,dts";
 pub fn arguments(path: &Path) -> Vec<String> {
     [
         "-v",
@@ -120,8 +120,8 @@ pub fn parse(text: &str, path: &Path) -> AppResult<MediaInfo> {
             _ => info.other_streams += 1,
         }
     }
-    if info.videos.is_empty() && info.audios.is_empty() {
-        return Err("文件中没有可处理的音视频轨道".into());
+    if info.videos.is_empty() && info.audios.is_empty() && info.subtitles.is_empty() {
+        return Err("文件中没有可处理的音视频或字幕轨道".into());
     }
     Ok(info)
 }

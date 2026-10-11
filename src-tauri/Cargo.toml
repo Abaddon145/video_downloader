@@ -1,6 +1,6 @@
 [package]
 name = "video-downloader"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 default-run = "video-downloader"
 
@@ -20,5 +20,5 @@ serde_json = "1"
 url = "2"
 sha2 = "0.10"
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Cryptography", "Win32_Storage_FileSystem", "Win32_System_JobObjects", "Win32_System_Threading", "Win32_System_Pipes", "Win32_System_Memory", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
-tauri = { version = "2.11", features = ["tray-icon"] }
+tauri = { version = "2.11", features = ["tray-icon", "protocol-asset"] }
 tauri-plugin-dialog = "2.7"

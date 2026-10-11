@@ -1,0 +1,20 @@
+{
+  "passed": 14,
+  "checks": [
+    "native picker, file summary and complete metadata",
+    "transcode advanced fields and structured request",
+    "lossless remux and WebM copy-only option",
+    "millisecond trim boundaries, duration and fast mode",
+    "audio extraction defaults to MP3 320 kbps",
+    "screenshot timestamp and three image formats",
+    "task progress, cancellation, restart, completed actions and log disclosure",
+    "output errors stay visible and retryable",
+    "native multiple-file drag opens batch and stale probe cannot replace latest file",
+    "audio-only file disables video actions",
+    "small window, keyboard focus and reduced motion",
+    "disk-root sources retain their root output directory",
+    "late initial snapshot cannot erase newer live task events",
+    "media preset applies 1080p choices, compressor 1440p and extra tool fields"
+  ],
+  "errors": []
+}
