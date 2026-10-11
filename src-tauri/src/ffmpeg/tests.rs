@@ -194,19 +194,81 @@ fn media_paths_reject_all_network_and_device_namespaces_before_io() {
 }
 
 #[test]
-fn v03_compressor_accepts_1440p_and_controlled_quality(){
- let parsed=serde_json::from_value::<MediaRequest>(serde_json::json!({"inputPath":"C:/a.mkv","outputDir":"C:/out","operation":"compress","height":1440,"quality":"small"}));
- assert!(parsed.is_ok(),"compress operation missing");
- let c=command::build(&parsed.unwrap(),&info(),Path::new("C:/out/new.mp4")).unwrap();
- assert!(c.args.contains(&"libx264".into()));assert!(c.args.windows(2).any(|a|a==["-crf","28"]));assert!(c.args.iter().any(|a|a.contains("1440")));
+fn v03_compressor_accepts_1440p_and_controlled_quality() {
+    let parsed = serde_json::from_value::<MediaRequest>(
+        serde_json::json!({"inputPath":"C:/a.mkv","outputDir":"C:/out","operation":"compress","height":1440,"quality":"small"}),
+    );
+    assert!(parsed.is_ok(), "compress operation missing");
+    let c = command::build(&parsed.unwrap(), &info(), Path::new("C:/out/new.mp4")).unwrap();
+    assert!(c.args.contains(&"libx264".into()));
+    assert!(c.args.windows(2).any(|a| a == ["-crf", "28"]));
+    assert!(c.args.iter().any(|a| a.contains("1440")));
 }
 
-#[test]fn v03_subtitles_accept_srt_ass_vtt_and_reject_unsafe_styles(){
- for (op,format) in [("subtitleConvert","srt"),("subtitleConvert","ass"),("subtitleConvert","vtt"),("subtitleBurn","mp4"),("subtitleMux","mkv")] {
- let parsed=serde_json::from_value::<MediaRequest>(serde_json::json!({"inputPath":"C:/a.mkv","outputDir":"C:/out","operation":op,"outputFormat":format,"subtitlePath":"C:/bad 'quote,semicolon;.ass","subtitleFont":"Microsoft YaHei","subtitleSize":24,"subtitlePosition":2,"subtitleColor":"#FFFFFF"}));
- assert!(parsed.is_ok(),"subtitle operation missing: {op}");let mut i=info();i.subtitles.push(SubtitleStreamInfo{index:2,codec:"ass".into(),..Default::default()});
- let c=command::build(&parsed.unwrap(),&i,Path::new("C:/out/result")).unwrap();assert!(c.args.contains(&"-n".into()));
- if op=="subtitleBurn"{assert!(c.args.iter().any(|a|a.starts_with("subtitles=subtitle.ass")));assert!(!c.args.iter().any(|a|a.contains("bad 'quote")));}
- }
- let bad=serde_json::from_value::<MediaRequest>(serde_json::json!({"inputPath":"C:/a.mkv","outputDir":"C:/out","operation":"subtitleBurn","subtitlePath":"C:/a.srt","subtitleFont":"Arial',movie=http","subtitleColor":"#FFFFFF"})).unwrap();assert!(command::build(&bad,&info(),Path::new("C:/out/result.mp4")).is_err());
+#[test]
+fn v03_subtitles_accept_srt_ass_vtt_and_reject_unsafe_styles() {
+    for (op, format) in [
+        ("subtitleConvert", "srt"),
+        ("subtitleConvert", "ass"),
+        ("subtitleConvert", "vtt"),
+        ("subtitleBurn", "mp4"),
+        ("subtitleMux", "mkv"),
+    ] {
+        let parsed = serde_json::from_value::<MediaRequest>(
+            serde_json::json!({"inputPath":"C:/a.mkv","outputDir":"C:/out","operation":op,"outputFormat":format,"subtitlePath":"C:/bad 'quote,semicolon;.ass","subtitleFont":"Microsoft YaHei","subtitleSize":24,"subtitlePosition":2,"subtitleColor":"#FFFFFF"}),
+        );
+        assert!(parsed.is_ok(), "subtitle operation missing: {op}");
+        let mut i = info();
+        i.subtitles.push(SubtitleStreamInfo {
+            index: 2,
+            codec: "ass".into(),
+            ..Default::default()
+        });
+        let c = command::build(&parsed.unwrap(), &i, Path::new("C:/out/result")).unwrap();
+        assert!(c.args.contains(&"-n".into()));
+        if op == "subtitleBurn" {
+            assert!(c
+                .args
+                .iter()
+                .any(|a| a.starts_with("subtitles=subtitle.ass")));
+            assert!(!c.args.iter().any(|a| a.contains("bad 'quote")));
+        }
+    }
+    let bad=serde_json::from_value::<MediaRequest>(serde_json::json!({"inputPath":"C:/a.mkv","outputDir":"C:/out","operation":"subtitleBurn","subtitlePath":"C:/a.srt","subtitleFont":"Arial',movie=http","subtitleColor":"#FFFFFF"})).unwrap();
+    assert!(command::build(&bad, &info(), Path::new("C:/out/result.mp4")).is_err());
+}
+
+#[test]
+fn v03_frames_contact_cover_metadata_have_bounded_structured_arguments() {
+    for (op, format) in [
+        ("extractFrames", "jpg"),
+        ("contactSheet", "jpg"),
+        ("coverExtract", "png"),
+        ("coverSet", "mp4"),
+        ("metadata", "mkv"),
+    ] {
+        let parsed = serde_json::from_value::<MediaRequest>(
+            serde_json::json!({"inputPath":"C:/a.mkv","outputDir":"C:/out","operation":op,"outputFormat":format,"frameMode":"count","frameCount":20,"coverPath":"C:/a.jpg","metadata":{"title":"中文 %; -y","artist":"作者"}}),
+        );
+        assert!(parsed.is_ok(), "missing operation {op}");
+        let c = command::build(&parsed.unwrap(), &info(), Path::new("C:/out/result")).unwrap();
+        assert!(c.args.contains(&"-n".into()));
+        assert!(!c.args.contains(&"-y".into()));
+    }
+    let bad=serde_json::from_value::<MediaRequest>(serde_json::json!({"inputPath":"C:/a.mkv","outputDir":"C:/out","operation":"extractFrames","outputFormat":"jpg","frameMode":"count","frameCount":10001})).unwrap();
+    assert!(command::build(&bad, &info(), Path::new("C:/out/result")).is_err());
+    let bad=serde_json::from_value::<MediaRequest>(serde_json::json!({"inputPath":"C:/a.mkv","outputDir":"C:/out","operation":"metadata","metadata":{"arbitrary":"bad"}})).unwrap();
+    assert!(command::build(&bad, &info(), Path::new("C:/out/result")).is_err());
+}
+#[test]
+fn v03_nonempty_frame_directories_publish_without_overwriting() {
+    let dir = std::env::temp_dir().join(super::runner::new_id());
+    std::fs::create_dir(&dir).unwrap();
+    let temp = dir.join("temp");
+    std::fs::create_dir(&temp).unwrap();
+    std::fs::write(temp.join("frame.png"), b"valid").unwrap();
+    let out = super::output::publish(&temp, &dir, "frames", OutputFormat::Png);
+    assert!(out.is_ok());
+    assert!(out.unwrap().is_dir());
+    std::fs::remove_dir_all(dir).unwrap();
 }

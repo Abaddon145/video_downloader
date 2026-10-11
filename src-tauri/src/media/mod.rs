@@ -1,7 +1,10 @@
-pub mod trim;
-pub mod compressor;
-pub mod preset;
 pub mod automation;
-pub mod gpu;
-pub mod subtitle;
 pub mod batch;
+pub mod compressor;
+pub mod contact_sheet;
+pub mod gpu;
+pub mod metadata;
+pub mod preset;
+pub mod subtitle;
+pub mod thumbnail;
+pub mod trim;

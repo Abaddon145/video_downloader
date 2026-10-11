@@ -978,9 +978,25 @@ impl Service {
         if let Err(error) = self.persist(&state) {
             state.notice = Some(format!("任务记录保存失败：{error}"));
         }
-        let completed=state.disk.tasks.iter().find(|t|t.id==id&&t.status==TaskStatus::Completed).cloned();
+        let completed = state
+            .disk
+            .tasks
+            .iter()
+            .find(|t| t.id == id && t.status == TaskStatus::Completed)
+            .cloned();
         drop(state);
-        if let Some(task)=completed {if let Some(media)=self.app.try_state::<Arc<crate::ffmpeg::runner::MediaService>>(){if let Err(error)=media.after_download(&task){self.mutate_task(id,|t|{t.phase=format!("下载已完成，自动处理未入队：{error}");});}}}
+        if let Some(task) = completed {
+            if let Some(media) = self
+                .app
+                .try_state::<Arc<crate::ffmpeg::runner::MediaService>>()
+            {
+                if let Err(error) = media.after_download(&task) {
+                    self.mutate_task(id, |t| {
+                        t.phase = format!("下载已完成，自动处理未入队：{error}");
+                    });
+                }
+            }
+        }
         self.publish();
     }
     fn curl(&self, url: &str, destination: Option<&Path>) -> AppResult<String> {

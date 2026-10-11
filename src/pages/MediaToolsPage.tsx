@@ -6,6 +6,7 @@ import {open} from '@tauri-apps/plugin-dialog';
 import {FileVideo,FolderOpen,Upload,RefreshCw,Scissors,Music2,Camera,ArrowRightLeft,Loader2,ChevronLeft,ChevronRight} from 'lucide-react';
 import {canUseOperation,createMediaRequest,mediaParentDirectory,displayMediaPath,formatsFor,formatMediaTime,isCurrentProbe,parseMediaTime} from '../media';
 import type {MediaForm,MediaInfo,MediaOperation,MediaSnapshot,OutputFormat} from '../types/media';
+import {MediaExtrasPanel} from '../components/media/MediaExtrasPanel';
 import {BatchPanel} from '../components/media/batch/BatchPanel';
 import {SubtitlePanel} from '../components/media/subtitle/SubtitlePanel';
 import {PresetManager} from '../components/media/preset/PresetManager';
@@ -13,7 +14,7 @@ import {CompressorPanel} from '../components/media/compress/CompressorPanel';
 import {VideoPreview} from '../components/media/editor/VideoPreview';
 import {MediaInfoPanel} from '../components/media/MediaInfoPanel';
 import {MediaTaskRow} from '../components/media/MediaTaskRow';
-const tools=[{id:'transcode',title:'格式转换',icon:ArrowRightLeft},{id:'compress',title:'视频压缩',icon:FileVideo},{id:'remux',title:'极速无损转换',icon:RefreshCw},{id:'trim',title:'视频裁剪',icon:Scissors},{id:'extractAudio',title:'提取音频',icon:Music2},{id:'screenshot',title:'视频截图',icon:Camera},{id:'subtitleConvert',title:'字幕转换',icon:Music2},{id:'subtitleMux',title:'外挂字幕',icon:FileVideo},{id:'subtitleBurn',title:'烧录字幕',icon:FileVideo}] as const;
+const tools=[{id:'transcode',title:'格式转换',icon:ArrowRightLeft},{id:'compress',title:'视频压缩',icon:FileVideo},{id:'remux',title:'极速无损转换',icon:RefreshCw},{id:'trim',title:'视频裁剪',icon:Scissors},{id:'extractAudio',title:'提取音频',icon:Music2},{id:'screenshot',title:'视频截图',icon:Camera},{id:'subtitleConvert',title:'字幕转换',icon:Music2},{id:'subtitleMux',title:'外挂字幕',icon:FileVideo},{id:'subtitleBurn',title:'烧录字幕',icon:FileVideo},{id:'extractFrames',title:'视频抽帧',icon:Camera},{id:'contactSheet',title:'联系表',icon:FileVideo},{id:'coverExtract',title:'提取封面',icon:Camera},{id:'coverSet',title:'设置封面',icon:FileVideo},{id:'metadata',title:'元数据',icon:FileVideo}] as const;
 const initialForm:MediaForm={operation:'transcode',outputFormat:'mp4',quality:'balanced',videoCodec:'h264',audioCodec:'aac',crf:23,height:0,fps:0,audioBitrate:320,start:'00:00:00.000',end:'00:00:00.000',trimMode:'accurate',copyAudio:false,advanced:false};
 const errorText=(e:unknown)=>typeof e==='string'?e:e instanceof Error?e.message:'操作未完成，请重试';
 export default function MediaToolsPage({notify}:{notify:(message:string)=>void}){
@@ -51,6 +52,7 @@ export default function MediaToolsPage({notify}:{notify:(message:string)=>void})
  {error&&<div className="error-panel" role="alert"><strong>操作未完成</strong><p>{error}</p></div>}{probing&&<p role="status">正在读取媒体信息，请稍候…</p>}
  {info&&<><MediaInfoPanel info={info}/><PresetManager form={form} change={setForm}/><div className="media-tools" role="tablist" aria-label="媒体操作">{tools.map(({id,title,icon:Icon})=><button key={id} role="tab" aria-selected={form.operation===id} aria-controls="media-tool-panel" disabled={!canUseOperation(info,id)} title={!canUseOperation(info,id)?id==='extractAudio'?'文件没有音轨':'文件没有可处理的视频流':undefined} className={form.operation===id?'active':''} onClick={()=>chooseTool(id)}><Icon size={19} aria-hidden="true"/>{title}</button>)}</div>
  <section className="media-operation-card" id="media-tool-panel" role="tabpanel" aria-label={tools.find(t=>t.id===form.operation)?.title}><div className="media-operation-heading"><h2>{tools.find(t=>t.id===form.operation)?.title}</h2><span className="help">{form.operation==='remux'?'保留全部兼容音视频和字幕轨道':'默认使用第一条对应轨道'}</span></div>
+ {['extractFrames','contactSheet','coverExtract','coverSet','metadata'].includes(form.operation)&&<MediaExtrasPanel form={form} info={info} change={setForm} error={setError}/>}
  {form.operation.startsWith('subtitle')&&<SubtitlePanel form={form} change={setForm} error={setError}/>}
  {form.operation==='compress'&&<CompressorPanel form={form} change={setForm}/>}
  {form.operation==='remux'&&<p className="help">不重新编码视频或音频，画质不变。目标容器不支持的轨道会阻止操作，不会静默丢弃。</p>}

@@ -98,7 +98,10 @@ fn video(a: &mut Vec<String>, r: &MediaRequest) {
         },
     );
     if r.video_codec != VideoCodec::Copy {
-        let crf = r.crf.unwrap_or(crate::media::compressor::quality_value(r.video_codec,r.quality));
+        let crf = r.crf.unwrap_or(crate::media::compressor::quality_value(
+            r.video_codec,
+            r.quality,
+        ));
         pair(a, "-crf", crf);
         pair(a, "-preset", "medium");
         pair(a, "-pix_fmt", "yuv420p");
@@ -137,12 +140,37 @@ pub fn build(r: &MediaRequest, info: &MediaInfo, output: &Path) -> AppResult<Bui
     if output == Path::new(&r.input_path) {
         return Err("输出不能是原始文件".into());
     }
-    if matches!(r.operation,MediaOperation::SubtitleConvert|MediaOperation::SubtitleMux|MediaOperation::SubtitleBurn){return crate::media::subtitle::build(r,info,output);}
+    if matches!(
+        r.operation,
+        MediaOperation::ExtractFrames
+            | MediaOperation::ContactSheet
+            | MediaOperation::CoverExtract
+            | MediaOperation::CoverSet
+            | MediaOperation::Metadata
+    ) {
+        return match r.operation {
+            MediaOperation::ExtractFrames => crate::media::thumbnail::build_frames(r, info, output),
+            MediaOperation::ContactSheet => {
+                crate::media::contact_sheet::build_sheet(r, info, output)
+            }
+            MediaOperation::CoverExtract => crate::media::thumbnail::build_cover(r, info, output),
+            _ => crate::media::metadata::build(r, info, output),
+        };
+    }
+    if matches!(
+        r.operation,
+        MediaOperation::SubtitleConvert
+            | MediaOperation::SubtitleMux
+            | MediaOperation::SubtitleBurn
+    ) {
+        return crate::media::subtitle::build(r, info, output);
+    }
     if !r.start.is_finite()
         || r.start < 0.
         || r.end.is_some_and(|t| !t.is_finite() || t < 0.)
         || r.crf.is_some_and(|n| n > 51)
-        || r.height.is_some_and(|n| ![720, 1080, 1440, 2160].contains(&n))
+        || r.height
+            .is_some_and(|n| ![720, 1080, 1440, 2160].contains(&n))
         || r.fps.is_some_and(|n| ![24, 25, 30, 60].contains(&n))
         || ![128, 192, 256, 320].contains(&r.audio_bitrate)
     {
@@ -162,7 +190,10 @@ pub fn build(r: &MediaRequest, info: &MediaInfo, output: &Path) -> AppResult<Bui
     );
     if matches!(
         r.operation,
-        MediaOperation::Remux | MediaOperation::Transcode | MediaOperation::Compress | MediaOperation::Trim
+        MediaOperation::Remux
+            | MediaOperation::Transcode
+            | MediaOperation::Compress
+            | MediaOperation::Trim
     ) && !container_ok
     {
         return Err("请选择受支持的视频容器".into());
@@ -187,7 +218,11 @@ pub fn build(r: &MediaRequest, info: &MediaInfo, output: &Path) -> AppResult<Bui
             return Err("当前媒体轨道不符合目标容器的无损封装支持范围，建议选择 MKV 或兼容转换（H.264 / AAC）".into());
         }
     }
-    if matches!(r.operation,MediaOperation::Transcode|MediaOperation::Compress) || r.operation == MediaOperation::Trim && !copying {
+    if matches!(
+        r.operation,
+        MediaOperation::Transcode | MediaOperation::Compress
+    ) || r.operation == MediaOperation::Trim && !copying
+    {
         let vc = if r.video_codec == VideoCodec::Copy {
             &v.ok_or("文件没有视频流")?.codec
         } else {
@@ -312,7 +347,14 @@ pub fn build(r: &MediaRequest, info: &MediaInfo, output: &Path) -> AppResult<Bui
                 r.audio_bitrate,
             );
         }
-        MediaOperation::SubtitleConvert|MediaOperation::SubtitleMux|MediaOperation::SubtitleBurn=>unreachable!(),
+        MediaOperation::ExtractFrames
+        | MediaOperation::ContactSheet
+        | MediaOperation::CoverExtract
+        | MediaOperation::CoverSet
+        | MediaOperation::Metadata => unreachable!(),
+        MediaOperation::SubtitleConvert
+        | MediaOperation::SubtitleMux
+        | MediaOperation::SubtitleBurn => unreachable!(),
         MediaOperation::Screenshot => {
             pair(&mut args, "-map", format!("0:{}", v.unwrap().index));
             pair(&mut args, "-frames:v", "1");
