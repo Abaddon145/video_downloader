@@ -64,9 +64,21 @@ pub fn build(r: &MediaRequest, info: &MediaInfo, out: &Path) -> AppResult<BuiltC
         return Err("设置封面支持MP4、M4A、MP3、FLAC".into());
     }
     let mut i = info.clone();
-    if cover {
-        i.videos.retain(|v| !v.attached_picture);
+    let pictures: Vec<_> = info.videos.iter().filter(|v| v.attached_picture).collect();
+    if !pictures.is_empty()
+        && !matches!(
+            r.output_format,
+            OutputFormat::Mp4
+                | OutputFormat::Mov
+                | OutputFormat::Mkv
+                | OutputFormat::M4a
+                | OutputFormat::Mp3
+                | OutputFormat::Flac
+        )
+    {
+        return Err("此目标格式无法保留内嵌封面，请选择兼容容器".into());
     }
+    i.videos.retain(|v| !v.attached_picture);
     let mut base = r.clone();
     let audio = matches!(
         r.output_format,
@@ -128,6 +140,18 @@ pub fn build(r: &MediaRequest, info: &MediaInfo, out: &Path) -> AppResult<BuiltC
             format!("-disposition:v:{index}"),
             "attached_pic".into(),
         ]);
+    }
+    if !cover && audio && !pictures.is_empty() {
+        c.args.retain(|a| a != "-vn");
+        c.args.extend(["-c:v".into(), "copy".into()]);
+        for (index, picture) in pictures.iter().enumerate() {
+            c.args.extend([
+                "-map".into(),
+                format!("0:{}", picture.index),
+                format!("-disposition:v:{index}"),
+                "attached_pic".into(),
+            ]);
+        }
     }
     c.args.extend(["-map_metadata".into(), "0".into()]);
     for (key, value) in &r.metadata {

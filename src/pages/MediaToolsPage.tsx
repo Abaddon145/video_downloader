@@ -24,8 +24,8 @@ export default function MediaToolsPage({notify}:{notify:(message:string)=>void})
  const [dropped,setDropped]=useState<string[]>([]);
  const probeId=useRef(0),alive=useRef(true);
  const change=<K extends keyof MediaForm>(key:K,value:MediaForm[K])=>setForm(f=>({...f,[key]:value}));
- const selectFile=useCallback(async(path:string)=>{
- const id=++probeId.current;setProbing(true);setError('');setInfo(null);
+ const selectFile=useCallback(async(path:string,id=++probeId.current)=>{
+ if(!alive.current||!isCurrentProbe(id,probeId.current))return;setProbing(true);setError('');setInfo(null);
  try {const result=await invoke<MediaInfo>('probe_media',{path});if(!alive.current||!isCurrentProbe(id,probeId.current))return;setInfo(result);setDirectory(mediaParentDirectory(result.path));setForm({...initialForm,end:formatMediaTime(result.duration??0),operation:canUseOperation(result,'transcode')?'transcode':canUseOperation(result,'extractAudio')?'extractAudio':'subtitleConvert',outputFormat:canUseOperation(result,'transcode')?'mp4':canUseOperation(result,'extractAudio')?'mp3':'srt'});}
  catch(e){if(alive.current&&isCurrentProbe(id,probeId.current))setError(errorText(e));}
  finally {if(alive.current&&isCurrentProbe(id,probeId.current))setProbing(false);}
@@ -35,12 +35,12 @@ export default function MediaToolsPage({notify}:{notify:(message:string)=>void})
  if(!isTauri()){setError('请在 Windows 桌面软件中使用媒体工具');return;}
  const setup=async()=>{
  const stop=await listen<MediaSnapshot>('media-snapshot-updated',e=>{if(mounted){receivedSnapshot=true;setSnapshot(e.payload);}});if(!mounted)stop();else stops.push(stop);
- const drop=await getCurrentWebviewWindow().onDragDropEvent(e=>{if(!mounted)return;setDragging(e.payload.type==='over'||e.payload.type==='enter');if(e.payload.type==='drop'){const paths=e.payload.paths;setDragging(false);if(paths.length!==1){setDropped(paths);return;}void invoke<string[]>('discover_media',{paths:paths}).then(files=>{if(files.length===1&&displayMediaPath(files[0]).replaceAll('\\','/').toLowerCase()===displayMediaPath(paths[0]).replaceAll('\\','/').toLowerCase())void selectFile(files[0]);else setDropped(paths);}).catch(()=>void selectFile(paths[0]));}});if(!mounted)drop();else stops.push(drop);
+ const drop=await getCurrentWebviewWindow().onDragDropEvent(e=>{if(!mounted)return;setDragging(e.payload.type==='over'||e.payload.type==='enter');if(e.payload.type==='drop'){const paths=e.payload.paths,id=++probeId.current;setDragging(false);setProbing(false);if(paths.length!==1){setDropped(paths);return;}void invoke<string[]>('discover_media',{paths}).then(files=>{if(!mounted||!isCurrentProbe(id,probeId.current))return;if(files.length===1&&displayMediaPath(files[0]).replaceAll('\\','/').toLowerCase()===displayMediaPath(paths[0]).replaceAll('\\','/').toLowerCase())void selectFile(files[0],id);else setDropped(paths);}).catch(()=>{if(mounted&&isCurrentProbe(id,probeId.current))void selectFile(paths[0],id);});}});if(!mounted)drop();else stops.push(drop);
  const state=await invoke<MediaSnapshot>('get_media_snapshot');if(mounted&&!receivedSnapshot)setSnapshot(state);
  };void setup().catch(e=>setError(errorText(e)));
  return()=>{mounted=false;alive.current=false;++probeId.current;stops.forEach(stop=>stop());};
  },[selectFile]);
- const choose=async()=>{try{if(!isTauri())throw new Error('请在 Windows 桌面软件中选择文件');const path=await open({multiple:false,directory:false,filters:[{name:'媒体文件',extensions:['mp4','mkv','mov','webm','avi','m4v','mp3','aac','flac','wav','m4a','opus','ogg','wma','wmv','ts','srt','ass','vtt']},{name:'全部文件',extensions:['*']}]});if(typeof path==='string')await selectFile(path);}catch(e){setError(errorText(e));}};
+ const choose=async()=>{const id=++probeId.current;try{if(!isTauri())throw new Error('请在 Windows 桌面软件中选择文件');const path=await open({multiple:false,directory:false,filters:[{name:'媒体文件',extensions:['mp4','mkv','mov','webm','avi','m4v','mp3','aac','flac','wav','m4a','opus','ogg','wma','wmv','ts','srt','ass','vtt']},{name:'全部文件',extensions:['*']}]});if(typeof path==='string')await selectFile(path,id);}catch(e){if(alive.current&&isCurrentProbe(id,probeId.current))setError(errorText(e));}};
  const chooseDirectory=async()=>{try{const path=await open({directory:true,multiple:false});if(typeof path==='string')setDirectory(path);}catch(e){setError(errorText(e));}};
  const chooseTool=(operation:MediaOperation)=>setForm(f=>({...f,operation,outputFormat:formatsFor(operation)[0],videoCodec:'h264',audioCodec:'aac',advanced:false}));
  const act=async(command:string,args:Record<string,unknown>)=>{try{await invoke(command,args);}catch(e){notify(errorText(e));}};

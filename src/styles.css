@@ -62,3 +62,5 @@
 .batch-panel{padding:20px;background:#191d23;border:1px solid #303741;border-radius:12px;margin:20px 0}.batch-panel>summary{cursor:pointer;font-weight:600}.batch-panel button{margin:8px 8px 8px 0}.batch-file-list{max-height:200px;overflow:auto;word-break:break-all}.media-tools{flex-wrap:wrap}.subtitle-panel>label{display:block;margin-bottom:8px}
 
 .timeline-editor label{white-space:nowrap}.timeline-editor input[type=range]{width:auto;flex:1;min-width:0}.thumbnail-strip button{display:block}.range-sliders{grid-template-columns:1fr;gap:8px}
+
+.timeline-editor label{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px}.timeline-editor input[type=range]{width:100%;margin:0}.timeline-axis{position:absolute;top:0;bottom:0;left:100px;right:24px;pointer-events:none}.timeline-ruler{margin-left:76px;padding-inline:8px}

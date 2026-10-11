@@ -296,3 +296,48 @@ fn v03_contact_labels_use_source_timestamps_before_resampling() {
         "labels must retain original frame PTS"
     );
 }
+
+#[test]
+fn v03_metadata_preserves_existing_artwork_and_rejects_incompatible_targets() {
+    for (format, codec) in [
+        (OutputFormat::Mp3, "mp3"),
+        (OutputFormat::M4a, "aac"),
+        (OutputFormat::Flac, "flac"),
+    ] {
+        let mut i = info();
+        i.videos = vec![VideoStreamInfo {
+            index: 2,
+            codec: "mjpeg".into(),
+            attached_picture: true,
+            ..Default::default()
+        }];
+        i.audios[0].codec = codec.into();
+        let mut r = request(MediaOperation::Metadata, format);
+        r.metadata.insert("artist".into(), "映流".into());
+        let c = command::build(&r, &i, Path::new("C:/out/tagged"))
+            .expect("covered audio must support tags");
+        assert!(!c.args.contains(&"-vn".into()));
+        assert!(c.args.windows(2).any(|a| a == ["-map", "0:2"]));
+        assert!(c.args.windows(2).any(|a| a == ["-c:v", "copy"]));
+        assert!(c
+            .args
+            .windows(2)
+            .any(|a| a == ["-disposition:v:0", "attached_pic"]));
+        r.output_format = OutputFormat::Aac;
+        assert!(command::build(&r, &i, Path::new("C:/out/tagged.aac")).is_err());
+    }
+    let mut i = info();
+    i.videos.push(VideoStreamInfo {
+        index: 2,
+        codec: "mjpeg".into(),
+        attached_picture: true,
+        ..Default::default()
+    });
+    let c = command::build(
+        &request(MediaOperation::Metadata, OutputFormat::Mp4),
+        &i,
+        Path::new("C:/out/tagged.mp4"),
+    )
+    .expect("covered video must support tags");
+    assert!(c.args.windows(2).any(|a| a == ["-map", "0"]));
+}
