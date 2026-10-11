@@ -143,6 +143,8 @@ fn open_media_output(media: AppMedia<'_>, id: String, folder: bool) -> AppResult
 }
 
 #[tauri::command]
+async fn get_media_capabilities(media:AppMedia<'_>)->AppResult<Vec<String>>{let media=media.inner().clone();tauri::async_runtime::spawn_blocking(move||media.capabilities("gpu-settings")).await.map_err(|_|"GPU 检测线程异常")?}
+#[tauri::command]
 fn get_media_settings(media:AppMedia<'_>)->media::preset::MediaProSettings{media.pro_settings()}
 #[tauri::command]
 fn save_media_settings(media:AppMedia<'_>,settings:media::preset::MediaProSettings)->AppResult<media::preset::MediaProSettings>{media.save_pro_settings(settings)}
@@ -172,6 +174,7 @@ pub fn run() {
     let application = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            get_media_capabilities,
             get_media_settings,save_media_settings,
             preview_media,media_thumbnails,cancel_media_preview,
             get_snapshot,

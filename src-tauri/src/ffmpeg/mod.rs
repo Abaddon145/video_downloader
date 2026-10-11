@@ -1,4 +1,5 @@
 pub mod command;
+pub mod capabilities;
 pub mod models;
 pub mod output;
 pub mod probe;

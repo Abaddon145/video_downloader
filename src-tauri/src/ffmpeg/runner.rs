@@ -73,6 +73,7 @@ pub struct MediaService {
     pub(crate) resources: PathBuf,
     pub(crate) state: Mutex<Runtime>,
     pub(crate) pro: Mutex<crate::media::preset::MediaProSettings>,
+    pub(crate) gpu_cache:Mutex<Option<Vec<String>>>,
 }
 impl MediaService {
     pub fn new(app: tauri::AppHandle, data: &Path, resources: &Path) -> AppResult<Arc<Self>> {
@@ -119,6 +120,7 @@ impl MediaService {
         let pro=if settings_file.exists(){match native::load_with_backup(&settings_file).and_then(|v|serde_json::from_value::<crate::media::preset::MediaProSettings>(v).map_err(|_|"媒体设置损坏".into())).and_then(|s|{crate::media::preset::validate(&s)?;Ok(s)}){Ok(s)=>s,Err(e)=>{startup_error=Some(e);Default::default()}}}else{Default::default()};
         Ok(Arc::new(Self {
             pro:Mutex::new(pro),
+            gpu_cache:Mutex::new(None),
             app,
             state_file,
             resources: resources.into(),
@@ -212,7 +214,7 @@ impl MediaService {
     }
     fn register(&self, id: &str, job: Arc<Job>, task: bool) -> AppResult<()> {
         let mut s = self.state.lock().unwrap();
-        if s.exiting || s.cancelled_previews.iter().any(|session|id.starts_with(&format!("{session}-")))
+        if s.exiting || s.tasks.iter().any(|t|id.starts_with(&format!("{}-",t.id))&&matches!(t.status,MediaTaskStatus::Cancelled|MediaTaskStatus::Interrupted)) || s.cancelled_previews.iter().any(|session|id.starts_with(&format!("{session}-")))
             || task
                 && !s.tasks.iter().any(|t| {
                     t.id == id
@@ -316,9 +318,7 @@ impl MediaService {
             t.finished_at = Some(now());
             t.speed = None;
             t.eta = None;
-            if let Some(job) = s.jobs.get(id) {
-                job.terminate().map_err(|_| "无法终止媒体进程，请重试")?;
-            }
+            for (job_id,job) in &s.jobs {if job_id==id||job_id.starts_with(&format!("{id}-")){job.terminate().map_err(|_| "无法终止媒体进程，请重试")?;}}
             self.commit(&mut s, next)?;
             None::<Arc<Job>>
         };
@@ -434,12 +434,17 @@ impl MediaService {
             return Err("原始文件不能位于此任务的临时目录中".into());
         }
         let result = (|| {
-            let temp = temp_dir.join(format!(
+            let mut temp = temp_dir.join(format!(
                 "output-{}.processing.{}",
                 new_id(),
                 task.request.output_format.extension()
             ));
-            let built = command::build(&task.request, &info, &temp)?;
+            let mut built = command::build(&task.request, &info, &temp)?;
+            let cpu_args=built.args.clone();
+            let mode=if task.request.hardware_acceleration==crate::media::preset::HardwareAcceleration::Auto{self.pro_settings().hardware_acceleration}else{task.request.hardware_acceleration};
+            let encoding=built.args.iter().any(|a|a=="libx264"||a=="libx265");
+            let selected=if encoding&&mode!=crate::media::preset::HardwareAcceleration::Cpu{crate::media::gpu::choose(mode,task.request.video_codec,&self.capabilities(&task.id)?)}else{None};
+            if let Some(encoder)=&selected {crate::media::gpu::apply(&mut built.args,encoder,task.request.crf.unwrap_or(crate::media::compressor::quality_value(task.request.video_codec,task.request.quality)));}
             {
                 let mut s = self.state.lock().unwrap();
                 let mut next = s.tasks.clone();
@@ -451,46 +456,19 @@ impl MediaService {
                     return Err("媒体任务已取消或中断".into());
                 }
                 t.status = MediaTaskStatus::Processing;
-                t.phase = "正在处理".into();
+                t.phase = selected.as_ref().map(|e|format!("硬件编码 {e}")).unwrap_or_else(||if encoding&&mode!=crate::media::preset::HardwareAcceleration::Cpu{"GPU 不可用，使用 CPU 编码".into()}else{"正在处理".into()});
                 t.total_duration = built.duration;
                 self.commit(&mut s, next)?;
             }
             self.emit();
-            let (process, stdout, stderr) =
-                native::spawn(&self.resources.join("tools/ffmpeg.exe"), &built.args)?;
-            self.register(&task.id, process.job.clone(), true)?;
-            let error_reader = std::thread::spawn(move || native::read_bounded(stderr, 64 * 1024));
-            let mut block = String::new();
-            for line in BufReader::new(stdout).lines() {
-                let line = line.map_err(|_| "媒体进度读取失败")?;
-                if block.len() < 4096 {
-                    block.push_str(&line);
-                    block.push('\n');
-                }
-                if line.starts_with("progress=") {
-                    let p = progress::parse(&block, built.duration);
-                    block.clear();
-                    {
-                        let mut s = self.state.lock().unwrap();
-                        if let Some(t) = s.tasks.iter_mut().find(|t| t.id == task.id) {
-                            if t.status == MediaTaskStatus::Processing {
-                                t.progress = p.percent;
-                                t.speed = p.speed;
-                                t.processed_time = p.processed_time;
-                                t.eta = p.eta;
-                            }
-                        }
-                    }
-                    self.emit();
-                }
+            let (mut code,mut logs)=self.run_ffmpeg(&task.id,&built.args,built.duration)?;
+            if code!=0&&selected.is_some(){
+                {let mut s=self.state.lock().unwrap();let Some(t)=s.tasks.iter_mut().find(|t|t.id==task.id)else{return Err("任务不存在".into());};if t.status!=MediaTaskStatus::Processing{return Ok(());}t.phase="硬件编码失败，正在回退 CPU".into();t.progress=None;}
+                self.emit();temp=temp_dir.join(format!("cpu-{}.{}",new_id(),task.request.output_format.extension()));
+                let mut args=cpu_args;*args.last_mut().ok_or("编码参数为空")?=temp.to_string_lossy().into_owned();
+                let retried=self.run_ffmpeg(&task.id,&args,built.duration)?;code=retried.0;
+                logs.push("硬件编码失败，已自动回退 CPU".into());logs.extend(retried.1);
             }
-            let code = process.wait()?;
-            let logs = error_reader.join().map_err(|_| "读取媒体日志失败")??;
-            let logs = redact(&String::from_utf8_lossy(&logs))
-                .lines()
-                .take(120)
-                .map(|s| s.chars().take(2048).collect::<String>())
-                .collect::<Vec<_>>();
             let mut s = self.state.lock().unwrap();
             let mut next = s.tasks.clone();
             let t = next
@@ -529,6 +507,44 @@ impl MediaService {
         })();
         output::cleanup(&directory, &task.id);
         result
+    }
+    fn run_ffmpeg(&self,id:&str,args:&[String],duration:Option<f64>)->AppResult<(u32,Vec<String>)>{
+        let (process, stdout, stderr) =
+            native::spawn(&self.resources.join("tools/ffmpeg.exe"), args)?;
+        self.register(id, process.job.clone(), true)?;
+        let error_reader = std::thread::spawn(move || native::read_bounded(stderr, 64 * 1024));
+        let mut block = String::new();
+        for line in BufReader::new(stdout).lines() {
+            let line = line.map_err(|_| "媒体进度读取失败")?;
+            if block.len() < 4096 {
+                block.push_str(&line);
+                block.push('\n');
+            }
+            if line.starts_with("progress=") {
+                let p = progress::parse(&block, duration);
+                block.clear();
+                {
+                let mut s = self.state.lock().unwrap();
+                if let Some(t) = s.tasks.iter_mut().find(|t| t.id == id) {
+                    if t.status == MediaTaskStatus::Processing {
+                        t.progress = p.percent;
+                        t.speed = p.speed;
+                        t.processed_time = p.processed_time;
+                        t.eta = p.eta;
+                    }
+                }
+                }
+                self.emit();
+            }
+        }
+        let code = process.wait()?;
+        let logs = error_reader.join().map_err(|_| "读取媒体日志失败")??;
+        let logs = redact(&String::from_utf8_lossy(&logs))
+            .lines()
+            .take(120)
+            .map(|s| s.chars().take(2048).collect::<String>())
+            .collect::<Vec<_>>();
+        Ok((code,logs))
     }
     pub(crate) fn preview_directory(&self,session:&str)->AppResult<PathBuf>{
         crate::media::trim::timeline::validate_session(session)?;
