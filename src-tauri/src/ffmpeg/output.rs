@@ -71,6 +71,7 @@ pub fn stem(r: &MediaRequest) -> String {
     let suffix = match r.operation {
         MediaOperation::Remux => "remuxed".into(),
         MediaOperation::Transcode => "converted".into(),
+        MediaOperation::Compress => "compressed".into(),
         MediaOperation::Trim => "trimmed".into(),
         MediaOperation::ExtractAudio => "audio".into(),
         MediaOperation::Screenshot => {

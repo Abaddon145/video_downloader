@@ -1,0 +1,2 @@
+import type {MediaForm} from '../../../types/media';
+export function CompressorPanel({form,change}:{form:MediaForm;change:(form:MediaForm)=>void}){return <div className="compressor-panel"><p className="help">压缩使用 CRF 控制质量，无法保证固定输出大小；数值越小质量越高。AV1 编码将在后续版本提供。</p><label>压缩编码<select value={form.videoCodec} onChange={e=>change({...form,videoCodec:e.target.value as MediaForm['videoCodec']})}><option value="h264">H.264 · 兼容优先</option><option value="hevc">H.265 · 更省空间</option><option disabled>AV1 · 后续版本</option></select></label></div>}

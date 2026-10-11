@@ -1,4 +1,4 @@
-export type MediaOperation='remux'|'transcode'|'trim'|'extractAudio'|'screenshot';
+export type MediaOperation='remux'|'transcode'|'compress'|'trim'|'extractAudio'|'screenshot';
 export type OutputFormat='mp4'|'mkv'|'mov'|'webm'|'mp3'|'m4a'|'aac'|'wav'|'flac'|'opus'|'png'|'jpg'|'webp';
 export type MediaStatus='queued'|'probing'|'processing'|'interrupted'|'completed'|'failed'|'cancelled';
 export interface VideoStreamInfo {index:number;codec:string;profile:string|null;width:number|null;height:number|null;fps:number|null;pixelFormat:string|null;bitDepth:number|null;bitrate:number|null;attachedPicture:boolean;metadata:Record<string,string>}

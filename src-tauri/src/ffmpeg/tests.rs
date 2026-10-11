@@ -192,3 +192,11 @@ fn media_paths_reject_all_network_and_device_namespaces_before_io() {
         assert!(command::valid_path(path).is_ok(), "{path}");
     }
 }
+
+#[test]
+fn v03_compressor_accepts_1440p_and_controlled_quality(){
+ let parsed=serde_json::from_value::<MediaRequest>(serde_json::json!({"inputPath":"C:/a.mkv","outputDir":"C:/out","operation":"compress","height":1440,"quality":"small"}));
+ assert!(parsed.is_ok(),"compress operation missing");
+ let c=command::build(&parsed.unwrap(),&info(),Path::new("C:/out/new.mp4")).unwrap();
+ assert!(c.args.contains(&"libx264".into()));assert!(c.args.windows(2).any(|a|a==["-crf","28"]));assert!(c.args.iter().any(|a|a.contains("1440")));
+}

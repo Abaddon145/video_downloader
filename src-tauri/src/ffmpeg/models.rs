@@ -56,6 +56,7 @@ pub enum MediaOperation {
     Remux,
     #[default]
     Transcode,
+    Compress,
     Trim,
     ExtractAudio,
     Screenshot,
