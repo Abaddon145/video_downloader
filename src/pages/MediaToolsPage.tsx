@@ -6,6 +6,7 @@ import {open} from '@tauri-apps/plugin-dialog';
 import {FileVideo,FolderOpen,Upload,RefreshCw,Scissors,Music2,Camera,ArrowRightLeft,Loader2,ChevronLeft,ChevronRight} from 'lucide-react';
 import {canUseOperation,createMediaRequest,mediaParentDirectory,displayMediaPath,formatsFor,formatMediaTime,isCurrentProbe,parseMediaTime} from '../media';
 import type {MediaForm,MediaInfo,MediaOperation,MediaSnapshot,OutputFormat} from '../types/media';
+import {PresetManager} from '../components/media/preset/PresetManager';
 import {CompressorPanel} from '../components/media/compress/CompressorPanel';
 import {VideoPreview} from '../components/media/editor/VideoPreview';
 import {MediaInfoPanel} from '../components/media/MediaInfoPanel';
@@ -45,7 +46,7 @@ export default function MediaToolsPage({notify}:{notify:(message:string)=>void})
  return <div className="media-workspace">{snapshot.error&&<div className="error-panel" role="alert">{snapshot.error}</div>}
  <section className={`media-drop ${dragging?'dragging':''} ${info?'compact':''}`} aria-label="媒体文件选择区域"><span className="media-drop-icon"><Upload size={info?20:30} aria-hidden="true"/></span><div><h2>{info?'选择其他媒体文件':'把媒体文件拖到这里'}</h2><p>{info?'一次处理一个文件，原文件始终保留。':'MP4、MKV、MOV、WebM、音频文件及其他常见媒体格式'}</p></div><button className="primary" disabled={probing||!snapshot.ready} onClick={()=>void choose()}>{probing?<Loader2 size={17} className="spin" aria-hidden="true"/>:<FolderOpen size={17} aria-hidden="true"/>}{probing?'正在分析':'选择媒体文件'}</button>{!snapshot.ready&&!snapshot.error&&<p className="help">正在校验媒体组件…</p>}</section>
  {error&&<div className="error-panel" role="alert"><strong>操作未完成</strong><p>{error}</p></div>}{probing&&<p role="status">正在读取媒体信息，请稍候…</p>}
- {info&&<><MediaInfoPanel info={info}/><div className="media-tools" role="tablist" aria-label="媒体操作">{tools.map(({id,title,icon:Icon})=><button key={id} role="tab" aria-selected={form.operation===id} aria-controls="media-tool-panel" disabled={!canUseOperation(info,id)} title={!canUseOperation(info,id)?id==='extractAudio'?'文件没有音轨':'文件没有可处理的视频流':undefined} className={form.operation===id?'active':''} onClick={()=>chooseTool(id)}><Icon size={19} aria-hidden="true"/>{title}</button>)}</div>
+ {info&&<><MediaInfoPanel info={info}/><PresetManager form={form} change={setForm}/><div className="media-tools" role="tablist" aria-label="媒体操作">{tools.map(({id,title,icon:Icon})=><button key={id} role="tab" aria-selected={form.operation===id} aria-controls="media-tool-panel" disabled={!canUseOperation(info,id)} title={!canUseOperation(info,id)?id==='extractAudio'?'文件没有音轨':'文件没有可处理的视频流':undefined} className={form.operation===id?'active':''} onClick={()=>chooseTool(id)}><Icon size={19} aria-hidden="true"/>{title}</button>)}</div>
  <section className="media-operation-card" id="media-tool-panel" role="tabpanel" aria-label={tools.find(t=>t.id===form.operation)?.title}><div className="media-operation-heading"><h2>{tools.find(t=>t.id===form.operation)?.title}</h2><span className="help">{form.operation==='remux'?'保留全部兼容音视频和字幕轨道':'默认使用第一条对应轨道'}</span></div>
  {form.operation==='compress'&&<CompressorPanel form={form} change={setForm}/>}
  {form.operation==='remux'&&<p className="help">不重新编码视频或音频，画质不变。目标容器不支持的轨道会阻止操作，不会静默丢弃。</p>}

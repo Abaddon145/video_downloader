@@ -157,6 +157,9 @@ pub struct MediaRequest {
     pub end: Option<f64>,
     pub trim_mode: TrimMode,
     pub copy_audio: bool,
+    pub hardware_acceleration: crate::media::preset::HardwareAcceleration,
+    pub generate_thumbnails: bool,
+    pub source_download_id: Option<String>,
 }
 impl Default for MediaRequest {
     fn default() -> Self {
@@ -176,6 +179,9 @@ impl Default for MediaRequest {
             end: None,
             trim_mode: TrimMode::Accurate,
             copy_audio: false,
+            hardware_acceleration: Default::default(),
+            generate_thumbnails: false,
+            source_download_id: None,
         }
     }
 }

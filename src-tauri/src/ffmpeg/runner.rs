@@ -72,6 +72,7 @@ pub struct MediaService {
     pub(crate) state_file: PathBuf,
     pub(crate) resources: PathBuf,
     pub(crate) state: Mutex<Runtime>,
+    pub(crate) pro: Mutex<crate::media::preset::MediaProSettings>,
 }
 impl MediaService {
     pub fn new(app: tauri::AppHandle, data: &Path, resources: &Path) -> AppResult<Arc<Self>> {
@@ -114,7 +115,10 @@ impl MediaService {
                 startup_error = Some("无法保存媒体任务记录，请检查数据目录权限".into());
             }
         }
+        let settings_file=data.join("media-settings.json");
+        let pro=if settings_file.exists(){match native::load_with_backup(&settings_file).and_then(|v|serde_json::from_value::<crate::media::preset::MediaProSettings>(v).map_err(|_|"媒体设置损坏".into())).and_then(|s|{crate::media::preset::validate(&s)?;Ok(s)}){Ok(s)=>s,Err(e)=>{startup_error=Some(e);Default::default()}}}else{Default::default()};
         Ok(Arc::new(Self {
+            pro:Mutex::new(pro),
             app,
             state_file,
             resources: resources.into(),

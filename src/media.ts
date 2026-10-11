@@ -1,4 +1,4 @@
-import type {MediaForm,MediaInfo,MediaOperation,MediaRequest,OutputFormat} from './types/media.ts';
+import type {MediaPreset,MediaForm,MediaInfo,MediaOperation,MediaRequest,OutputFormat} from './types/media.ts';
 export function parseMediaTime(text:string):number {
  if(!/^\d{1,6}:\d{2}(?::\d{2})?(?:\.\d{1,3})?$/.test(text))throw new Error('请输入 MM:SS.mmm 或 HH:MM:SS.mmm 时间');
  const parts=text.split(':').map(Number);const seconds=parts.pop()!;const minutes=parts.pop()!;const hours=parts.pop()??0;
@@ -22,7 +22,7 @@ export function createMediaRequest(info:MediaInfo,form:MediaForm,outputDir:strin
  if(form.operation==='screenshot'&&info.duration!=null&&start>=info.duration)throw new Error('截图时间超出视频时长');
  if(!outputDir)throw new Error('请选择保存目录');
  const videoCodec=form.videoCodec??'h264';
- return {inputPath:info.path,outputDir,operation:form.operation,outputFormat:form.outputFormat,videoCodec,audioCodec:form.audioCodec??'aac',quality:form.quality??'balanced',crf:form.advanced&&videoCodec!=='copy'?form.crf??23:null,height:form.advanced&&videoCodec!=='copy'?form.height||null:null,fps:form.advanced&&videoCodec!=='copy'?form.fps||null:null,audioBitrate:form.audioBitrate??320,start,end,trimMode:form.trimMode??'accurate',copyAudio:form.copyAudio??false};
+ return {inputPath:info.path,outputDir,operation:form.operation,outputFormat:form.outputFormat,videoCodec,audioCodec:form.audioCodec??'aac',quality:form.quality??'balanced',crf:form.advanced&&videoCodec!=='copy'?form.crf??23:null,height:form.advanced&&videoCodec!=='copy'?form.height||null:null,fps:form.advanced&&videoCodec!=='copy'?form.fps||null:null,audioBitrate:form.audioBitrate??320,start,end,trimMode:form.trimMode??'accurate',copyAudio:form.copyAudio??false,hardwareAcceleration:form.hardwareAcceleration??'auto',generateThumbnails:form.generateThumbnails??false};
 }
 export function isCurrentProbe(resultId:number,currentId:number){return resultId===currentId;}
 export function mergeMediaTasks<T extends {id:string}>(tasks:T[],task:T):T[]{return tasks.some(t=>t.id===task.id)?tasks.map(t=>t.id===task.id?task:t):[...tasks,task];}
@@ -38,3 +38,5 @@ export function editorRange(start:number,end:number,duration:number):[number,num
 }
 export function thumbnailInterval(duration:number){return duration<60?2:duration<=1800?5:30;}
 export function frameStep(fps:number|null|undefined){return fps&&Number.isFinite(fps)&&fps>0?1/fps:null;}
+
+export function applyMediaPreset(form:MediaForm,preset:MediaPreset):MediaForm{return {...form,operation:preset.operation,outputFormat:preset.outputFormat,videoCodec:preset.videoCodec,audioCodec:preset.audioCodec,height:preset.resolution??0,quality:preset.quality,hardwareAcceleration:preset.hardwareAcceleration,generateThumbnails:preset.generateThumbnails,crf:preset.videoCodec==='hevc'?(preset.quality==='high'?20:preset.quality==='small'?30:26):(preset.quality==='high'?18:preset.quality==='small'?28:23),advanced:true};}
