@@ -2,7 +2,7 @@ import {Check,Loader2,X,FolderOpen,Play,RefreshCw} from 'lucide-react';
 import {displayMediaPath,formatMediaTime} from '../../media';
 import type {MediaTask} from '../../types/media';
 const labels={queued:'等待中',probing:'分析中',processing:'处理中',interrupted:'已中断',completed:'已完成',failed:'处理失败',cancelled:'已取消'};
-const operations={remux:'无损封装',transcode:'格式转换',compress:'视频压缩',trim:'视频裁剪',extractAudio:'提取音频',screenshot:'视频截图'};
+const operations={remux:'无损封装',transcode:'格式转换',compress:'视频压缩',trim:'视频裁剪',extractAudio:'提取音频',screenshot:'视频截图',subtitleConvert:'字幕转换',subtitleMux:'外挂字幕',subtitleBurn:'字幕烧录'};
 export function MediaTaskRow({task,act}:{task:MediaTask;act:(command:string,args:Record<string,unknown>)=>Promise<void>}){
  const busy=['queued','probing','processing'].includes(task.status);
  const retry=['failed','cancelled','interrupted'].includes(task.status);

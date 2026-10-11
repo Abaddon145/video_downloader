@@ -60,6 +60,9 @@ pub enum MediaOperation {
     Trim,
     ExtractAudio,
     Screenshot,
+    SubtitleConvert,
+    SubtitleMux,
+    SubtitleBurn,
 }
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -78,6 +81,9 @@ pub enum OutputFormat {
     Png,
     Jpg,
     Webp,
+    Srt,
+    Ass,
+    Vtt,
 }
 impl OutputFormat {
     pub fn extension(self) -> &'static str {
@@ -95,10 +101,12 @@ impl OutputFormat {
             Self::Png => "png",
             Self::Jpg => "jpg",
             Self::Webp => "webp",
+            Self::Srt=>"srt",Self::Ass=>"ass",Self::Vtt=>"vtt",
         }
     }
     pub fn muxer(self) -> &'static str {
         match self {
+            Self::Vtt=>"webvtt",
             Self::Mkv => "matroska",
             Self::M4a => "ipod",
             Self::Aac => "adts",
@@ -161,6 +169,10 @@ pub struct MediaRequest {
     pub generate_thumbnails: bool,
     pub source_download_id: Option<String>,
     pub subtitle_path: Option<String>,
+    pub subtitle_font:String,
+    pub subtitle_size:u32,
+    pub subtitle_position:u8,
+    pub subtitle_color:String,
 }
 impl Default for MediaRequest {
     fn default() -> Self {
@@ -184,6 +196,10 @@ impl Default for MediaRequest {
             generate_thumbnails: false,
             source_download_id: None,
             subtitle_path: None,
+            subtitle_font:"Microsoft YaHei".into(),
+            subtitle_size:24,
+            subtitle_position:2,
+            subtitle_color:"#FFFFFF".into(),
         }
     }
 }

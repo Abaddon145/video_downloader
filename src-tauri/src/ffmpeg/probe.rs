@@ -3,7 +3,7 @@ use crate::domain::AppResult;
 use serde_json::Value;
 use std::{collections::BTreeMap, path::Path};
 pub const DEMUXERS: &str =
-    "mov,matroska,webm,avi,mp3,aac,flac,wav,ogg,asf,mpeg,mpegts,flv,amr,aiff,ape,ac3,eac3,dts";
+    "srt,ass,webvtt,image2,mov,matroska,webm,avi,mp3,aac,flac,wav,ogg,asf,mpeg,mpegts,flv,amr,aiff,ape,ac3,eac3,dts";
 pub fn arguments(path: &Path) -> Vec<String> {
     [
         "-v",

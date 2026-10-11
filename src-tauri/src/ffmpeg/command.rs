@@ -137,6 +137,7 @@ pub fn build(r: &MediaRequest, info: &MediaInfo, output: &Path) -> AppResult<Bui
     if output == Path::new(&r.input_path) {
         return Err("输出不能是原始文件".into());
     }
+    if matches!(r.operation,MediaOperation::SubtitleConvert|MediaOperation::SubtitleMux|MediaOperation::SubtitleBurn){return crate::media::subtitle::build(r,info,output);}
     if !r.start.is_finite()
         || r.start < 0.
         || r.end.is_some_and(|t| !t.is_finite() || t < 0.)
@@ -311,6 +312,7 @@ pub fn build(r: &MediaRequest, info: &MediaInfo, output: &Path) -> AppResult<Bui
                 r.audio_bitrate,
             );
         }
+        MediaOperation::SubtitleConvert|MediaOperation::SubtitleMux|MediaOperation::SubtitleBurn=>unreachable!(),
         MediaOperation::Screenshot => {
             pair(&mut args, "-map", format!("0:{}", v.unwrap().index));
             pair(&mut args, "-frames:v", "1");

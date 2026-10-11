@@ -3,3 +3,4 @@ pub mod compressor;
 pub mod preset;
 pub mod automation;
 pub mod gpu;
+pub mod subtitle;

@@ -6,12 +6,13 @@ import {open} from '@tauri-apps/plugin-dialog';
 import {FileVideo,FolderOpen,Upload,RefreshCw,Scissors,Music2,Camera,ArrowRightLeft,Loader2,ChevronLeft,ChevronRight} from 'lucide-react';
 import {canUseOperation,createMediaRequest,mediaParentDirectory,displayMediaPath,formatsFor,formatMediaTime,isCurrentProbe,parseMediaTime} from '../media';
 import type {MediaForm,MediaInfo,MediaOperation,MediaSnapshot,OutputFormat} from '../types/media';
+import {SubtitlePanel} from '../components/media/subtitle/SubtitlePanel';
 import {PresetManager} from '../components/media/preset/PresetManager';
 import {CompressorPanel} from '../components/media/compress/CompressorPanel';
 import {VideoPreview} from '../components/media/editor/VideoPreview';
 import {MediaInfoPanel} from '../components/media/MediaInfoPanel';
 import {MediaTaskRow} from '../components/media/MediaTaskRow';
-const tools=[{id:'transcode',title:'格式转换',icon:ArrowRightLeft},{id:'compress',title:'视频压缩',icon:FileVideo},{id:'remux',title:'极速无损转换',icon:RefreshCw},{id:'trim',title:'视频裁剪',icon:Scissors},{id:'extractAudio',title:'提取音频',icon:Music2},{id:'screenshot',title:'视频截图',icon:Camera}] as const;
+const tools=[{id:'transcode',title:'格式转换',icon:ArrowRightLeft},{id:'compress',title:'视频压缩',icon:FileVideo},{id:'remux',title:'极速无损转换',icon:RefreshCw},{id:'trim',title:'视频裁剪',icon:Scissors},{id:'extractAudio',title:'提取音频',icon:Music2},{id:'screenshot',title:'视频截图',icon:Camera},{id:'subtitleConvert',title:'字幕转换',icon:Music2},{id:'subtitleMux',title:'外挂字幕',icon:FileVideo},{id:'subtitleBurn',title:'烧录字幕',icon:FileVideo}] as const;
 const initialForm:MediaForm={operation:'transcode',outputFormat:'mp4',quality:'balanced',videoCodec:'h264',audioCodec:'aac',crf:23,height:0,fps:0,audioBitrate:320,start:'00:00:00.000',end:'00:00:00.000',trimMode:'accurate',copyAudio:false,advanced:false};
 const errorText=(e:unknown)=>typeof e==='string'?e:e instanceof Error?e.message:'操作未完成，请重试';
 export default function MediaToolsPage({notify}:{notify:(message:string)=>void}){
@@ -21,7 +22,7 @@ export default function MediaToolsPage({notify}:{notify:(message:string)=>void})
  const change=<K extends keyof MediaForm>(key:K,value:MediaForm[K])=>setForm(f=>({...f,[key]:value}));
  const selectFile=useCallback(async(path:string)=>{
  const id=++probeId.current;setProbing(true);setError('');setInfo(null);
- try {const result=await invoke<MediaInfo>('probe_media',{path});if(!alive.current||!isCurrentProbe(id,probeId.current))return;setInfo(result);setDirectory(mediaParentDirectory(result.path));setForm({...initialForm,end:formatMediaTime(result.duration??0),operation:canUseOperation(result,'transcode')?'transcode':'extractAudio',outputFormat:canUseOperation(result,'transcode')?'mp4':'mp3'});}
+ try {const result=await invoke<MediaInfo>('probe_media',{path});if(!alive.current||!isCurrentProbe(id,probeId.current))return;setInfo(result);setDirectory(mediaParentDirectory(result.path));setForm({...initialForm,end:formatMediaTime(result.duration??0),operation:canUseOperation(result,'transcode')?'transcode':canUseOperation(result,'extractAudio')?'extractAudio':'subtitleConvert',outputFormat:canUseOperation(result,'transcode')?'mp4':canUseOperation(result,'extractAudio')?'mp3':'srt'});}
  catch(e){if(alive.current&&isCurrentProbe(id,probeId.current))setError(errorText(e));}
  finally {if(alive.current&&isCurrentProbe(id,probeId.current))setProbing(false);}
  },[]);
@@ -35,7 +36,7 @@ export default function MediaToolsPage({notify}:{notify:(message:string)=>void})
  };void setup().catch(e=>setError(errorText(e)));
  return()=>{mounted=false;alive.current=false;++probeId.current;stops.forEach(stop=>stop());};
  },[selectFile]);
- const choose=async()=>{try{if(!isTauri())throw new Error('请在 Windows 桌面软件中选择文件');const path=await open({multiple:false,directory:false,filters:[{name:'媒体文件',extensions:['mp4','mkv','mov','webm','avi','m4v','mp3','aac','flac','wav','m4a','opus','ogg','wma','wmv','ts']},{name:'全部文件',extensions:['*']}]});if(typeof path==='string')await selectFile(path);}catch(e){setError(errorText(e));}};
+ const choose=async()=>{try{if(!isTauri())throw new Error('请在 Windows 桌面软件中选择文件');const path=await open({multiple:false,directory:false,filters:[{name:'媒体文件',extensions:['mp4','mkv','mov','webm','avi','m4v','mp3','aac','flac','wav','m4a','opus','ogg','wma','wmv','ts','srt','ass','vtt']},{name:'全部文件',extensions:['*']}]});if(typeof path==='string')await selectFile(path);}catch(e){setError(errorText(e));}};
  const chooseDirectory=async()=>{try{const path=await open({directory:true,multiple:false});if(typeof path==='string')setDirectory(path);}catch(e){setError(errorText(e));}};
  const chooseTool=(operation:MediaOperation)=>setForm(f=>({...f,operation,outputFormat:formatsFor(operation)[0],videoCodec:'h264',audioCodec:'aac',advanced:false}));
  const act=async(command:string,args:Record<string,unknown>)=>{try{await invoke(command,args);}catch(e){notify(errorText(e));}};
@@ -48,6 +49,7 @@ export default function MediaToolsPage({notify}:{notify:(message:string)=>void})
  {error&&<div className="error-panel" role="alert"><strong>操作未完成</strong><p>{error}</p></div>}{probing&&<p role="status">正在读取媒体信息，请稍候…</p>}
  {info&&<><MediaInfoPanel info={info}/><PresetManager form={form} change={setForm}/><div className="media-tools" role="tablist" aria-label="媒体操作">{tools.map(({id,title,icon:Icon})=><button key={id} role="tab" aria-selected={form.operation===id} aria-controls="media-tool-panel" disabled={!canUseOperation(info,id)} title={!canUseOperation(info,id)?id==='extractAudio'?'文件没有音轨':'文件没有可处理的视频流':undefined} className={form.operation===id?'active':''} onClick={()=>chooseTool(id)}><Icon size={19} aria-hidden="true"/>{title}</button>)}</div>
  <section className="media-operation-card" id="media-tool-panel" role="tabpanel" aria-label={tools.find(t=>t.id===form.operation)?.title}><div className="media-operation-heading"><h2>{tools.find(t=>t.id===form.operation)?.title}</h2><span className="help">{form.operation==='remux'?'保留全部兼容音视频和字幕轨道':'默认使用第一条对应轨道'}</span></div>
+ {form.operation.startsWith('subtitle')&&<SubtitlePanel form={form} change={setForm} error={setError}/>}
  {form.operation==='compress'&&<CompressorPanel form={form} change={setForm}/>}
  {form.operation==='remux'&&<p className="help">不重新编码视频或音频，画质不变。目标容器不支持的轨道会阻止操作，不会静默丢弃。</p>}
  {form.operation==='trim'&&<VideoPreview key={info.path} info={info} startText={form.start??'00:00:00.000'} endText={form.end??'00:00:00.000'} change={(start,end)=>setForm(f=>({...f,start,end}))}/>}

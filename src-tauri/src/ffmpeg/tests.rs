@@ -200,3 +200,13 @@ fn v03_compressor_accepts_1440p_and_controlled_quality(){
  let c=command::build(&parsed.unwrap(),&info(),Path::new("C:/out/new.mp4")).unwrap();
  assert!(c.args.contains(&"libx264".into()));assert!(c.args.windows(2).any(|a|a==["-crf","28"]));assert!(c.args.iter().any(|a|a.contains("1440")));
 }
+
+#[test]fn v03_subtitles_accept_srt_ass_vtt_and_reject_unsafe_styles(){
+ for (op,format) in [("subtitleConvert","srt"),("subtitleConvert","ass"),("subtitleConvert","vtt"),("subtitleBurn","mp4"),("subtitleMux","mkv")] {
+ let parsed=serde_json::from_value::<MediaRequest>(serde_json::json!({"inputPath":"C:/a.mkv","outputDir":"C:/out","operation":op,"outputFormat":format,"subtitlePath":"C:/bad 'quote,semicolon;.ass","subtitleFont":"Microsoft YaHei","subtitleSize":24,"subtitlePosition":2,"subtitleColor":"#FFFFFF"}));
+ assert!(parsed.is_ok(),"subtitle operation missing: {op}");let mut i=info();i.subtitles.push(SubtitleStreamInfo{index:2,codec:"ass".into(),..Default::default()});
+ let c=command::build(&parsed.unwrap(),&i,Path::new("C:/out/result")).unwrap();assert!(c.args.contains(&"-n".into()));
+ if op=="subtitleBurn"{assert!(c.args.iter().any(|a|a.starts_with("subtitles=subtitle.ass")));assert!(!c.args.iter().any(|a|a.contains("bad 'quote")));}
+ }
+ let bad=serde_json::from_value::<MediaRequest>(serde_json::json!({"inputPath":"C:/a.mkv","outputDir":"C:/out","operation":"subtitleBurn","subtitlePath":"C:/a.srt","subtitleFont":"Arial',movie=http","subtitleColor":"#FFFFFF"})).unwrap();assert!(command::build(&bad,&info(),Path::new("C:/out/result.mp4")).is_err());
+}

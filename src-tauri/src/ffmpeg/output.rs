@@ -74,6 +74,7 @@ pub fn stem(r: &MediaRequest) -> String {
         MediaOperation::Compress => "compressed".into(),
         MediaOperation::Trim => "trimmed".into(),
         MediaOperation::ExtractAudio => "audio".into(),
+        MediaOperation::SubtitleConvert=>"subtitles".into(),MediaOperation::SubtitleMux=>"subtitled".into(),MediaOperation::SubtitleBurn=>"burned".into(),
         MediaOperation::Screenshot => {
             let ms = (r.start * 1000.).round() as u64;
             format!(

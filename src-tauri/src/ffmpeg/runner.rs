@@ -434,6 +434,7 @@ impl MediaService {
             return Err("原始文件不能位于此任务的临时目录中".into());
         }
         let result = (|| {
+            if let Some(path)=&task.request.subtitle_path{crate::media::subtitle::stage(path,&temp_dir)?;}
             let mut temp = temp_dir.join(format!(
                 "output-{}.processing.{}",
                 new_id(),
@@ -461,12 +462,12 @@ impl MediaService {
                 self.commit(&mut s, next)?;
             }
             self.emit();
-            let (mut code,mut logs)=self.run_ffmpeg(&task.id,&built.args,built.duration)?;
+            let (mut code,mut logs)=self.run_ffmpeg(&task.id,&built.args,built.duration,&temp_dir)?;
             if code!=0&&selected.is_some(){
                 {let mut s=self.state.lock().unwrap();let Some(t)=s.tasks.iter_mut().find(|t|t.id==task.id)else{return Err("任务不存在".into());};if t.status!=MediaTaskStatus::Processing{return Ok(());}t.phase="硬件编码失败，正在回退 CPU".into();t.progress=None;}
                 self.emit();temp=temp_dir.join(format!("cpu-{}.{}",new_id(),task.request.output_format.extension()));
                 let mut args=cpu_args;*args.last_mut().ok_or("编码参数为空")?=temp.to_string_lossy().into_owned();
-                let retried=self.run_ffmpeg(&task.id,&args,built.duration)?;code=retried.0;
+                let retried=self.run_ffmpeg(&task.id,&args,built.duration,&temp_dir)?;code=retried.0;
                 logs.push("硬件编码失败，已自动回退 CPU".into());logs.extend(retried.1);
             }
             let mut s = self.state.lock().unwrap();
@@ -508,9 +509,9 @@ impl MediaService {
         output::cleanup(&directory, &task.id);
         result
     }
-    fn run_ffmpeg(&self,id:&str,args:&[String],duration:Option<f64>)->AppResult<(u32,Vec<String>)>{
+    fn run_ffmpeg(&self,id:&str,args:&[String],duration:Option<f64>,directory:&Path)->AppResult<(u32,Vec<String>)>{
         let (process, stdout, stderr) =
-            native::spawn(&self.resources.join("tools/ffmpeg.exe"), args)?;
+            native::spawn_in(&self.resources.join("tools/ffmpeg.exe"), args,Some(directory))?;
         self.register(id, process.job.clone(), true)?;
         let error_reader = std::thread::spawn(move || native::read_bounded(stderr, 64 * 1024));
         let mut block = String::new();
