@@ -120,8 +120,8 @@ pub fn parse(text: &str, path: &Path) -> AppResult<MediaInfo> {
             _ => info.other_streams += 1,
         }
     }
-    if info.videos.is_empty() && info.audios.is_empty() {
-        return Err("文件中没有可处理的音视频轨道".into());
+    if info.videos.is_empty() && info.audios.is_empty() && info.subtitles.is_empty() {
+        return Err("文件中没有可处理的音视频或字幕轨道".into());
     }
     Ok(info)
 }

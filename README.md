@@ -59,3 +59,5 @@ npm run tauri -- build --bundles nsis
 组件版本、来源与摘要：`src-tauri/resources/components.json`、生成的 `tools/binaries.json`；上游许可：`resources/licenses/`、`THIRD-PARTY-NOTICES.txt`。桌面界面源码采用 MIT；官方 yt-dlp 源码采用 Unlicense，捆绑的 PyInstaller 独立 exe 和 FFmpeg GPL 构建保留各自上游许可。
 
 本地验收可以设置 `VIDEO_DOWNLOADER_DATA_DIR` 将测试数据与日常数据分开；默认无需设置。\n
+## v0.3.0 · Media Pro
+新增可视化裁剪、压缩、媒体预设、下载完成动作、GPU回退、字幕、批处理、抽帧、联系表、封面与标签管理。详情见 [使用说明](docs/media-pro.md) 和 [交付验收](docs/media-pro-delivery.md)。

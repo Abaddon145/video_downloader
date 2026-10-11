@@ -272,3 +272,27 @@ fn v03_nonempty_frame_directories_publish_without_overwriting() {
     assert!(out.unwrap().is_dir());
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn v03_probe_accepts_subtitle_only_files_without_inventing_av_streams() {
+    let parsed = probe::parse(
+        r#"{"streams":[{"index":0,"codec_type":"subtitle","codec_name":"subrip"}],"format":{"format_name":"srt"}}"#,
+        Path::new("C:/中文.srt"),
+    );
+    assert!(parsed.is_ok());
+    let i = parsed.unwrap();
+    assert!(i.videos.is_empty());
+    assert!(i.audios.is_empty());
+    assert_eq!(i.subtitles.len(), 1);
+}
+
+#[test]
+fn v03_contact_labels_use_source_timestamps_before_resampling() {
+    let r=serde_json::from_value::<MediaRequest>(serde_json::json!({"inputPath":"C:/a.mkv","outputDir":"C:/out","operation":"contactSheet","outputFormat":"jpg"})).unwrap();
+    let c = command::build(&r, &info(), Path::new("C:/out/a.jpg")).unwrap();
+    let filter = &c.args[c.args.iter().position(|a| a == "-vf").unwrap() + 1];
+    assert!(
+        filter.find("drawtext").unwrap() < filter.find("fps=").unwrap(),
+        "labels must retain original frame PTS"
+    );
+}

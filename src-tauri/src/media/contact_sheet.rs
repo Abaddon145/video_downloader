@@ -39,7 +39,7 @@ pub fn build_sheet(r: &MediaRequest, info: &MediaInfo, out: &Path) -> AppResult<
     base.operation = MediaOperation::Screenshot;
     base.start = 0.;
     let mut c = build(&base, info, out)?;
-    let filter=format!("fps={fps:.9}:start_time=0,scale=320:-2,drawtext=font='Microsoft YaHei':text='%{{pts\\:hms}}':x=8:y=h-th-8:fontsize=18:fontcolor=white:box=1:boxcolor=black@0.7,tile={}x{}:nb_frames={count}:padding=8:margin=8:color=0x191d23,pad=iw:ih+64:0:64:color=0x191d23,drawtext=font='Microsoft YaHei':textfile=sheet-title.txt:expansion=none:x=12:y=20:fontsize=20:fontcolor=white",r.sheet_columns,r.sheet_rows);
+    let filter=format!("scale=320:-2,drawtext=font='Microsoft YaHei':text='%{{pts\\:hms}}':x=8:y=h-th-8:fontsize=18:fontcolor=white:box=1:boxcolor=black@0.7,fps={fps:.9}:start_time=0,tile={}x{}:nb_frames={count}:padding=8:margin=8:color=0x191d23,pad=iw:ih+64:0:64:color=0x191d23,drawtext=font='Microsoft YaHei':textfile=sheet-title.txt:expansion=none:x=12:y=20:fontsize=20:fontcolor=white",r.sheet_columns,r.sheet_rows);
     c.args
         .splice(c.args.len() - 1..c.args.len() - 1, ["-vf".into(), filter]);
     c.duration = Some(duration);
