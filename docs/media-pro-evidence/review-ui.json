@@ -1,0 +1,12 @@
+{
+  "passed": 4,
+  "failed": 0,
+  "checks": [
+    "late single discovery cannot replace newer selected source",
+    "late batch discovery cannot replace latest batch files or busy state",
+    "subtitle burn offers external file only while mux retains embedded text option",
+    "all timeline axes and selection boundaries share the same coordinates"
+  ],
+  "failures": [],
+  "errors": []
+}
