@@ -38,7 +38,7 @@ impl LearningService {
         page: u32,
         favorite: bool,
     ) -> AppResult<LibraryHome> {
-        self.with(|r| {
+        let home = self.with(|r| {
             let (series, total) = r.list_series(query, category, page, favorite)?;
             Ok(LibraryHome {
                 categories: r.categories()?,
@@ -48,7 +48,13 @@ impl LearningService {
                 continue_learning: vec![],
                 settings: r.settings()?,
             })
-        })
+        })?;
+        for series in &home.series {
+            if let Some(p) = &series.cover_path {
+                self.authorize_cover(p);
+            }
+        }
+        Ok(home)
     }
     pub fn series(&self, id: &str, page: u32) -> AppResult<SeriesDetail> {
         let mut d = self.with(|r| r.series(id, page))?;
@@ -64,6 +70,10 @@ impl LearningService {
         Ok(d)
     }
     pub fn change(&self, change: LearningChange) -> AppResult<String> {
+        let mut change = change;
+        if let LearningChange::SaveSeries { series } = &mut change {
+            self.copy_cover(series)?;
+        }
         let id = self.with(|r| match change {
             LearningChange::SaveCategory { category } => r.save_category(&category),
             LearningChange::DeleteCategory {
@@ -79,11 +89,9 @@ impl LearningService {
                 delete_files,
                 confirmed,
             } => {
-                if delete_files && !confirmed {
-                    return Err("删除文件需要再次确认".into());
-                }
-                if delete_files && r.get_series(&id)?.total_items > 0 {
-                    return Err("请先仅移除记录，文件删除需要安全检查".into());
+                if delete_files {
+                    let ids = r.item_ids(&id)?;
+                    r.remove_library_files(&ids, confirmed)?;
                 }
                 r.delete_series_records(&id)?;
                 Ok(id)
@@ -93,10 +101,12 @@ impl LearningService {
                 Ok(id)
             }
             LearningChange::DeleteItem {
-                id, delete_files, ..
+                id,
+                delete_files,
+                confirmed,
             } => {
                 if delete_files {
-                    return Err("文件删除需要安全检查".into());
+                    r.remove_library_files(&[id.clone()], confirmed)?;
                 }
                 r.delete_item_records(&id)?;
                 Ok(id)

@@ -170,3 +170,103 @@ fn learning_catalog_reorders_atomically_and_series_removal_only_cascades_records
         0
     );
 }
+
+#[test]
+fn learning_import_scans_in_natural_lesson_order_and_ignores_nonvideo() {
+    let dir = std::env::temp_dir().join(format!(
+        "learning-files-{}",
+        crate::ffmpeg::runner::new_id()
+    ));
+    std::fs::create_dir(&dir).unwrap();
+    for name in ["Lesson 10.mp4", "第2课.mp4", "EP01.mp4", "说明.txt"] {
+        std::fs::write(dir.join(name), b"source").unwrap();
+    }
+    let paths = super::importer::scan_paths(&[
+        dir.to_string_lossy().into(),
+        dir.join("EP01.mp4").to_string_lossy().into(),
+    ])
+    .unwrap();
+    let names = paths
+        .iter()
+        .map(|p| {
+            Path::new(p)
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .into_owned()
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(names, vec!["EP01.mp4", "第2课.mp4", "Lesson 10.mp4"]);
+    assert!(
+        super::importer::scan_paths(&[dir.join("absent.mp4").to_string_lossy().into()]).is_err()
+    );
+    std::fs::remove_dir_all(dir).unwrap();
+}
+#[test]
+fn learning_import_deduplicates_paths_and_keeps_original_files() {
+    let mut r = repository();
+    let dir = std::env::temp_dir().join(format!(
+        "learning-source-{}",
+        crate::ffmpeg::runner::new_id()
+    ));
+    std::fs::create_dir(&dir).unwrap();
+    let path = dir.join("1.mp4");
+    std::fs::write(&path, b"unchanged").unwrap();
+    let path = std::fs::canonicalize(path)
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
+    let file = PreparedLocal {
+        key: path.to_lowercase(),
+        path: path.clone(),
+        title: "第一课".into(),
+        duration_ms: Some(900000),
+    };
+    let input = LocalImportInput {
+        paths: vec![path.clone()],
+        title: "系列".into(),
+        category_id: None,
+        series_id: None,
+    };
+    let a = r.import_local(&input, &[file.clone()]).unwrap();
+    assert_eq!(a.added, 1);
+    let b = r.import_local(&input, &[file]).unwrap();
+    assert_eq!(b.added, 0);
+    assert_eq!(b.duplicates, 1);
+    assert_eq!(a.series_id, b.series_id);
+    assert_eq!(
+        r.series(&a.series_id, 1).unwrap().items[0].duration_ms,
+        Some(900000)
+    );
+    r.delete_series_records(&a.series_id).unwrap();
+    assert_eq!(std::fs::read(&path).unwrap(), b"unchanged");
+    std::fs::remove_dir_all(dir).unwrap();
+}
+#[test]
+fn learning_file_deletion_requires_confirmation_and_rejects_shared_references() {
+    let mut r = repository();
+    let a = r.save_series(&course("A", None)).unwrap();
+    let b = r.save_series(&course("B", None)).unwrap();
+    let dir = std::env::temp_dir().join(format!(
+        "learning-delete-{}",
+        crate::ffmpeg::runner::new_id()
+    ));
+    std::fs::create_dir(&dir).unwrap();
+    let path = dir.join("keep.mp4");
+    std::fs::write(&path, b"keep").unwrap();
+    let path = std::fs::canonicalize(path)
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
+    let key = path.to_lowercase();
+    for (id, s) in [("i1", a), ("i2", b)] {
+        r.conn.execute("INSERT INTO series_items(id,series_id,title,file_path,file_key,available,created_at,updated_at) VALUES(?1,?2,'A',?3,?4,1,0,0)",rusqlite::params![id,s,path,key]).unwrap();
+    }
+    assert!(r.remove_library_files(&["i1".into()], false).is_err());
+    assert!(r.remove_library_files(&["i1".into()], true).is_err());
+    assert!(Path::new(&path).exists());
+    r.delete_item_records("i2").unwrap();
+    assert_eq!(r.remove_library_files(&["i1".into()], true).unwrap(), 1);
+    assert!(!Path::new(&path).exists());
+    std::fs::remove_dir_all(dir).unwrap();
+}

@@ -1,5 +1,6 @@
 pub mod commands;
 pub mod db;
+pub mod importer;
 pub mod models;
 pub mod repository;
 pub mod service;

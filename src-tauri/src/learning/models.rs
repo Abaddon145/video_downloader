@@ -190,3 +190,41 @@ pub enum LearningChange {
         settings: LearningSettings,
     },
 }
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LocalImportInput {
+    pub paths: Vec<String>,
+    pub title: String,
+    pub category_id: Option<String>,
+    pub series_id: Option<String>,
+}
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportFileError {
+    pub path: String,
+    pub error: String,
+}
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportResult {
+    pub series_id: String,
+    pub added: usize,
+    pub duplicates: usize,
+    pub errors: Vec<ImportFileError>,
+}
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalScan {
+    pub paths: Vec<String>,
+    pub suggested_title: String,
+    pub duplicates: usize,
+    pub existing_series_id: Option<String>,
+}
+#[derive(Debug, Clone)]
+pub struct PreparedLocal {
+    pub path: String,
+    pub key: String,
+    pub title: String,
+    pub duration_ms: Option<i64>,
+}

@@ -227,6 +227,11 @@ pub fn run() {
     let application = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            learning_scan,
+            learning_import,
+            learning_relink,
+            learning_delete_preview,
+            learning_open_file,
             learning_home,
             learning_series,
             learning_item,
