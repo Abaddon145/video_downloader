@@ -1,0 +1,13 @@
+CREATE TABLE schema_version(version INTEGER NOT NULL);
+INSERT INTO schema_version VALUES(1);
+CREATE TABLE categories(id TEXT PRIMARY KEY,name TEXT NOT NULL,description TEXT,icon TEXT,color TEXT,sort_order INTEGER NOT NULL DEFAULT 0,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL);
+CREATE TABLE series(id TEXT PRIMARY KEY,category_id TEXT,title TEXT NOT NULL,description TEXT,cover_path TEXT,source_type TEXT,source_url TEXT,source_playlist_id TEXT,author TEXT,total_items INTEGER NOT NULL DEFAULT 0,completed_items INTEGER NOT NULL DEFAULT 0,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE SET NULL);
+CREATE TABLE series_items(id TEXT PRIMARY KEY,series_id TEXT NOT NULL,title TEXT NOT NULL,file_path TEXT,source_url TEXT,source_video_id TEXT,source_playlist_index INTEGER,duration_ms INTEGER,sort_order INTEGER NOT NULL DEFAULT 0,thumbnail_path TEXT,download_task_id TEXT,available INTEGER NOT NULL DEFAULT 0,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,FOREIGN KEY(series_id) REFERENCES series(id) ON DELETE CASCADE);
+CREATE TABLE playback_progress(item_id TEXT PRIMARY KEY,position_ms INTEGER NOT NULL DEFAULT 0,duration_ms INTEGER NOT NULL DEFAULT 0,completed INTEGER NOT NULL DEFAULT 0,playback_rate REAL NOT NULL DEFAULT 1.0,last_played_at INTEGER,updated_at INTEGER NOT NULL,FOREIGN KEY(item_id) REFERENCES series_items(id) ON DELETE CASCADE);
+CREATE TABLE video_notes(id TEXT PRIMARY KEY,item_id TEXT NOT NULL,time_ms INTEGER NOT NULL,content TEXT NOT NULL,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,FOREIGN KEY(item_id) REFERENCES series_items(id) ON DELETE CASCADE);
+CREATE INDEX idx_series_category ON series(category_id);
+CREATE INDEX idx_items_series ON series_items(series_id);
+CREATE INDEX idx_items_source_video ON series_items(source_video_id);
+CREATE INDEX idx_items_playlist_index ON series_items(series_id,source_playlist_index);
+CREATE INDEX idx_progress_last_played ON playback_progress(last_played_at);
+CREATE INDEX idx_notes_item ON video_notes(item_id);

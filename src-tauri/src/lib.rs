@@ -1,3 +1,4 @@
+pub mod learning;
 pub mod batch;
 pub mod domain;
 pub mod engine;
