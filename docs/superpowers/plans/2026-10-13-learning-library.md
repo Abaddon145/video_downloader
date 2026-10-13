@@ -16,16 +16,16 @@ v0.4.0；旧DownloadTask/DiskState不迁移；学习库DB失败隔离；不复�
 ### Task 1: Learning Database
 Files: learning/db.rs,models.rs,repository.rs,tests.rs; Cargo.
 Interfaces: consumes existing Service/MediaService + prior Repository; produces Repository::open(path), versioned schema, typed LearningCategory/Series/Item/Progress/Note/Settings.
-- [ ] RED: schema migrates empty and v1 retaining data; future/corrupt DB rejected without removal. Run focused check; Expected: required behavior fails before implementation.
-- [ ] GREEN: implement minimum safe behavior in files above; Expected: focused check passes.
-- [ ] Verify: cargo test --manifest-path src-tauri/Cargo.toml --offline; Expected: zero failures; append ledger and commit task.
+- [x] RED: schema migrates empty and v1 retaining data; future/corrupt DB rejected without removal. Run focused check; Expected: required behavior fails before implementation.
+- [x] GREEN: implement minimum safe behavior in files above; Expected: focused check passes.
+- [x] Verify: cargo test --manifest-path src-tauri/Cargo.toml --offline; Expected: zero failures; append ledger and commit task.
 
 ### Task 2: Category + Series
 Files: learning/repository.rs,commands.rs,service.rs; src/features/learning/LibraryPage,Editors; App.
 Interfaces: consumes existing Service/MediaService + prior Repository; produces learning_home(query,category,page,favorites), learning_series(id,page), learning_change(Change).
-- [ ] RED: CRUD, contained-category confirmation, record-only deletion, transactional sort, search and 50 paging. Run focused check; Expected: required behavior fails before implementation.
-- [ ] GREEN: implement minimum safe behavior in files above; Expected: focused check passes.
-- [ ] Verify: npm test + cargo test + npm run build; Expected: zero failures; append ledger and commit task.
+- [x] RED: CRUD, contained-category confirmation, record-only deletion, transactional sort, search and 50 paging. Run focused check; Expected: required behavior fails before implementation.
+- [x] GREEN: implement minimum safe behavior in files above; Expected: focused check passes.
+- [x] Verify: npm test + cargo test + npm run build; Expected: zero failures; append ledger and commit task.
 
 ### Task 3: Local Import
 Files: learning/importer.rs; features/learning/ImportDialog; repository.

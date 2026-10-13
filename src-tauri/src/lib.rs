@@ -1,8 +1,8 @@
-pub mod learning;
 pub mod batch;
 pub mod domain;
 pub mod engine;
 pub mod ffmpeg;
+pub mod learning;
 pub mod media;
 pub mod models;
 pub mod naming;
@@ -10,6 +10,7 @@ pub mod native;
 pub mod service;
 
 use domain::AppResult;
+use learning::commands::*;
 use models::*;
 use service::Service;
 use std::sync::Arc;
@@ -226,6 +227,10 @@ pub fn run() {
     let application = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            learning_home,
+            learning_series,
+            learning_item,
+            learning_change,
             discover_media,
             create_batch_media,
             get_media_capabilities,
@@ -266,6 +271,11 @@ pub fn run() {
             )
             .map_err(std::io::Error::other)?;
             app.manage(media.clone());
+            app.manage(learning::service::LearningService::new(
+                app.handle().clone(),
+                &service.data,
+                media.clone(),
+            ));
             media.start();
             let show = MenuItem::with_id(app, "show", "打开视频下载器", true, None::<&str>)?;
             let exit = MenuItem::with_id(app, "exit", "保存任务并退出", true, None::<&str>)?;

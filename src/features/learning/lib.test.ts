@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {seriesPercentage,resumePosition} from './lib.ts';
+test('learning completion percentage handles empty and partial series',()=>{assert.equal(seriesPercentage(15,32),47);assert.equal(seriesPercentage(0,0),0);assert.equal(seriesPercentage(99,10),100);});
+test('learning resume restores meaningful unfinished positions only',()=>{assert.equal(resumePosition(45000,false,true),45000);assert.equal(resumePosition(1000,false,true),0);assert.equal(resumePosition(45000,true,true),0);assert.equal(resumePosition(45000,false,false),0);});
+
+import {seriesInput} from './lib.ts';test('series edits send writable fields without computed counters',()=>{const s={id:'s',categoryId:'c',title:'T',description:'D',coverPath:null,sourceUrl:null,favorite:true,totalItems:32,completedItems:15,sourceType:'YouTube',createdAt:1};assert.deepEqual(seriesInput(s),{id:'s',categoryId:'c',title:'T',description:'D',coverPath:null,sourceUrl:null,favorite:true});});
