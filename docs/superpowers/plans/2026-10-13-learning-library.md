@@ -37,9 +37,9 @@ Interfaces: consumes existing Service/MediaService + prior Repository; produces 
 ### Task 4: Learning Player
 Files: features/learning/LearningPlayer,PlayerControls; learning/service.
 Interfaces: consumes existing Service/MediaService + prior Repository; produces learning_prepare_player(itemId,session,proxy) -> media; previous/next/rate/volume/fullscreen/subtitles.
-- [ ] RED: registered file asset only; stale source/subtitles ignored; missing file relink; keyboard ignored in input. Run focused check; Expected: required behavior fails before implementation.
-- [ ] GREEN: implement minimum safe behavior in files above; Expected: focused check passes.
-- [ ] Verify: npm test + cargo test + npm run build; Expected: zero failures; append ledger and commit task.
+- [x] RED: registered file asset only; stale source/subtitles ignored; missing file relink; keyboard ignored in input. Run focused check; Expected: required behavior fails before implementation.
+- [x] GREEN: implement minimum safe behavior in files above; Expected: focused check passes.
+- [x] Verify: npm test + cargo test + npm run build; Expected: zero failures; append ledger and commit task.
 
 ### Task 5: Continue Learning
 Files: learning/repository/service; player/ContinueLearning; settings.

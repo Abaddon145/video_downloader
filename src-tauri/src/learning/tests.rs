@@ -270,3 +270,16 @@ fn learning_file_deletion_requires_confirmation_and_rejects_shared_references() 
     assert!(!Path::new(&path).exists());
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn learning_player_only_reads_registered_video_and_marks_missing_file(){
+ let r=repository();let s=r.save_series(&course("播放",None)).unwrap();
+ r.conn.execute("INSERT INTO series_items(id,series_id,title,file_path,available,created_at,updated_at) VALUES('i',?1,'课时','C:/absent-lesson.mp4',1,0,0)",[s]).unwrap();
+ assert!(r.playback_file("unregistered").is_err());assert!(r.playback_file("i").is_err());assert!(!r.item("i").unwrap().available);
+}
+#[test]
+fn learning_player_neighbors_cross_page_boundary_in_user_order(){
+ let r=repository();let s=r.save_series(&course("播放",None)).unwrap();
+ for n in 0..52{r.conn.execute("INSERT INTO series_items(id,series_id,title,sort_order,created_at,updated_at) VALUES(?1,?2,'课时',?3,0,0)",rusqlite::params![format!("i{n}"),s,n]).unwrap();}
+ assert_eq!(r.neighbors("i49").unwrap(),(Some("i48".into()),Some("i50".into())));assert_eq!(r.neighbors("i0").unwrap().0,None);
+}

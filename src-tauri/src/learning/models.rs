@@ -228,3 +228,10 @@ pub struct PreparedLocal {
     pub title: String,
     pub duration_ms: Option<i64>,
 }
+
+#[derive(Debug,Serialize)]
+#[serde(rename_all="camelCase")]
+pub struct PlayerSubtitle{pub label:String,pub path:String}
+#[derive(Debug,Serialize)]
+#[serde(rename_all="camelCase")]
+pub struct PlayerMedia{pub item:LearningItem,pub series:LearningSeries,pub settings:LearningSettings,pub previous:Option<String>,pub next:Option<String>,pub path:String,pub subtitles:Vec<PlayerSubtitle>,pub subtitle_warning:Option<String>}

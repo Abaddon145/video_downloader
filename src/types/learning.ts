@@ -12,3 +12,6 @@ export interface SeriesInput{id?:string;categoryId:string|null;title:string;desc
 export interface ProgressInput{itemId:string;positionMs:number;durationMs:number;playbackRate:number;ended:boolean;sequence:number}
 export interface ImportResult{seriesId:string;added:number;duplicates:number;errors:{path:string;error:string}[]}
 export interface LocalScan{paths:string[];suggestedTitle:string;duplicates:number;existingSeriesId:string|null}
+
+export interface PlayerSubtitle{label:string;path:string}
+export interface PlayerMedia{item:LearningItem;series:LearningSeries;settings:LearningSettings;previous:string|null;next:string|null;path:string;subtitles:PlayerSubtitle[];subtitleWarning:string|null}

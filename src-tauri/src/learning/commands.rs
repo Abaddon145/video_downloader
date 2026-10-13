@@ -66,3 +66,8 @@ pub fn learning_delete_preview(
 pub fn learning_open_file(learning: Learning<'_>, id: String) -> AppResult<()> {
     learning.open_file(&id)
 }
+
+#[tauri::command]
+pub async fn learning_prepare_player(learning:Learning<'_>,item_id:String,session:String,proxy:bool)->AppResult<PlayerMedia>{let l=learning.inner().clone();tauri::async_runtime::spawn_blocking(move||l.prepare_player(&item_id,&session,proxy)).await.map_err(|_|"播放器准备线程异常")?}
+#[tauri::command]
+pub async fn learning_load_subtitle(learning:Learning<'_>,path:String,session:String)->AppResult<PlayerSubtitle>{let l=learning.inner().clone();tauri::async_runtime::spawn_blocking(move||l.subtitle(std::path::Path::new(&path),&session)).await.map_err(|_|"字幕准备线程异常")?}
