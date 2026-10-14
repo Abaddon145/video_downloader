@@ -106,6 +106,8 @@ async fn update_engine(service: AppService<'_>) -> AppResult<EngineInfo> {
 }
 #[tauri::command]
 fn exit_app(app: tauri::AppHandle, service: AppService<'_>, media: AppMedia<'_>) -> AppResult<()> {
+    app.state::<Arc<learning::service::LearningService>>()
+        .flush_progress()?;
     media.shutdown()?;
     service.shutdown();
     app.exit(0);
@@ -227,6 +229,9 @@ pub fn run() {
     let application = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            learning_live_progress,
+            learning_save_progress,
+            learning_flush_progress,
             learning_prepare_player,
             learning_load_subtitle,
             learning_scan,
@@ -294,7 +299,11 @@ pub fn run() {
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => show_main(app),
-                    "exit" => match app.state::<Arc<ffmpeg::runner::MediaService>>().shutdown() {
+                    "exit" => match app
+                        .state::<Arc<learning::service::LearningService>>()
+                        .flush_progress()
+                        .and_then(|_| app.state::<Arc<ffmpeg::runner::MediaService>>().shutdown())
+                    {
                         Ok(()) => {
                             app.state::<Arc<Service>>().shutdown();
                             app.exit(0);
@@ -322,6 +331,12 @@ pub fn run() {
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
+                use tauri::Emitter;
+                let _ = window.emit("learning-player-hidden", ());
+                let _ = window
+                    .app_handle()
+                    .state::<Arc<learning::service::LearningService>>()
+                    .flush_progress();
                 let _ = window.hide();
             }
         })
@@ -332,6 +347,9 @@ pub fn run() {
                 event,
                 tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit
             ) {
+                let _ = app
+                    .state::<Arc<learning::service::LearningService>>()
+                    .flush_progress();
                 let _ = app.state::<Arc<ffmpeg::runner::MediaService>>().shutdown();
                 app.state::<Arc<Service>>().shutdown();
             }

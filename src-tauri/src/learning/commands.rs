@@ -68,6 +68,43 @@ pub fn learning_open_file(learning: Learning<'_>, id: String) -> AppResult<()> {
 }
 
 #[tauri::command]
-pub async fn learning_prepare_player(learning:Learning<'_>,item_id:String,session:String,proxy:bool)->AppResult<PlayerMedia>{let l=learning.inner().clone();tauri::async_runtime::spawn_blocking(move||l.prepare_player(&item_id,&session,proxy)).await.map_err(|_|"播放器准备线程异常")?}
+pub async fn learning_prepare_player(
+    learning: Learning<'_>,
+    item_id: String,
+    session: String,
+    proxy: bool,
+) -> AppResult<PlayerMedia> {
+    let l = learning.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || l.prepare_player(&item_id, &session, proxy))
+        .await
+        .map_err(|_| "播放器准备线程异常")?
+}
 #[tauri::command]
-pub async fn learning_load_subtitle(learning:Learning<'_>,path:String,session:String)->AppResult<PlayerSubtitle>{let l=learning.inner().clone();tauri::async_runtime::spawn_blocking(move||l.subtitle(std::path::Path::new(&path),&session)).await.map_err(|_|"字幕准备线程异常")?}
+pub async fn learning_load_subtitle(
+    learning: Learning<'_>,
+    path: String,
+    session: String,
+) -> AppResult<PlayerSubtitle> {
+    let l = learning.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || l.subtitle(std::path::Path::new(&path), &session))
+        .await
+        .map_err(|_| "字幕准备线程异常")?
+}
+
+#[tauri::command]
+pub fn learning_live_progress(learning: Learning<'_>, input: ProgressInput) -> AppResult<()> {
+    learning.live_progress(input, false)
+}
+#[tauri::command]
+pub fn learning_save_progress(
+    learning: Learning<'_>,
+    input: ProgressInput,
+) -> AppResult<PlaybackProgress> {
+    let id = input.item_id.clone();
+    learning.live_progress(input, true)?;
+    learning.with(|r| Ok(r.item(&id)?.progress))
+}
+#[tauri::command]
+pub fn learning_flush_progress(learning: Learning<'_>) -> AppResult<()> {
+    learning.flush_progress()
+}

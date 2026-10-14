@@ -7,6 +7,7 @@ use std::{
 use tauri::{Emitter, Manager};
 pub struct LearningService {
     pub(crate) db: Mutex<AppResult<Repository>>,
+    pub(crate) live: Mutex<std::collections::HashMap<String, ProgressInput>>,
     pub(crate) app: tauri::AppHandle,
     pub(crate) media: Arc<MediaService>,
     pub(crate) data: PathBuf,
@@ -15,6 +16,7 @@ impl LearningService {
     pub fn new(app: tauri::AppHandle, data: &Path, media: Arc<MediaService>) -> Arc<Self> {
         Arc::new(Self {
             db: Mutex::new(Repository::open(&data.join("learning.db"))),
+            live: Mutex::new(Default::default()),
             app,
             media,
             data: data.into(),
@@ -45,11 +47,15 @@ impl LearningService {
                 series,
                 total,
                 page: page.max(1).min(((total + 49) / 50).max(1) as u32),
-                continue_learning: vec![],
+                continue_learning: r.continue_learning()?,
                 settings: r.settings()?,
             })
         })?;
-        for series in &home.series {
+        for series in home
+            .series
+            .iter()
+            .chain(home.continue_learning.iter().map(|c| &c.series))
+        {
             if let Some(p) = &series.cover_path {
                 self.authorize_cover(p);
             }
@@ -123,6 +129,14 @@ impl LearningService {
             LearningChange::SaveSettings { settings } => {
                 r.save_settings(&settings)?;
                 Ok("settings".into())
+            }
+            LearningChange::MarkCompleted { id, completed } => {
+                r.mark_completed(&id, completed)?;
+                self.live
+                    .lock()
+                    .map_err(|_| "进度保存暂不可用")?
+                    .remove(&id);
+                Ok(id)
             }
             _ => Err("此学习操作尚不可用".into()),
         })?;

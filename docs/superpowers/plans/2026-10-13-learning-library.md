@@ -30,9 +30,9 @@ Interfaces: consumes existing Service/MediaService + prior Repository; produces 
 ### Task 3: Local Import
 Files: learning/importer.rs; features/learning/ImportDialog; repository.
 Interfaces: consumes existing Service/MediaService + prior Repository; produces learning_scan(paths), learning_import(input) -> ImportResult.
-- [ ] RED: numeric prefix/natural 1/2/10; canonical duplicate paths; absent/link skipped; scan does not mutate DB; confirm probes duration. Run focused check; Expected: required behavior fails before implementation.
-- [ ] GREEN: implement minimum safe behavior in files above; Expected: focused check passes.
-- [ ] Verify: cargo test + npm test + UI import; Expected: zero failures; append ledger and commit task.
+- [x] RED: numeric prefix/natural 1/2/10; canonical duplicate paths; absent/link skipped; scan does not mutate DB; confirm probes duration. Run focused check; Expected: required behavior fails before implementation.
+- [x] GREEN: implement minimum safe behavior in files above; Expected: focused check passes.
+- [x] Verify: cargo test + npm test + UI import; Expected: zero failures; append ledger and commit task.
 
 ### Task 4: Learning Player
 Files: features/learning/LearningPlayer,PlayerControls; learning/service.
@@ -44,9 +44,9 @@ Interfaces: consumes existing Service/MediaService + prior Repository; produces 
 ### Task 5: Continue Learning
 Files: learning/repository/service; player/ContinueLearning; settings.
 Interfaces: consumes existing Service/MediaService + prior Repository; produces learning_live_progress(input), learning_save_progress(input), markCompleted; settings.
-- [ ] RED: 5 second durable saves; hidden/unmount/exit flush; half resume/rate; 90 percent; manual reset; next5seconds cancel. Run focused check; Expected: required behavior fails before implementation.
-- [ ] GREEN: implement minimum safe behavior in files above; Expected: focused check passes.
-- [ ] Verify: cargo test + npm test + real shutdown/resume; Expected: zero failures; append ledger and commit task.
+- [x] RED: 5 second durable saves; hidden/unmount/exit flush; half resume/rate; 90 percent; manual reset; next5seconds cancel. Run focused check; Expected: required behavior fails before implementation.
+- [x] GREEN: implement minimum safe behavior in files above; Expected: focused check passes.
+- [x] Verify: cargo test + npm test + real shutdown/resume; Expected: zero failures; append ledger and commit task.
 
 ### Task 6: Notes
 Files: learning/repository; features/learning/VideoNotes.

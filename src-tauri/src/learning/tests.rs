@@ -7,7 +7,7 @@ fn learning_database_creates_versioned_tables_and_enforces_relations() {
     let version: i64 = c
         .query_row("SELECT version FROM schema_version", [], |r| r.get(0))
         .expect("schema must exist");
-    assert_eq!(version, 2);
+    assert_eq!(version, 3);
     for table in [
         "categories",
         "series",
@@ -272,14 +272,102 @@ fn learning_file_deletion_requires_confirmation_and_rejects_shared_references() 
 }
 
 #[test]
-fn learning_player_only_reads_registered_video_and_marks_missing_file(){
- let r=repository();let s=r.save_series(&course("播放",None)).unwrap();
- r.conn.execute("INSERT INTO series_items(id,series_id,title,file_path,available,created_at,updated_at) VALUES('i',?1,'课时','C:/absent-lesson.mp4',1,0,0)",[s]).unwrap();
- assert!(r.playback_file("unregistered").is_err());assert!(r.playback_file("i").is_err());assert!(!r.item("i").unwrap().available);
+fn learning_player_only_reads_registered_video_and_marks_missing_file() {
+    let r = repository();
+    let s = r.save_series(&course("播放", None)).unwrap();
+    r.conn.execute("INSERT INTO series_items(id,series_id,title,file_path,available,created_at,updated_at) VALUES('i',?1,'课时','C:/absent-lesson.mp4',1,0,0)",[s]).unwrap();
+    assert!(r.playback_file("unregistered").is_err());
+    assert!(r.playback_file("i").is_err());
+    assert!(!r.item("i").unwrap().available);
 }
 #[test]
-fn learning_player_neighbors_cross_page_boundary_in_user_order(){
- let r=repository();let s=r.save_series(&course("播放",None)).unwrap();
- for n in 0..52{r.conn.execute("INSERT INTO series_items(id,series_id,title,sort_order,created_at,updated_at) VALUES(?1,?2,'课时',?3,0,0)",rusqlite::params![format!("i{n}"),s,n]).unwrap();}
- assert_eq!(r.neighbors("i49").unwrap(),(Some("i48".into()),Some("i50".into())));assert_eq!(r.neighbors("i0").unwrap().0,None);
+fn learning_player_neighbors_cross_page_boundary_in_user_order() {
+    let r = repository();
+    let s = r.save_series(&course("播放", None)).unwrap();
+    for n in 0..52 {
+        r.conn.execute("INSERT INTO series_items(id,series_id,title,sort_order,created_at,updated_at) VALUES(?1,?2,'课时',?3,0,0)",rusqlite::params![format!("i{n}"),s,n]).unwrap();
+    }
+    assert_eq!(
+        r.neighbors("i49").unwrap(),
+        (Some("i48".into()), Some("i50".into()))
+    );
+    assert_eq!(r.neighbors("i0").unwrap().0, None);
+}
+
+#[test]
+fn learning_progress_persists_half_resume_rejects_stale_and_short_snapshots() {
+    let r = repository();
+    let s = r.save_series(&course("断点", None)).unwrap();
+    r.conn.execute("INSERT INTO series_items(id,series_id,title,duration_ms,created_at,updated_at) VALUES('i',?1,'课时',900000,0,0)",[&s]).unwrap();
+    let mut p = ProgressInput {
+        item_id: "i".into(),
+        position_ms: 450000,
+        duration_ms: 900000,
+        playback_rate: 1.5,
+        ended: false,
+        sequence: 10,
+    };
+    r.save_progress(&p).unwrap();
+    assert_eq!(r.item("i").unwrap().progress.position_ms, 450000);
+    assert_eq!(r.continue_learning().unwrap()[0].item.id, "i");
+    p.position_ms = 1000;
+    p.sequence = 11;
+    r.save_progress(&p).unwrap();
+    assert_eq!(r.item("i").unwrap().progress.position_ms, 450000);
+    p.sequence = 9;
+    p.position_ms = 90000;
+    r.save_progress(&p).unwrap();
+    assert_eq!(r.item("i").unwrap().progress.position_ms, 450000);
+    p.sequence = 12;
+    p.position_ms = 810000;
+    r.save_progress(&p).unwrap();
+    assert!(r.item("i").unwrap().progress.completed);
+    assert!(r.continue_learning().unwrap().is_empty());
+    assert_eq!(
+        r.conn
+            .query_row(
+                "SELECT total_items,completed_items FROM series WHERE id=?1",
+                [&s],
+                |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?))
+            )
+            .unwrap(),
+        (1, 1)
+    );
+    r.mark_completed("i", false).unwrap();
+    assert!(!r.item("i").unwrap().progress.completed);
+    assert_eq!(r.item("i").unwrap().progress.position_ms, 0);
+    assert_eq!(r.get_series(&s).unwrap().completed_items, 0);
+    p.position_ms = -1;
+    assert!(r.save_progress(&p).is_err());
+}
+#[test]
+fn learning_progress_reopens_database_and_keeps_rate_and_completion() {
+    let dir = std::env::temp_dir().join(format!(
+        "learning-resume-{}",
+        crate::ffmpeg::runner::new_id()
+    ));
+    std::fs::create_dir(&dir).unwrap();
+    let file = dir.join("learning.db");
+    {
+        let r = Repository::open(&file).unwrap();
+        let s = r.save_series(&course("重启", None)).unwrap();
+        r.conn.execute("INSERT INTO series_items(id,series_id,title,duration_ms,created_at,updated_at) VALUES('i',?1,'第三课',900000,0,0)",[s]).unwrap();
+        r.save_progress(&ProgressInput {
+            item_id: "i".into(),
+            position_ms: 450000,
+            duration_ms: 900000,
+            playback_rate: 1.5,
+            ended: false,
+            sequence: 10,
+        })
+        .unwrap();
+    }
+    {
+        let r = Repository::open(&file).unwrap();
+        let p = r.item("i").unwrap().progress;
+        assert_eq!(p.position_ms, 450000);
+        assert_eq!(p.playback_rate, 1.5);
+        assert!(!p.completed);
+    }
+    std::fs::remove_dir_all(dir).unwrap();
 }

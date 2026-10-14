@@ -17,7 +17,7 @@ pub fn open(path: &Path) -> AppResult<Connection> {
     } else {
         0
     };
-    if version > 2 || version < 0 {
+    if version > 3 || version < 0 {
         return Err("学习库版本高于本软件或版本记录无效，请保留数据库并使用对应版本".into());
     }
     let tx = c.transaction().map_err(error)?;
@@ -38,7 +38,11 @@ pub fn open(path: &Path) -> AppResult<Connection> {
  CREATE TABLE learning_settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);
  UPDATE schema_version SET version=2;").map_err(error)?;
     }
-    tx.execute_batch("PRAGMA user_version=2;").map_err(error)?;
+    if version < 3 {
+        tx.execute_batch(include_str!("schema-v3.sql"))
+            .map_err(error)?;
+    }
+    tx.execute_batch("PRAGMA user_version=3;").map_err(error)?;
     tx.commit().map_err(error)?;
     Ok(c)
 }

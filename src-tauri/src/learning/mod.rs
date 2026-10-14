@@ -8,3 +8,5 @@ pub mod service;
 mod tests;
 
 pub mod player;
+
+pub mod progress;
