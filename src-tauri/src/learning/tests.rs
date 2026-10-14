@@ -605,3 +605,65 @@ fn learning_corrupt_database_is_reported_without_overwriting_original() {
     assert_eq!(std::fs::read(&path).unwrap(), bytes);
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn learning_reuses_earlier_download_without_matching_old_history() {
+    let mut r = repository();
+    let series = r
+        .stage_playlists(&[playlist_input()])
+        .unwrap()
+        .remove(0)
+        .series_id;
+    let item = r.series(&series, 1).unwrap().items.remove(0);
+    r.conn
+        .execute(
+            "UPDATE series_items SET created_at=2000 WHERE id=?1",
+            [&item.id],
+        )
+        .unwrap();
+    let mut task = crate::models::DownloadTask {
+        id: "earlier-task".into(),
+        request: r.download_request(&item.id).unwrap(),
+        status: crate::models::TaskStatus::Paused,
+        created_at: 1000,
+        ..Default::default()
+    };
+    r.link_task(&task, &item.id).unwrap();
+    assert_eq!(
+        r.item(&item.id).unwrap().download_task_id.as_deref(),
+        Some("earlier-task")
+    );
+    r.conn
+        .execute(
+            "UPDATE series_items SET download_task_id=NULL WHERE id=?1",
+            [&item.id],
+        )
+        .unwrap();
+    assert_eq!(r.matching_items(&task).unwrap(), vec![item.id.clone()]);
+    task.status = crate::models::TaskStatus::Completed;
+    task.finished_at = Some(1500);
+    assert!(
+        r.matching_items(&task).unwrap().is_empty(),
+        "old history must not bind a newly staged lesson"
+    );
+    task.finished_at = Some(3000);
+    assert_eq!(
+        r.matching_items(&task).unwrap(),
+        vec![item.id.clone()],
+        "completion before explicit binding still recovers"
+    );
+    r.apply_download(&task, None).unwrap();
+    assert_eq!(
+        r.item(&item.id).unwrap().download_task_id.as_deref(),
+        Some("earlier-task")
+    );
+    let mut later = playlist_input();
+    later.preview.url = "https://example.com/another-playlist".into();
+    let later_series = r.stage_playlists(&[later]).unwrap().remove(0).series_id;
+    let later_item = r.series(&later_series, 1).unwrap().items.remove(0);
+    r.link_task(&task, &item.id).unwrap();
+    assert!(
+        r.item(&later_item.id).unwrap().download_task_id.is_none(),
+        "an explicit link must not attach unrelated later imports to old history"
+    );
+}

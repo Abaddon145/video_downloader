@@ -25,6 +25,18 @@ pub fn request_key(r: &DownloadRequest) -> String {
     ])
     .to_string()
 }
+// Active tasks may predate an import; terminal history only matches lessons
+// staged before that task finished. Explicit links are independent of this cutoff.
+fn task_match_time(task: &DownloadTask) -> i64 {
+    if task.status.active() || matches!(task.status, TaskStatus::Queued | TaskStatus::Paused) {
+        i64::MAX
+    } else {
+        task.finished_at
+            .unwrap_or(task.created_at)
+            .max(task.created_at)
+            .min(i64::MAX as u64) as i64
+    }
+}
 fn request(
     template: &DownloadRequest,
     e: &crate::models::PlaylistEntry,
@@ -161,10 +173,15 @@ impl Repository {
         self.item(&id)
     }
     pub fn matching_items(&self, task: &DownloadTask) -> AppResult<Vec<String>> {
-        self.rows("SELECT id FROM series_items WHERE download_task_id=?1 OR (download_task_id IS NULL AND available=0 AND request_key=?2 AND created_at<=?3)",params![task.id,request_key(&task.request),task.created_at as i64],|r|r.get(0))
+        self.rows("SELECT id FROM series_items WHERE download_task_id=?1 OR (download_task_id IS NULL AND available=0 AND request_key=?2 AND created_at<=?3)",params![task.id,request_key(&task.request),task_match_time(task)],|r|r.get(0))
     }
-    pub fn link_task(&self, task: &DownloadTask) -> AppResult<()> {
-        self.conn.execute("UPDATE series_items SET download_task_id=?1 WHERE available=0 AND request_key=?2 AND created_at<=?3",params![task.id,request_key(&task.request),task.created_at as i64]).map_err(db::error)?;
+    pub fn link_task(&self, task: &DownloadTask, id: &str) -> AppResult<()> {
+        self.conn
+            .execute(
+                "UPDATE series_items SET download_task_id=?1 WHERE id=?3 AND available=0 AND request_key=?2",
+                params![task.id, request_key(&task.request), id],
+            )
+            .map_err(db::error)?;
         Ok(())
     }
     pub fn apply_download(
@@ -261,6 +278,7 @@ impl LearningService {
         }
         let staged = self.with(|r| r.stage_playlists(&imports))?;
         let mut queue = vec![];
+        let mut associations = vec![];
         for request in requests {
             let mut associated = None;
             for (input, result) in imports.iter().zip(&staged) {
@@ -273,7 +291,9 @@ impl LearningService {
                 if self.with(|r| r.playback_file(&item.id)).is_ok() {
                     continue;
                 }
-                queue.push(self.with(|r| r.download_request(&item.id))?);
+                let frozen = self.with(|r| r.download_request(&item.id))?;
+                associations.push((request_key(&frozen), item.id));
+                queue.push(frozen);
             } else {
                 queue.push(request);
             }
@@ -296,7 +316,12 @@ impl LearningService {
                 })
                 .max_by_key(|t| t.created_at);
             if let Some(task) = task {
-                self.with(|r| r.link_task(task))?;
+                for (_, id) in associations
+                    .iter()
+                    .filter(|(key, _)| key == &request_key(request))
+                {
+                    self.with(|r| r.link_task(task, id))?;
+                }
                 self.on_download_task(task)?;
             }
         }
@@ -350,7 +375,7 @@ impl LearningService {
             })
             .max_by_key(|t| t.created_at)
         {
-            self.with(|r| r.link_task(task))?;
+            self.with(|r| r.link_task(task, id))?;
             self.on_download_task(task)?;
         }
         Ok(())
@@ -378,13 +403,13 @@ impl LearningService {
                             .iter()
                             .filter(|t| {
                                 key.as_ref() == Some(&request_key(&t.request))
-                                    && t.created_at as i64 >= created
+                                    && task_match_time(t) >= created
                             })
                             .max_by_key(|t| t.created_at)
                     });
                 if let Some(task) = task {
                     if selected.insert(task.id.clone()) {
-                        let _ = this.with(|r| r.link_task(task));
+                        let _ = this.with(|r| r.link_task(task, &id));
                         if this.on_download_task(task).is_err() {
                             eprintln!("学习库下载关联恢复失败，记录已保留");
                         }
