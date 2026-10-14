@@ -283,6 +283,11 @@ pub struct LearningEnqueueResult {
     pub duplicates: usize,
 }
 
-#[derive(Debug,Serialize)]
-#[serde(rename_all="camelCase")]
-pub struct SeriesUpdate{pub series:LearningSeries,pub preview:crate::models::MediaPreview,pub new_entries:Vec<crate::models::PlaylistEntry>,pub template:crate::models::DownloadRequest}
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SeriesUpdate {
+    pub series: LearningSeries,
+    pub preview: crate::models::MediaPreview,
+    pub new_entries: Vec<crate::models::PlaylistEntry>,
+    pub template: crate::models::DownloadRequest,
+}

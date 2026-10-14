@@ -470,6 +470,7 @@ fn learning_playlist_keeps_source_order_deduplicates_ids_and_freezes_requests() 
     assert!(!detail.items[0].available);
     assert_eq!(r.download_request(id).unwrap().max_height, 720);
     input.template.max_height = 1080;
+    input.preview.site = "CoreAlias".into();
     input.preview.entries[0].title = "改名".into();
     input.preview.entries[0].url = "https://example.com/changed.mp4".into();
     let again = r.stage_playlists(&[input]).unwrap().remove(0);
@@ -516,4 +517,91 @@ fn learning_download_callback_before_binding_and_failure_recovery_are_idempotent
 }
 
 #[test]
-fn learning_updates_only_add_new_source_ids_and_preserve_favorites(){let mut r=repository();let mut input=playlist_input();let s=r.stage_playlists(&[input.clone()]).unwrap().remove(0).series_id;input.preview.entries[0].title="标题改变".into();input.preview.entries[0].url="https://example.com/new-title".into();assert!(r.new_entries(&s,&input.preview).unwrap().is_empty());input.preview.entries.push(crate::models::PlaylistEntry{id:"new-video".into(),url:"https://example.com/11.mp4".into(),title:"新课".into(),duration:Some(900.),thumbnail:None,playlist_index:11});let delta=r.new_entries(&s,&input.preview).unwrap();assert_eq!(delta.len(),1);assert_eq!(delta[0].id,"new-video");let series=r.get_series(&s).unwrap();let mut edit=course(&series.title,None);edit.id=Some(s.clone());edit.source_url=series.source_url;edit.favorite=true;r.save_series(&edit).unwrap();assert_eq!(r.list_series("",None,1,true).unwrap().1,1);input.series_id=Some(s.clone());input.preview.entries=delta;r.stage_playlists(&[input]).unwrap();assert_eq!(r.get_series(&s).unwrap().total_items,4);assert!(r.get_series(&s).unwrap().favorite);}
+fn learning_updates_only_add_new_source_ids_and_preserve_favorites() {
+    let mut r = repository();
+    let mut input = playlist_input();
+    let s = r
+        .stage_playlists(&[input.clone()])
+        .unwrap()
+        .remove(0)
+        .series_id;
+    input.preview.entries[0].title = "标题改变".into();
+    input.preview.entries[0].url = "https://example.com/new-title".into();
+    assert!(r.new_entries(&s, &input.preview).unwrap().is_empty());
+    input.preview.entries.push(crate::models::PlaylistEntry {
+        id: "new-video".into(),
+        url: "https://example.com/11.mp4".into(),
+        title: "新课".into(),
+        duration: Some(900.),
+        thumbnail: None,
+        playlist_index: 11,
+    });
+    let delta = r.new_entries(&s, &input.preview).unwrap();
+    assert_eq!(delta.len(), 1);
+    assert_eq!(delta[0].id, "new-video");
+    let series = r.get_series(&s).unwrap();
+    let mut edit = course(&series.title, None);
+    edit.id = Some(s.clone());
+    edit.source_url = series.source_url;
+    edit.favorite = true;
+    r.save_series(&edit).unwrap();
+    assert_eq!(r.list_series("", None, 1, true).unwrap().1, 1);
+    input.series_id = Some(s.clone());
+    input.preview.entries = delta;
+    r.stage_playlists(&[input]).unwrap();
+    assert_eq!(r.get_series(&s).unwrap().total_items, 4);
+    assert!(r.get_series(&s).unwrap().favorite);
+}
+
+#[test]
+fn learning_large_library_is_bounded_at_50_and_searches_10000_lessons() {
+    let r = repository();
+    let start = std::time::Instant::now();
+    let tx = r.conn.unchecked_transaction().unwrap();
+    for c in 0..100 {
+        tx.execute(
+            "INSERT INTO categories(id,name,created_at,updated_at) VALUES(?1,?2,0,0)",
+            rusqlite::params![format!("c{c}"), format!("分类{c}")],
+        )
+        .unwrap();
+    }
+    for s in 0..1000 {
+        tx.execute(
+            "INSERT INTO series(id,category_id,title,created_at,updated_at) VALUES(?1,?2,?3,0,0)",
+            rusqlite::params![format!("s{s}"), format!("c{}", s % 100), format!("系列{s}")],
+        )
+        .unwrap();
+        for i in 0..10 {
+            tx.execute("INSERT INTO series_items(id,series_id,title,duration_ms,sort_order,created_at,updated_at) VALUES(?1,?2,?3,900000,?4,0,0)",rusqlite::params![format!("i{s}-{i}"),format!("s{s}"),format!("课程{s}-{i}"),i]).unwrap();
+        }
+    }
+    tx.commit().unwrap();
+    let seed = start.elapsed();
+    let start = std::time::Instant::now();
+    let page = r.list_series("", None, 1, false).unwrap();
+    assert_eq!(page.0.len(), 50);
+    assert_eq!(page.1, 1000);
+    assert_eq!(r.categories().unwrap().len(), 100);
+    assert_eq!(r.list_series("课程999-9", None, 1, false).unwrap().1, 1);
+    assert_eq!(r.series("s999", 1).unwrap().total, 10);
+    assert_eq!(r.list_series("", None, 20, false).unwrap().0.len(), 50);
+    eprintln!(
+        "LEARNING_BENCH categories=100 series=1000 lessons=10000 seed_ms={} query_ms={}",
+        seed.as_millis(),
+        start.elapsed().as_millis()
+    );
+}
+#[test]
+fn learning_corrupt_database_is_reported_without_overwriting_original() {
+    let dir = std::env::temp_dir().join(format!(
+        "learning-corrupt-{}",
+        crate::ffmpeg::runner::new_id()
+    ));
+    std::fs::create_dir(&dir).unwrap();
+    let path = dir.join("learning.db");
+    let bytes = b"not a SQLite database - keep evidence";
+    std::fs::write(&path, bytes).unwrap();
+    assert!(db::open(&path).is_err());
+    assert_eq!(std::fs::read(&path).unwrap(), bytes);
+    std::fs::remove_dir_all(dir).unwrap();
+}

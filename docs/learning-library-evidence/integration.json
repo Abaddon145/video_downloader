@@ -1,0 +1,73 @@
+{
+  "run": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\native-1791974027841",
+  "passed": 8,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "offline playlist uses real yt-dlp downloads, keeps failed and unselected placeholders",
+      "passed": true,
+      "detail": {
+        "series": "learn-1791974029944-0",
+        "completed": "learn-1791974029945-1",
+        "failed": "learn-1791974029945-2",
+        "unselected": "learn-1791974029945-3",
+        "actualFile": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\native-1791974027841\\downloads\\001 - lesson1 [lesson1].mp4"
+      }
+    },
+    {
+      "name": "failed item retries original task and unselected item starts from frozen request",
+      "passed": true,
+      "detail": {
+        "tasks": 3,
+        "allAvailable": true
+      }
+    },
+    {
+      "name": "reimport does not duplicate lessons or overwrite user progress and files",
+      "passed": true,
+      "detail": {
+        "duplicates": 3
+      }
+    },
+    {
+      "name": "restart reconciles completed download whose binding was interrupted",
+      "passed": true,
+      "detail": {
+        "restored": true
+      }
+    },
+    {
+      "name": "real 12:30 note pauses playback, ignores typing shortcuts and jumps correctly",
+      "passed": true,
+      "detail": {
+        "timeMs": 750000,
+        "note": "GPU Collision"
+      }
+    },
+    {
+      "name": "note persists after reopen and remains searchable",
+      "passed": true,
+      "detail": {
+        "notes": 1
+      }
+    },
+    {
+      "name": "missing video marks unavailable and relinks without changing notes",
+      "passed": true,
+      "detail": {
+        "relinked": true
+      }
+    },
+    {
+      "name": "record removal preserves the local video; explicit deletion still needs second confirmation",
+      "passed": true,
+      "detail": {
+        "recordsOnlyFileKept": true,
+        "secondConfirmationRequired": true
+      }
+    }
+  ],
+  "offlinePlaylist": true,
+  "originalHash": "5b1152334f3492e5ce8c413b36b038b77fe105f23306cc02bdf65fb43f96f7d8",
+  "finalHash": "5b1152334f3492e5ce8c413b36b038b77fe105f23306cc02bdf65fb43f96f7d8"
+}

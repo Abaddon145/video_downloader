@@ -21,6 +21,7 @@ export default function LearningLibraryPage({notify}:{notify:(message:string)=>v
  const [showSettings,setShowSettings]=useState(false);
  const [autoPlay,setAutoPlay]=useState(false);
  const [playingItem,setPlayingItem]=useState<string|null>(null);
+ const dialogOpen=useRef(false);dialogOpen.current=!!importPaths||!!deleteTarget||!!editor||showSettings||!!updateRequest||!!renaming;
  const revision=useRef(0),request=useRef(0),mounted=useRef(true);const [tick,setTick]=useState(0);
  const reload=useCallback(()=>setTick(++revision.current),[]);
  useEffect(()=>{const timeout=setTimeout(()=>{setSearch(query);setPage(1);},200);return()=>clearTimeout(timeout);},[query]);
@@ -33,7 +34,7 @@ export default function LearningLibraryPage({notify}:{notify:(message:string)=>v
  const saveCategory=async(c:CategoryInput)=>{await change({type:'saveCategory',category:c});};
  const saveSeries=async(s:SeriesInput)=>{const id=await change({type:'saveSeries',series:s});openSeries(id);};
  const pickImport=async(folder=false)=>{try{const p=await chooseLearningVideos(folder);if(p)setImportPaths(typeof p==='string'?[p]:p);}catch(e){notify(learningError(e));}};
- useEffect(()=>{let alive=true;const stop=getCurrentWebviewWindow().onDragDropEvent(e=>{if(alive&&e.payload.type==='drop'&&e.payload.paths.length)setImportPaths(e.payload.paths);});return()=>{alive=false;void stop.then(fn=>fn());};},[]);
+ useEffect(()=>{let alive=true;const stop=getCurrentWebviewWindow().onDragDropEvent(e=>{if(alive&&!dialogOpen.current&&e.payload.type==='drop'&&e.payload.paths.length)setImportPaths(e.payload.paths);});return()=>{alive=false;void stop.then(fn=>fn());};},[]);
  const imported=(r:ImportResult)=>{setImportPaths(null);reload();if(r.seriesId)openSeries(r.seriesId);notify(`已加入${r.added}课，跳过${r.duplicates}个重复文件`);};
  const downloadItem=async(id:string)=>{setDownloadBusy(id);try{await invoke("learning_download_item",{id});reload();notify("课程下载已提交，可在下载页查看进度");}catch(e){notify(learningError(e));}finally{setDownloadBusy(null);}};
  const relocate=async(id:string)=>{try{const p=await chooseLearningVideos();const path=Array.isArray(p)?p[0]:p;if(path){await invoke('learning_relink',{id,path});reload();}}catch(e){notify(learningError(e));}};

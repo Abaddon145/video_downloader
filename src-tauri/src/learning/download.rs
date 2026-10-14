@@ -111,7 +111,7 @@ impl Repository {
                     .as_ref()
                     .map(|id| format!("id:{site}:{id}"))
                     .unwrap_or_else(|| format!("url:{}", request.url));
-                let existing:Option<String>=tx.query_row("SELECT id FROM series_items WHERE series_id=?1 AND (source_key=?2 OR source_url=?3)",params![series,key,request.url],|r|r.get(0)).optional().map_err(db::error)?;
+                let existing:Option<String>=tx.query_row("SELECT id FROM series_items WHERE series_id=?1 AND (source_key=?2 OR source_url=?3 OR (source_video_id IS NOT NULL AND source_video_id=?4))",params![series,key,request.url,video_id],|r|r.get(0)).optional().map_err(db::error)?;
                 if existing.is_some() {
                     duplicates += 1;
                     continue;
@@ -397,9 +397,73 @@ impl LearningService {
     }
 }
 
-impl Repository{
- pub fn new_entries(&self,series:&str,preview:&crate::models::MediaPreview)->AppResult<Vec<crate::models::PlaylistEntry>>{self.get_series(series)?;let old=self.rows("SELECT source_video_id,source_url FROM series_items WHERE series_id=?1",[series],|r|Ok((r.get::<_,Option<String>>(0)?,r.get::<_,Option<String>>(1)?)))?;let mut ids=std::collections::HashSet::new();let mut urls=std::collections::HashSet::new();for(id,url)in old{if let Some(id)=id{ids.insert(id);}if let Some(url)=url{urls.insert(url);}}let mut entries=vec![];for e in &preview.entries{let url=validate_url(&e.url)?;if (!e.id.is_empty()&&ids.contains(&e.id))||urls.contains(&url){continue;}ids.insert(e.id.clone());urls.insert(url);entries.push(e.clone());}entries.sort_by_key(|e|e.playlist_index);Ok(entries)}
+impl Repository {
+    pub fn new_entries(
+        &self,
+        series: &str,
+        preview: &crate::models::MediaPreview,
+    ) -> AppResult<Vec<crate::models::PlaylistEntry>> {
+        self.get_series(series)?;
+        let old = self.rows(
+            "SELECT source_video_id,source_url FROM series_items WHERE series_id=?1",
+            [series],
+            |r| {
+                Ok((
+                    r.get::<_, Option<String>>(0)?,
+                    r.get::<_, Option<String>>(1)?,
+                ))
+            },
+        )?;
+        let mut ids = std::collections::HashSet::new();
+        let mut urls = std::collections::HashSet::new();
+        for (id, url) in old {
+            if let Some(id) = id {
+                ids.insert(id);
+            }
+            if let Some(url) = url {
+                urls.insert(url);
+            }
+        }
+        let mut entries = vec![];
+        for e in &preview.entries {
+            let url = validate_url(&e.url)?;
+            if (!e.id.is_empty() && ids.contains(&e.id)) || urls.contains(&url) {
+                continue;
+            }
+            ids.insert(e.id.clone());
+            urls.insert(url);
+            entries.push(e.clone());
+        }
+        entries.sort_by_key(|e| e.playlist_index);
+        Ok(entries)
+    }
 }
-impl LearningService{
- pub fn check_updates(&self,service:&Arc<Service>,id:&str)->AppResult<SeriesUpdate>{let (series,template)=self.with(|r|{let series=r.get_series(id)?;let first=r.rows("SELECT id FROM series_items WHERE series_id=?1 AND download_request IS NOT NULL ORDER BY sort_order,created_at LIMIT 1",[id],|r|r.get::<_,String>(0))?;let template=first.first().map(|id|r.download_request(id)).transpose()?.unwrap_or_default();Ok((series,template))})?;let url=series.source_url.as_ref().ok_or("此系列没有来源播放列表，可先编辑系列来源")?;let result=service.preview(vec![url.clone()])?.into_iter().next().ok_or("来源未返回解析结果")?;let preview=result.preview.ok_or_else(||result.error.unwrap_or_else(||"来源解析失败，请检查登录与代理设置".into()))?;if !preview.is_playlist{return Err("此来源不是播放列表，请编辑系列中的来源地址".into());}let new_entries=self.with(|r|r.new_entries(id,&preview))?;Ok(SeriesUpdate{series,preview,new_entries,template})}
+impl LearningService {
+    pub fn check_updates(&self, service: &Arc<Service>, id: &str) -> AppResult<SeriesUpdate> {
+        let (series,template)=self.with(|r|{let series=r.get_series(id)?;let first=r.rows("SELECT id FROM series_items WHERE series_id=?1 AND download_request IS NOT NULL ORDER BY sort_order,created_at LIMIT 1",[id],|r|r.get::<_,String>(0))?;let template=first.first().map(|id|r.download_request(id)).transpose()?.unwrap_or_default();Ok((series,template))})?;
+        let url = series
+            .source_url
+            .as_ref()
+            .ok_or("此系列没有来源播放列表，可先编辑系列来源")?;
+        let result = service
+            .preview(vec![url.clone()])?
+            .into_iter()
+            .next()
+            .ok_or("来源未返回解析结果")?;
+        let preview = result.preview.ok_or_else(|| {
+            result
+                .error
+                .unwrap_or_else(|| "来源解析失败，请检查登录与代理设置".into())
+        })?;
+        if !preview.is_playlist {
+            return Err("此来源不是播放列表，请编辑系列中的来源地址".into());
+        }
+        let new_entries = self.with(|r| r.new_entries(id, &preview))?;
+        Ok(SeriesUpdate {
+            series,
+            preview,
+            new_entries,
+            template,
+        })
+    }
 }

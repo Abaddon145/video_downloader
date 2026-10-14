@@ -1,0 +1,57 @@
+{
+  "run": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\large-1791974193213",
+  "passed": 4,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "real SQLite library renders fifty of one thousand series and paginates five hundred lessons",
+      "passed": true,
+      "detail": {
+        "categories": 100,
+        "series": 1000,
+        "lessons": 10000,
+        "seriesDom": 50,
+        "lessonDom": 50
+      }
+    },
+    {
+      "name": "native player layout fits 1600 1440 1200 1000 880 and simulated 150 percent DPI",
+      "passed": true,
+      "detail": {
+        "widths": [
+          1600,
+          1440,
+          1200,
+          1000,
+          880
+        ],
+        "emulatedDpi": 1.5,
+        "reducedMotion": true
+      }
+    },
+    {
+      "name": "window hiding saves exact position and dialog Tab stays inside the modal",
+      "passed": true,
+      "detail": {
+        "positionMs": 320870,
+        "focusContained": true,
+        "actualWindowHidden": true
+      }
+    },
+    {
+      "name": "corrupt learning database is isolated from old downloading and can retry after repair",
+      "passed": true,
+      "detail": {
+        "downloadAndMediaAvailable": true,
+        "retryRecovered": true,
+        "originalCorruptFileKept": true
+      }
+    }
+  ],
+  "timings": [
+    {
+      "name": "home query",
+      "ms": 18
+    }
+  ]
+}

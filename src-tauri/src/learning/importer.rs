@@ -298,11 +298,12 @@ impl Repository {
         if duplicates > 0 {
             return Err("此文件已经属于另一课时，请选择对应视频".into());
         }
-        self.conn.execute("UPDATE series_items SET file_path=?1,file_key=?2,duration_ms=?3,available=1,download_state='completed',updated_at=?4 WHERE id=?5",params![file.path,file.key,file.duration_ms,now(),id]).map_err(db::error)?;
+        let tx = self.conn.unchecked_transaction().map_err(db::error)?;
+        tx.execute("UPDATE series_items SET file_path=?1,file_key=?2,duration_ms=?3,available=1,download_state='completed',updated_at=?4 WHERE id=?5",params![file.path,file.key,file.duration_ms,now(),id]).map_err(db::error)?;
         if let Some(duration) = file.duration_ms {
-            self.conn.execute("UPDATE playback_progress SET duration_ms=?1,position_ms=min(position_ms,?1) WHERE item_id=?2",params![duration,id]).map_err(db::error)?;
+            tx.execute("UPDATE playback_progress SET duration_ms=?1,position_ms=min(position_ms,?1) WHERE item_id=?2",params![duration,id]).map_err(db::error)?;
         }
-        Ok(())
+        tx.commit().map_err(db::error)
     }
 }
 impl LearningService {

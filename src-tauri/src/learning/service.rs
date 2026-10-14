@@ -24,6 +24,9 @@ impl LearningService {
     }
     pub(crate) fn with<R>(&self, f: impl FnOnce(&mut Repository) -> AppResult<R>) -> AppResult<R> {
         let mut db = self.db.lock().map_err(|_| "学习库暂时不可用")?;
+        if db.is_err() {
+            *db = Repository::open(&self.data.join("learning.db"));
+        }
         let r = db.as_mut().map_err(|e| format!("学习库初始化失败：{e}"))?;
         f(r)
     }
