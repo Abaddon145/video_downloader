@@ -241,6 +241,8 @@ pub fn run() {
             learning_cancel_player,
             learning_cache_info,
             learning_clean_cache,
+            learning_set_thumbnail,
+            learning_regenerate_thumbnail,
             learning_load_subtitle,
             learning_scan,
             learning_import,

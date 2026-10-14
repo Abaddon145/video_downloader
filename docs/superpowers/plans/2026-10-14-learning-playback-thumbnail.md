@@ -41,9 +41,9 @@
 ### Task 4: Thumbnail Resolver and Background Integration
 **Files:** learning/thumbnail.rs,cache.rs,repository.rs,service.rs,importer.rs,download.rs,commands.rs; native.rs/service.rs minimal sharedcurl binary seam; tests.rs。
 **Interfaces:** schedule_thumbnails(ids) dedups item; thumbnail worker resolves manual→remote→generated→fallback; learning_set_thumbnail(id,path)/learning_regenerate_thumbnail(id,confirmed); database path/source/key CAS; cache_info/cleanup thumbnails.
-- [ ] RED priorities, sampling thresholds30/5sec,320×180 padded4:3/9:16/1:1, remote failure/generated fallback, source stamp invalidation, manual-CAS/relink races, dedup/concurrency1 and unreferenced-only cleanup. Expected: missing resolver fails.
-- [ ] GREEN async singleworker plus required six triggers, boundedHTTP(S)/20MiB/30sec through existing proxy/curl/native, no original writes, failure memo, atomic image publish and guarded DB update; originals/manual choices protected. Expected: import returns before all images, playback queue independent, offline remote cache survives restart.
-- [ ] Verify Rust/Node/build and native media image checks. Expected: green; commit.
+- [x] RED priorities, sampling thresholds30/5sec,320×180 padded4:3/9:16/1:1, remote failure/generated fallback, source stamp invalidation, manual-CAS/relink races, dedup/concurrency1 and unreferenced-only cleanup. Expected: missing resolver fails.
+- [x] GREEN async singleworker plus required six triggers, boundedHTTP(S)/20MiB/30sec through existing proxy/curl/native, no original writes, failure memo, atomic image publish and guarded DB update; originals/manual choices protected. Expected: import returns before all images, playback queue independent, offline remote cache survives restart.
+- [x] Verify Rust/Node/build and native media image checks. Expected: green; commit.
 
 ### Task 5: Lesson Rows, Thumbnail Controls and Cache Settings
 **Files:** LessonRow.tsx,LessonThumbnail.tsx,LearningLibraryPage.tsx,LearningSettingsDialog.tsx,styles.css,types/lib/tests and UI QA。

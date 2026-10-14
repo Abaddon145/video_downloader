@@ -325,6 +325,9 @@ impl LearningService {
                 self.on_download_task(task)?;
             }
         }
+        for result in &staged {
+            self.schedule_series_thumbnails(&result.series_id);
+        }
         self.changed("import", "");
         Ok(LearningEnqueueResult {
             tasks,
@@ -381,6 +384,7 @@ impl LearningService {
         Ok(())
     }
     pub fn start(self: &Arc<Self>, service: Arc<Service>) {
+        self.start_thumbnails();
         let this = self.clone();
         std::thread::spawn(move || {
             for _ in 0..120 {

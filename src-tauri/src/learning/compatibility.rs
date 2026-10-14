@@ -36,13 +36,24 @@ pub fn plan(
         .iter()
         .find(|v| !v.attached_picture)
         .ok_or("文件没有视频流")?;
-    let eight = v.bit_depth.unwrap_or(8) <= 8
+    let depth = v.bit_depth.unwrap_or_else(|| {
+        if v.pixel_format
+            .as_deref()
+            .is_some_and(|p| p.contains("10") || p.contains("12"))
+            || v.profile.as_deref() == Some("Main 10")
+        {
+            10
+        } else {
+            8
+        }
+    });
+    let eight = depth <= 8
         && v.pixel_format
             .as_deref()
             .is_none_or(|p| ["yuv420p", "yuvj420p", "nv12"].contains(&p));
     let mp4_video = v.codec == "h264" && eight
         || v.codec == "hevc"
-            && if v.bit_depth.unwrap_or(8) > 8 {
+            && if depth > 8 {
                 support.hevc10
             } else {
                 support.hevc

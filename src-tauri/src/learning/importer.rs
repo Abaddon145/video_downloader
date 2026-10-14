@@ -367,6 +367,7 @@ impl LearningService {
         let info = self.media.probe(path)?;
         let f = prepare(path, &info)?;
         self.with(|r| r.relink(id, &f))?;
+        self.schedule_thumbnails(&[id.into()]);
         self.changed("relink", id);
         self.with(|r| r.item(id))
     }
@@ -443,49 +444,6 @@ impl LearningService {
         Ok(())
     }
     pub(crate) fn try_cover(&self, series: &str) {
-        let candidate = self.with(|r| {
-            let d = r.series(series, 1)?;
-            Ok(if d.series.cover_path.is_none() {
-                d.items.first().and_then(|i| i.file_path.clone())
-            } else {
-                None
-            })
-        });
-        let Ok(Some(path)) = candidate else {
-            return;
-        };
-        let Ok(info) = self.media.probe(&path) else {
-            return;
-        };
-        let Ok(dir) = self.cover_directory() else {
-            return;
-        };
-        let target = dir.join(format!("{}.jpg", id()));
-        let request = MediaRequest {
-            input_path: path,
-            output_dir: dir.to_string_lossy().into_owned(),
-            operation: MediaOperation::CoverExtract,
-            output_format: OutputFormat::Jpg,
-            ..Default::default()
-        };
-        let Ok(command) = crate::ffmpeg::command::build(&request, &info, &target) else {
-            return;
-        };
-        let session = format!("cover-{}", id());
-        let result = self.media.auxiliary(&session, &command.args, 30);
-        if result.is_ok() && fs::metadata(&target).is_ok_and(|m| m.len() > 0) {
-            let _ = self.with(|r| {
-                r.conn
-                    .execute(
-                        "UPDATE series SET cover_path=?1 WHERE id=?2 AND cover_path IS NULL",
-                        params![target.to_string_lossy(), series],
-                    )
-                    .map_err(db::error)?;
-                Ok(())
-            });
-            self.authorize_cover(&target.to_string_lossy());
-        } else {
-            let _ = fs::remove_file(target);
-        }
+        self.schedule_series_thumbnails(series);
     }
 }

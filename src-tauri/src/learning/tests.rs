@@ -976,3 +976,96 @@ fn learning_cached_output_validates_stamp_and_metadata_without_touching_original
     assert_eq!(std::fs::read(&original).unwrap(), b"original");
     std::fs::remove_dir_all(data).unwrap();
 }
+
+#[test]
+fn learning_thumbnails_sample_after_first_frame_and_use_one_queue_entry() {
+    use super::thumbnail::{sample, ThumbnailQueue};
+    assert_eq!(sample(100.), 12.);
+    assert_eq!(sample(30.), 3.6);
+    assert_eq!(sample(20.), 5.);
+    assert_eq!(sample(5.), 1.25);
+    assert_eq!(sample(2.), 1.);
+    assert!(sample(0.) > 0.);
+    let mut q = ThumbnailQueue::default();
+    q.add("a");
+    q.add("a");
+    q.add("b");
+    assert_eq!(q.take().as_deref(), Some("a"));
+    q.add("a");
+    assert_eq!(q.take().as_deref(), Some("b"));
+    assert!(q.take().is_none());
+    q.finish("a");
+    q.add("a");
+    assert_eq!(q.take().as_deref(), Some("a"));
+}
+#[test]
+fn learning_thumbnail_cas_preserves_manual_choice_and_relinked_sources() {
+    let mut r = repository();
+    let s = r.save_series(&course("缩略图", None)).unwrap();
+    let prepared = |path: &str, title: &str| PreparedLocal {
+        path: path.into(),
+        key: path.to_lowercase(),
+        title: title.into(),
+        duration_ms: Some(900000),
+    };
+    let input = LocalImportInput {
+        paths: vec![],
+        title: "缩略图".into(),
+        series_id: Some(s.clone()),
+        category_id: None,
+    };
+    r.import_local(&input, &[prepared("C:/test.mp4", "test")])
+        .unwrap();
+    let old = r.series(&s, 1).unwrap().items.remove(0);
+    assert!(r
+        .set_thumbnail_cas(&old, "C:/cache/frame.jpg", "generated", "frame-key")
+        .unwrap());
+    assert!(!r
+        .set_thumbnail_cas(&old, "C:/cache/late-remote.jpg", "remote", "remote-key")
+        .unwrap());
+    let frame = r.item(&old.id).unwrap();
+    assert!(r
+        .set_thumbnail_cas(&frame, "C:/cache/manual.jpg", "manual", "manual-key")
+        .unwrap());
+    assert!(!r
+        .set_thumbnail_cas(&frame, "C:/cache/late-frame.jpg", "generated", "late-key")
+        .unwrap());
+    let manual = r.item(&old.id).unwrap();
+    r.relink(&old.id, &prepared("C:/new.mp4", "new")).unwrap();
+    assert!(!r
+        .set_thumbnail_cas(&manual, "C:/cache/stale.jpg", "generated", "stale-key")
+        .unwrap());
+    assert_eq!(
+        r.item(&old.id).unwrap().thumbnail_source.as_deref(),
+        Some("manual")
+    );
+}
+
+#[test]
+fn learning_hevc_depth_uses_pixel_format_when_ffprobe_omits_bits() {
+    use super::compatibility::{plan, BrowserPlaybackSupport, PlaybackMode};
+    use crate::ffmpeg::models::*;
+    let i = MediaInfo {
+        container: "mov,mp4".into(),
+        videos: vec![VideoStreamInfo {
+            codec: "hevc".into(),
+            pixel_format: Some("yuv420p10le".into()),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    assert_eq!(
+        plan(
+            &i,
+            BrowserPlaybackSupport {
+                hevc: true,
+                hevc10: false
+            },
+            PlaybackPreference::Auto,
+            0
+        )
+        .unwrap()
+        .mode,
+        PlaybackMode::Transcode
+    );
+}

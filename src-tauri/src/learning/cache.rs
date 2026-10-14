@@ -232,7 +232,9 @@ impl super::service::LearningService {
         }
         drop(state);
         drop(_sub);
-        // Thumbnail reference-aware cleanup is integrated with its worker, independently of playback leases.
+        if kind != "playback" {
+            removed += self.clean_thumbnails()?;
+        }
         let mut info = self.cache_info()?;
         info.removed_bytes = removed;
         Ok(info)

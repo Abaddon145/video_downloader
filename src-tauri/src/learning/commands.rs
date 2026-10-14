@@ -192,3 +192,26 @@ pub async fn learning_clean_cache(
         .await
         .map_err(|_| "缓存清理线程异常")?
 }
+
+#[tauri::command]
+pub async fn learning_set_thumbnail(
+    learning: Learning<'_>,
+    id: String,
+    path: String,
+) -> AppResult<LearningItem> {
+    let l = learning.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || l.set_thumbnail(&id, &path))
+        .await
+        .map_err(|_| "图片设置线程异常")?
+}
+#[tauri::command]
+pub async fn learning_regenerate_thumbnail(
+    learning: Learning<'_>,
+    id: String,
+    confirmed: bool,
+) -> AppResult<()> {
+    let l = learning.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || l.regenerate_thumbnail(&id, confirmed))
+        .await
+        .map_err(|_| "图片生成线程异常")?
+}
