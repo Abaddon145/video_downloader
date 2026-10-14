@@ -263,6 +263,8 @@ pub struct PlayerMedia {
     pub path: String,
     pub subtitles: Vec<PlayerSubtitle>,
     pub subtitle_warning: Option<String>,
+    pub plan: super::compatibility::PlaybackPlan,
+    pub technical: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]

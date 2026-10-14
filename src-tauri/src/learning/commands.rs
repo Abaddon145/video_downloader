@@ -73,11 +73,23 @@ pub async fn learning_prepare_player(
     item_id: String,
     session: String,
     proxy: bool,
+    support: Option<super::compatibility::BrowserPlaybackSupport>,
+    fallback: Option<u8>,
+    force: Option<bool>,
 ) -> AppResult<PlayerMedia> {
     let l = learning.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || l.prepare_player(&item_id, &session, proxy))
-        .await
-        .map_err(|_| "播放器准备线程异常")?
+    tauri::async_runtime::spawn_blocking(move || {
+        l.prepare_player(
+            &item_id,
+            &session,
+            proxy,
+            support.unwrap_or_default(),
+            fallback.unwrap_or(0),
+            force.unwrap_or(false),
+        )
+    })
+    .await
+    .map_err(|_| "播放器准备线程异常")?
 }
 #[tauri::command]
 pub async fn learning_load_subtitle(
@@ -157,4 +169,26 @@ pub async fn learning_check_updates(
     tauri::async_runtime::spawn_blocking(move || l.check_updates(&s, &series_id))
         .await
         .map_err(|_| "系列检查线程异常")?
+}
+
+#[tauri::command]
+pub fn learning_cancel_player(learning: Learning<'_>, session: String) -> AppResult<()> {
+    learning.cancel_player(&session)
+}
+#[tauri::command]
+pub async fn learning_cache_info(learning: Learning<'_>) -> AppResult<super::cache::CacheInfo> {
+    let l = learning.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || l.cache_info())
+        .await
+        .map_err(|_| "缓存检查线程异常")?
+}
+#[tauri::command]
+pub async fn learning_clean_cache(
+    learning: Learning<'_>,
+    kind: String,
+) -> AppResult<super::cache::CacheInfo> {
+    let l = learning.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || l.clean_cache(&kind, true))
+        .await
+        .map_err(|_| "缓存清理线程异常")?
 }

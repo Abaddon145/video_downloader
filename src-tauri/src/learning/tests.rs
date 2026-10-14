@@ -928,3 +928,51 @@ fn learning_remux_selects_only_playable_tracks_and_keeps_normal_remux_strict() {
     assert!(a.windows(2).any(|w| w == ["-c", "copy"]));
     assert!(!a.iter().any(|a| a == "libx264"));
 }
+
+#[test]
+fn learning_playback_leases_share_cancel_and_protect_cache() {
+    use super::player::PlaybackState;
+    let mut s = PlaybackState::default();
+    for session in ["one", "two", "three"] {
+        s.begin(session).unwrap();
+        s.join(session, "key").unwrap();
+    }
+    assert!(s.release("one").is_none());
+    assert!(s.release("two").is_none());
+    assert!(s.protected().contains("key"));
+    assert_eq!(s.release("three").as_deref(), Some("key"));
+    assert!(s.protected().is_empty());
+    assert!(s.begin("one").is_err());
+    assert!(s.join("one", "other").is_err());
+    s.release("before-invoke");
+    assert!(s.begin("before-invoke").is_err());
+}
+#[test]
+fn learning_cached_output_validates_stamp_and_metadata_without_touching_original() {
+    use super::cache::*;
+    let data = std::env::temp_dir().join(crate::ffmpeg::runner::new_id());
+    std::fs::create_dir(&data).unwrap();
+    let original = data.join("original.mp4");
+    std::fs::write(&original, b"original").unwrap();
+    let source = stamp(&original).unwrap();
+    let dir = directory(&data, "playback", &hash(b"test")).unwrap();
+    let file = dir.join("video.mp4");
+    std::fs::write(&file, b"proxy").unwrap();
+    let e = PlaybackEntry {
+        source: source.clone(),
+        profile: "mp4-v1".into(),
+        file: std::fs::canonicalize(&file)
+            .unwrap()
+            .to_string_lossy()
+            .into(),
+        output: stamp(&file).unwrap(),
+        last_used: 1,
+    };
+    std::fs::write(dir.join("info.json"), serde_json::to_vec(&e).unwrap()).unwrap();
+    assert!(read_entry(&dir, &source, "mp4-v1").is_ok());
+    assert!(read_entry(&dir, &source, "new-profile").is_err());
+    std::fs::write(&file, b"changed").unwrap();
+    assert!(read_entry(&dir, &source, "mp4-v1").is_err());
+    assert_eq!(std::fs::read(&original).unwrap(), b"original");
+    std::fs::remove_dir_all(data).unwrap();
+}

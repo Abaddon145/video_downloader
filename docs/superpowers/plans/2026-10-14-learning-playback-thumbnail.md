@@ -34,9 +34,9 @@
 ### Task 3: Automatic Playback, Shared Proxy and Cleanup
 **Files:** learning/player.rs,compatibility.rs,commands.rs,service.rs; LearningPlayer.tsx,PlaybackCompatibilityStatus.tsx,types/learning.ts,lib.ts/tests; lib.rs command registration.
 **Interfaces:** learning_prepare_player(itemId,session,proxy,support?,fallback?,force?) retains path; returns plan; learning-playback-updated(session,itemId,state,percent,eta); learning_cancel_player(session); learning_cache_info()/learning_clean_cache(kind); cache manager references session/key/task; cached text subtitles.
-- [ ] RED shared-job/session tests and UI preparing/progress/error bounded fallback; cancellation of last vs shared requester; cleanup protects ready/processing leases and linked paths; proxy cleanup keeps DB progress/notes; subtitle cache fingerprint includingSSA. Expected: current manual-only/nonpersistent preview fails.
-- [ ] GREEN reuse create_playback/task/GPU queue, key dedup, completion/source verification and info atomic save; ready/cached path authorization; await/invalidate sessions; automatic play and cancel, max50GiB/age30 protected cleanup. Expected: one task for3 simultaneous requests, direct/remux/transcode/cache restoration works.
-- [ ] Verify Rust/Node/build and focused browser checks. Expected: green; commit.
+- [x] RED shared-job/session tests and UI preparing/progress/error bounded fallback; cancellation of last vs shared requester; cleanup protects ready/processing leases and linked paths; proxy cleanup keeps DB progress/notes; subtitle cache fingerprint includingSSA. Expected: current manual-only/nonpersistent preview fails.
+- [x] GREEN reuse create_playback/task/GPU queue, key dedup, completion/source verification and info atomic save; ready/cached path authorization; await/invalidate sessions; automatic play and cancel, max50GiB/age30 protected cleanup. Expected: one task for3 simultaneous requests, direct/remux/transcode/cache restoration works.
+- [x] Verify Rust/Node/build and focused browser checks. Expected: green; commit.
 
 ### Task 4: Thumbnail Resolver and Background Integration
 **Files:** learning/thumbnail.rs,cache.rs,repository.rs,service.rs,importer.rs,download.rs,commands.rs; native.rs/service.rs minimal sharedcurl binary seam; tests.rs。

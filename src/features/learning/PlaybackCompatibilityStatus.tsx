@@ -1,0 +1,3 @@
+import {LoaderCircle,X} from 'lucide-react';
+import type {PlaybackPreparation} from '../../types/learning';
+export function PlaybackCompatibilityStatus({status,cancel}:{status:PlaybackPreparation|null;cancel:()=>void}){return <div className="learning-preparation" role="status"><LoaderCircle size={26} className="spinner"/><strong>{status?.mode==='remux'?'正在无损调整容器':status?.mode==='transcode'?'正在生成兼容视频':'正在准备课程'}</strong><span>{status?.state??'检查视频格式与浏览器支持'}</span>{status?.percent!=null&&<><progress max={100} value={status.percent} aria-label="兼容视频准备进度"/><span>{Math.round(status.percent)}%{status.eta!=null?` · 约 ${Math.ceil(status.eta)} 秒`:''}</span></>}<button className="secondary" onClick={cancel}><X size={15}/>取消准备</button></div>;}

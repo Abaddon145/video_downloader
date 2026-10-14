@@ -13,7 +13,7 @@ pub fn extension(path: &str) -> AppResult<String> {
         .unwrap_or_default()
         .to_string_lossy()
         .to_ascii_lowercase();
-    if !["srt", "ass", "vtt"].contains(&e.as_str()) {
+    if !["srt", "ass", "ssa", "vtt"].contains(&e.as_str()) {
         return Err("字幕仅支持 SRT、ASS、VTT".into());
     }
     Ok(e)

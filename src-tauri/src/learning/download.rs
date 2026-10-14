@@ -389,6 +389,7 @@ impl LearningService {
                 }
                 std::thread::sleep(std::time::Duration::from_millis(250));
             }
+            let _ = this.clean_cache("playback", false);
             let Ok(pending) = this.with(|r| r.pending_downloads()) else {
                 return;
             };

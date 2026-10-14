@@ -11,6 +11,8 @@ pub struct LearningService {
     pub(crate) app: tauri::AppHandle,
     pub(crate) media: Arc<MediaService>,
     pub(crate) data: PathBuf,
+    pub(crate) playback: Mutex<super::player::PlaybackState>,
+    pub(crate) subtitle_guard: Mutex<()>,
 }
 impl LearningService {
     pub fn new(app: tauri::AppHandle, data: &Path, media: Arc<MediaService>) -> Arc<Self> {
@@ -20,6 +22,8 @@ impl LearningService {
             app,
             media,
             data: data.into(),
+            playback: Mutex::new(Default::default()),
+            subtitle_guard: Mutex::new(()),
         })
     }
     pub(crate) fn with<R>(&self, f: impl FnOnce(&mut Repository) -> AppResult<R>) -> AppResult<R> {
