@@ -15,3 +15,5 @@ export interface LocalScan{paths:string[];suggestedTitle:string;duplicates:numbe
 
 export interface PlayerSubtitle{label:string;path:string}
 export interface PlayerMedia{item:LearningItem;series:LearningSeries;settings:LearningSettings;previous:string|null;next:string|null;path:string;subtitles:PlayerSubtitle[];subtitleWarning:string|null}
+
+export interface NotePage{notes:VideoNote[];total:number;page:number}

@@ -108,3 +108,8 @@ pub fn learning_save_progress(
 pub fn learning_flush_progress(learning: Learning<'_>) -> AppResult<()> {
     learning.flush_progress()
 }
+
+#[tauri::command]
+pub fn learning_notes(learning:Learning<'_>,item_id:String,page:u32)->AppResult<NotePage>{learning.with(|r|r.notes(&item_id,page))}
+#[tauri::command]
+pub fn learning_save_note(learning:Learning<'_>,input:NoteInput)->AppResult<String>{let id=learning.with(|r|r.save_note(&input))?;learning.changed("note",&id);Ok(id)}

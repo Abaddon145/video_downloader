@@ -51,9 +51,9 @@ Interfaces: consumes existing Service/MediaService + prior Repository; produces 
 ### Task 6: Notes
 Files: learning/repository; features/learning/VideoNotes.
 Interfaces: consumes existing Service/MediaService + prior Repository; produces learning_notes(item), learning_save_note(input), learning_change(deleteNote).
-- [ ] RED: create/edit/delete ordered timestamps; timejump; persistence/reopen; notes search. Run focused check; Expected: required behavior fails before implementation.
-- [ ] GREEN: implement minimum safe behavior in files above; Expected: focused check passes.
-- [ ] Verify: cargo test + npm test + UI notes; Expected: zero failures; append ledger and commit task.
+- [x] RED: create/edit/delete ordered timestamps; timejump; persistence/reopen; notes search. Run focused check; Expected: required behavior fails before implementation.
+- [x] GREEN: implement minimum safe behavior in files above; Expected: focused check passes.
+- [x] Verify: cargo test + npm test + UI notes; Expected: zero failures; append ledger and commit task.
 
 ### Task 7: Downloader Integration
 Files: learning/service/importer; service.rs minimal callback; PlaylistImportOptions; App.

@@ -138,7 +138,7 @@ impl LearningService {
                     .remove(&id);
                 Ok(id)
             }
-            _ => Err("此学习操作尚不可用".into()),
+            LearningChange::DeleteNote{id}=>{r.delete_note(&id)?;Ok(id)},
         })?;
         self.changed("structure", &id);
         Ok(id)

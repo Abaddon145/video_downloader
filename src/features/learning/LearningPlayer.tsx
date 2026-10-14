@@ -1,4 +1,5 @@
 
+import {VideoNotes} from './VideoNotes';
 import {useEffect,useRef,useState} from 'react';import {invoke,convertFileSrc} from '@tauri-apps/api/core';import {listen} from '@tauri-apps/api/event';
 import {open} from '@tauri-apps/plugin-dialog';
 import {Play,Pause,SkipBack,SkipForward,Volume2,VolumeX,Maximize,Subtitles,FileVideo} from 'lucide-react';import type {PlayerMedia,PlayerSubtitle,PlaybackProgress,LearningItem} from '../../types/learning';import {learningTime,learningError,resumePosition} from './lib';
@@ -31,5 +32,6 @@ export function LearningPlayer({itemId,autoPlay=false,select,relink,notify}:{ite
  {countdown!==null&&<div className="learning-next" role="status">{countdown} 秒后播放下一课<button className="secondary" onClick={()=>setCountdown(null)}>取消自动播放</button></div>}
  <div className="learning-player-options"><button className="text-button" disabled={!media} onClick={()=>void mark()}>{media?.item.progress.completed?"标记未完成":"标记完成"}</button><button className="text-button" disabled={busy||proxy} onClick={async()=>{lastVideo.current?.pause();try{await persistRef.current();setProxy(true);}catch(e){notify(learningError(e));}}}>生成兼容预览</button><button className="text-button" disabled={busy||!media} onClick={()=>void loadSubtitle()}><Subtitles size={16}/>加载字幕</button>{!!media?.subtitles.length&&<select aria-label="字幕轨道" value={subtitle} onChange={e=>setSubtitle(e.target.value)}><option value="">关闭字幕</option>{media.subtitles.map(s=><option key={s.path} value={s.path}>{s.label}</option>)}</select>}<button className="text-button" onClick={()=>void relink(itemId)}><FileVideo size={16}/>重新定位视频</button></div>
  {error&&<p className="error-text" role="alert">{error}</p>}{media?.subtitleWarning&&<p className="help" role="status">字幕未加载：{media.subtitleWarning}</p>}<p className="help">Space 播放/暂停 · ←/→ 5秒 · Shift + ←/→ 10秒 · M 静音 · F 全屏 · N/P 上下课</p>
+ {media&&<VideoNotes key={itemId} itemId={itemId} getCurrent={()=>lastVideo.current?.currentTime??current} pauseAndSave={async()=>{lastVideo.current?.pause();setCountdown(null);await persistRef.current();}} seek={seek} notify={notify}/>}
  </section>;
 }
