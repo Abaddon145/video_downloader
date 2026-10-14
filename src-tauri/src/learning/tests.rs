@@ -7,7 +7,7 @@ fn learning_database_creates_versioned_tables_and_enforces_relations() {
     let version: i64 = c
         .query_row("SELECT version FROM schema_version", [], |r| r.get(0))
         .expect("schema must exist");
-    assert_eq!(version, 4);
+    assert_eq!(version, 5);
     for table in [
         "categories",
         "series",
@@ -666,4 +666,119 @@ fn learning_reuses_earlier_download_without_matching_old_history() {
         r.item(&later_item.id).unwrap().download_task_id.is_none(),
         "an explicit link must not attach unrelated later imports to old history"
     );
+}
+
+#[test]
+fn learning_v4_upgrade_preserves_progress_notes_and_source_thumbnail() {
+    let dir = std::env::temp_dir().join(crate::ffmpeg::runner::new_id());
+    std::fs::create_dir(&dir).unwrap();
+    let path = dir.join("learning.db");
+    {
+        let r = Repository::open(&path).unwrap();
+        r.conn.execute_batch("INSERT INTO categories(id,name,sort_order,created_at,updated_at) VALUES('c','分类',3,1,1);
+        INSERT INTO series(id,category_id,title,favorite,sort_order,created_at,updated_at) VALUES('s','c','保留系列',1,9,1,1);
+        INSERT INTO series_items(id,series_id,title,source_url,source_video_id,source_playlist_index,duration_ms,thumbnail_path,download_task_id,download_request,request_key,sort_order,created_at,updated_at) VALUES('i','s','保留课程','https://example.com/video','v7',7,900000,'https://example.com/thumb.jpg','existing-task','{}','frozen',17,1,1);
+        INSERT INTO playback_progress(item_id,position_ms,duration_ms,completed,playback_rate,last_played_at,updated_at,last_sequence) VALUES('i',450000,900000,1,1.5,2,2,100);
+        INSERT INTO video_notes(id,item_id,time_ms,content,created_at,updated_at) VALUES('n','i',750000,'保留笔记',1,1);").unwrap();
+        let old=serde_json::json!({"autoplayNext":false,"completionThreshold":0.8,"defaultPlaybackRate":1.25,"restorePosition":true,"autoSubtitles":false}).to_string();
+        r.conn
+            .execute(
+                "INSERT INTO learning_settings(key,value) VALUES('settings',?1)",
+                [old],
+            )
+            .unwrap();
+        // Construct a genuine v4 layout even after the test is run on v5 code.
+        let columns = r
+            .rows(
+                "SELECT name FROM pragma_table_info('series_items')",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .unwrap();
+        for col in ["thumbnail_source", "source_thumbnail_url", "thumbnail_key"] {
+            if columns.iter().any(|c| c == col) {
+                r.conn
+                    .execute_batch(&format!("ALTER TABLE series_items DROP COLUMN {col};"))
+                    .unwrap();
+            }
+        }
+        r.conn
+            .execute_batch("UPDATE schema_version SET version=4; PRAGMA user_version=4;")
+            .unwrap();
+    }
+    let r = Repository::open(&path).unwrap();
+    assert_eq!(
+        r.conn
+            .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
+            .unwrap(),
+        5
+    );
+    let item = r.item("i").unwrap();
+    assert_eq!(item.progress.position_ms, 450000);
+    assert_eq!(item.progress.playback_rate, 1.5);
+    assert!(item.progress.completed);
+    assert_eq!(item.download_task_id.as_deref(), Some("existing-task"));
+    assert_eq!(item.source_playlist_index, Some(7));
+    assert_eq!(item.sort_order, 17);
+    assert_eq!(r.notes("i", 1).unwrap().notes[0].content, "保留笔记");
+    assert!(r.get_series("s").unwrap().favorite);
+    assert_eq!(r.get_series("s").unwrap().category_id.as_deref(), Some("c"));
+    let thumb: (Option<String>, Option<String>) = r
+        .conn
+        .query_row(
+            "SELECT thumbnail_path,source_thumbnail_url FROM series_items WHERE id='i'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(thumb, (None, Some("https://example.com/thumb.jpg".into())));
+    let settings = serde_json::to_value(r.settings().unwrap()).unwrap();
+    assert_eq!(settings["playbackPreference"], "auto");
+    assert_eq!(settings["playbackCacheGb"], 50);
+    assert_eq!(settings["playbackCacheDays"], 30);
+    assert_eq!(settings["autoplayNext"], false);
+    drop(r);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+#[test]
+fn learning_import_accepts_video_regardless_extension() {
+    let dir = std::env::temp_dir().join(crate::ffmpeg::runner::new_id());
+    std::fs::create_dir(&dir).unwrap();
+    let file = dir.join("01 课程.custom");
+    std::fs::write(&file, b"fixture").unwrap();
+    let info = crate::ffmpeg::models::MediaInfo {
+        duration: Some(20.),
+        videos: vec![crate::ffmpeg::models::VideoStreamInfo {
+            codec: "h264".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    assert!(super::importer::prepare(&file.to_string_lossy(), &info).is_ok());
+    assert!(super::importer::prepare(&file.to_string_lossy(), &Default::default()).is_err());
+    assert_eq!(std::fs::read(&file).unwrap(), b"fixture");
+    std::fs::remove_dir_all(dir).unwrap();
+}
+#[test]
+fn learning_scan_covers_all_required_formats() {
+    let dir = std::env::temp_dir().join(crate::ffmpeg::runner::new_id());
+    std::fs::create_dir(&dir).unwrap();
+    let extensions = [
+        "mp4", "m4v", "mov", "mkv", "avi", "wmv", "asf", "webm", "flv", "mpg", "mpeg", "ts",
+        "m2ts", "mts", "3gp", "3g2", "ogv",
+    ];
+    for (n, ext) in extensions.iter().enumerate() {
+        std::fs::write(dir.join(format!("{:02}.{ext}", n + 1)), b"fixture").unwrap();
+    }
+    std::fs::write(dir.join("笔记.txt"), b"text").unwrap();
+    let unknown = dir.join("18.custom");
+    std::fs::write(&unknown, b"fixture").unwrap();
+    let found = super::importer::scan_paths(&[
+        dir.to_string_lossy().into(),
+        unknown.to_string_lossy().into(),
+    ])
+    .unwrap();
+    assert_eq!(found.len(), 18);
+    assert!(found.last().unwrap().ends_with("18.custom"));
+    std::fs::remove_dir_all(dir).unwrap();
 }

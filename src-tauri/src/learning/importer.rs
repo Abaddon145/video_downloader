@@ -19,8 +19,11 @@ use std::{
 use tauri::Manager;
 pub(crate) fn video_path(p: &str) -> bool {
     Path::new(p).extension().is_some_and(|e| {
-        ["mp4", "mkv", "mov", "webm", "avi", "m4v", "wmv", "ts"]
-            .contains(&e.to_string_lossy().to_lowercase().as_str())
+        [
+            "mp4", "m4v", "mov", "mkv", "avi", "wmv", "asf", "webm", "flv", "mpg", "mpeg", "ts",
+            "m2ts", "mts", "3gp", "3g2", "ogv",
+        ]
+        .contains(&e.to_string_lossy().to_lowercase().as_str())
     })
 }
 fn prefix(s: &str) -> Option<u64> {
@@ -62,8 +65,9 @@ fn natural(a: &str, b: &str) -> Ordering {
     }
 }
 pub fn scan_paths(paths: &[String]) -> AppResult<Vec<String>> {
-    let mut files = crate::media::batch::discover(paths)?;
-    files.retain(|p| video_path(p));
+    let mut files = crate::media::batch::discover_filtered(paths, |p, explicit| {
+        explicit || video_path(&p.to_string_lossy())
+    })?;
     files.sort_by(|a, b| {
         let a_name = Path::new(a)
             .file_stem()
@@ -93,7 +97,7 @@ pub(crate) fn regular_file(p: &str) -> AppResult<PathBuf> {
 }
 pub(crate) fn prepare(path: &str, info: &MediaInfo) -> AppResult<PreparedLocal> {
     let path = regular_file(path)?;
-    if !video_path(&path.to_string_lossy()) || !info.videos.iter().any(|v| !v.attached_picture) {
+    if !info.videos.iter().any(|v| !v.attached_picture) {
         return Err("文件没有可播放的视频流".into());
     }
     let title = path

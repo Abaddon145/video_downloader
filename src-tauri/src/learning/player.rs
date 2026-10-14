@@ -18,7 +18,7 @@ impl Repository {
             .ok_or_else(|| "课程尚未下载".to_string())
             .and_then(regular_file);
         match result {
-            Ok(path) if super::importer::video_path(&path.to_string_lossy()) => {
+            Ok(path) => {
                 self.conn
                     .execute("UPDATE series_items SET available=1 WHERE id=?1", [id])
                     .map_err(db::error)?;

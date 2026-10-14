@@ -28,7 +28,7 @@ pub(crate) fn optional(s: &Option<String>, max: usize) -> AppResult<Option<Strin
         .map(|s| s.filter(|s| !s.is_empty()))
 }
 const SERIES_COLS:&str="s.id,s.category_id,s.title,s.description,s.cover_path,s.source_type,s.source_url,s.source_playlist_id,s.author,(SELECT COUNT(*) FROM series_items i WHERE i.series_id=s.id),(SELECT COUNT(*) FROM series_items i JOIN playback_progress p ON p.item_id=i.id WHERE i.series_id=s.id AND p.completed=1),(SELECT COALESCE(SUM(duration_ms),0) FROM series_items i WHERE i.series_id=s.id),s.favorite,s.sort_order,s.created_at,s.updated_at";
-const ITEM_COLS:&str="i.id,i.series_id,i.title,i.file_path,i.source_url,i.source_video_id,i.source_playlist_index,i.duration_ms,i.sort_order,i.thumbnail_path,i.download_task_id,i.available,i.download_state,COALESCE(p.position_ms,0),COALESCE(p.duration_ms,i.duration_ms,0),COALESCE(p.completed,0),COALESCE(p.playback_rate,1.0),p.last_played_at";
+const ITEM_COLS:&str="i.id,i.series_id,i.title,i.file_path,i.source_url,i.source_video_id,i.source_playlist_index,i.duration_ms,i.sort_order,i.thumbnail_path,i.download_task_id,i.available,i.download_state,COALESCE(p.position_ms,0),COALESCE(p.duration_ms,i.duration_ms,0),COALESCE(p.completed,0),COALESCE(p.playback_rate,1.0),p.last_played_at,i.thumbnail_source,i.source_thumbnail_url,i.thumbnail_key";
 fn category_row(r: &Row) -> rusqlite::Result<LearningCategory> {
     Ok(LearningCategory {
         id: r.get(0)?,
@@ -80,6 +80,9 @@ fn item_row(r: &Row) -> rusqlite::Result<LearningItem> {
         duration_ms: r.get(7)?,
         sort_order: r.get(8)?,
         thumbnail_path: r.get(9)?,
+        thumbnail_source: r.get(18)?,
+        source_thumbnail_url: r.get(19)?,
+        thumbnail_key: r.get(20)?,
         download_task_id: r.get(10)?,
         available: r.get(11)?,
         download_state: r.get(12)?,
@@ -346,7 +349,9 @@ impl Repository {
             .unwrap_or_else(|| Ok(LearningSettings::default()))
     }
     pub fn save_settings(&self, s: &LearningSettings) -> AppResult<()> {
-        if !s.completion_threshold.is_finite()
+        if !(1..=4096).contains(&s.playback_cache_gb)
+            || s.playback_cache_days > 3650
+            || !s.completion_threshold.is_finite()
             || !(0.01..=1.).contains(&s.completion_threshold)
             || ![0.5, 0.75, 1., 1.25, 1.5, 1.75, 2.].contains(&s.default_playback_rate)
         {
