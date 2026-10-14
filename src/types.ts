@@ -24,6 +24,7 @@ export interface CookieSummary { count: number; sessionCount: number; earliestEx
 export interface AppSnapshot { settings: AppSettings; tasks: DownloadTask[]; engine: EngineInfo; updating: boolean; previewing: boolean; notice: string | null; coreUpdate: EngineUpdate | null }
 export interface PlaylistEntry { id: string; url: string; title: string; duration: number | null; thumbnail: string | null; playlistIndex: number }
 export interface MediaPreview {
+  sourcePlaylistId?: string | null;
   url: string; title: string; thumbnail: string | null; duration: number | null; uploader: string; site: string; isPlaylist: boolean;
   entries: PlaylistEntry[];
   formats: { id: string; extension: string; height: number | null; videoCodec: string; audioCodec: string; filesize: number | null }[];

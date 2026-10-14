@@ -1,0 +1,74 @@
+{
+  "run": "$WORKSPACE\\artifacts\\v04\\native-1791976529371",
+  "passed": 6,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "native scan only previews and confirms ten lessons in numeric order",
+      "passed": true,
+      "detail": {
+        "added": 10,
+        "cover": true
+      }
+    },
+    {
+      "name": "real player loads local video and converted same-name subtitle",
+      "passed": true,
+      "detail": {
+        "playable": true,
+        "subtitles": 1,
+        "rate": 1.5
+      }
+    },
+    {
+      "name": "native exit flushes live position and reopen continues the exact third lesson",
+      "passed": true,
+      "detail": {
+        "itemId": "learn-1791976530984-13",
+        "positionMs": 450691,
+        "durationMs": 900000,
+        "completed": false,
+        "playbackRate": 1.5,
+        "lastPlayedAt": 1791976532325
+      }
+    },
+    {
+      "name": "paused speed and seek survive immediate native exit before timer save",
+      "passed": true,
+      "detail": {
+        "rate": 1.75,
+        "positionMs": 500000,
+        "savedBeforeFiveSecondTimer": true,
+        "exitPath": "same native flush used by tray exit"
+      }
+    },
+    {
+      "name": "90 percent marks complete and raw stored series counters stay synchronized",
+      "passed": true,
+      "detail": {
+        "completed": true
+      }
+    },
+    {
+      "name": "ended countdown can cancel and then plays the next real lesson after five seconds",
+      "passed": true,
+      "detail": {
+        "cancelled": true,
+        "next": "第4课",
+        "playing": true
+      }
+    }
+  ],
+  "sourceHashes": [
+    "5b1152334f3492e5ce8c413b36b038b77fe105f23306cc02bdf65fb43f96f7d8",
+    "5b1152334f3492e5ce8c413b36b038b77fe105f23306cc02bdf65fb43f96f7d8",
+    "5b1152334f3492e5ce8c413b36b038b77fe105f23306cc02bdf65fb43f96f7d8",
+    "5b1152334f3492e5ce8c413b36b038b77fe105f23306cc02bdf65fb43f96f7d8",
+    "5b1152334f3492e5ce8c413b36b038b77fe105f23306cc02bdf65fb43f96f7d8",
+    "5b1152334f3492e5ce8c413b36b038b77fe105f23306cc02bdf65fb43f96f7d8",
+    "5b1152334f3492e5ce8c413b36b038b77fe105f23306cc02bdf65fb43f96f7d8",
+    "5b1152334f3492e5ce8c413b36b038b77fe105f23306cc02bdf65fb43f96f7d8",
+    "5b1152334f3492e5ce8c413b36b038b77fe105f23306cc02bdf65fb43f96f7d8",
+    "5b1152334f3492e5ce8c413b36b038b77fe105f23306cc02bdf65fb43f96f7d8"
+  ]
+}

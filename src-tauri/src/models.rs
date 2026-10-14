@@ -188,6 +188,8 @@ pub struct PlaylistEntry {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaPreview {
+    #[serde(default)]
+    pub source_playlist_id: Option<String>,
     pub url: String,
     pub title: String,
     pub thumbnail: Option<String>,

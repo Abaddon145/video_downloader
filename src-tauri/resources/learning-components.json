@@ -1,0 +1,121 @@
+{
+  "rustCratesAdded": [
+    {
+      "name": "ahash",
+      "version": "0.8.12",
+      "license": "MIT OR Apache-2.0",
+      "source": "https://github.com/tkaitchuck/ahash",
+      "crateArchiveSha256": "5a15f179cd60c4584b8a8c596927aadc462e27f2ca70c04e0071964a73ba7a75",
+      "licenseFiles": [
+        "licenses/learning-rust/ahash-0.8.12/LICENSE-APACHE",
+        "licenses/learning-rust/ahash-0.8.12/LICENSE-MIT"
+      ]
+    },
+    {
+      "name": "fallible-iterator",
+      "version": "0.3.0",
+      "license": "MIT/Apache-2.0",
+      "source": "https://github.com/sfackler/rust-fallible-iterator",
+      "crateArchiveSha256": "2acce4a10f12dc2fb14a218589d4f1f62ef011b2d0cc4b3cb1bba8e94da14649",
+      "licenseFiles": [
+        "licenses/learning-rust/fallible-iterator-0.3.0/LICENSE-APACHE",
+        "licenses/learning-rust/fallible-iterator-0.3.0/LICENSE-MIT"
+      ]
+    },
+    {
+      "name": "fallible-streaming-iterator",
+      "version": "0.1.9",
+      "license": "MIT/Apache-2.0",
+      "source": "https://github.com/sfackler/fallible-streaming-iterator",
+      "crateArchiveSha256": "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a",
+      "licenseFiles": [
+        "licenses/learning-rust/fallible-streaming-iterator-0.1.9/LICENSE-APACHE",
+        "licenses/learning-rust/fallible-streaming-iterator-0.1.9/LICENSE-MIT"
+      ]
+    },
+    {
+      "name": "hashbrown",
+      "version": "0.14.5",
+      "license": "MIT OR Apache-2.0",
+      "source": "https://github.com/rust-lang/hashbrown",
+      "crateArchiveSha256": "e5274423e17b7c9fc20b6e7e208532f9b19825d82dfd615708b70edd83df41f1",
+      "licenseFiles": [
+        "licenses/learning-rust/hashbrown-0.14.5/LICENSE-APACHE",
+        "licenses/learning-rust/hashbrown-0.14.5/LICENSE-MIT"
+      ]
+    },
+    {
+      "name": "hashlink",
+      "version": "0.9.1",
+      "license": "MIT OR Apache-2.0",
+      "source": "https://github.com/kyren/hashlink",
+      "crateArchiveSha256": "6ba4ff7128dee98c7dc9794b6a411377e1404dba1c97deb8d1a55297bd25d8af",
+      "licenseFiles": [
+        "licenses/learning-rust/hashlink-0.9.1/LICENSE-APACHE",
+        "licenses/learning-rust/hashlink-0.9.1/LICENSE-MIT"
+      ]
+    },
+    {
+      "name": "libsqlite3-sys",
+      "version": "0.30.1",
+      "license": "MIT",
+      "source": "https://github.com/rusqlite/rusqlite",
+      "crateArchiveSha256": "2e99fb7a497b1e3339bc746195567ed8d3e24945ecd636e3619d20b9de9e9149",
+      "licenseFiles": [
+        "licenses/learning-rust/libsqlite3-sys-0.30.1/LICENSE"
+      ]
+    },
+    {
+      "name": "rusqlite",
+      "version": "0.32.1",
+      "license": "MIT",
+      "source": "https://github.com/rusqlite/rusqlite",
+      "crateArchiveSha256": "7753b721174eb8ff87a9a0e799e2d7bc3749323e773db92e0984debb00019d6e",
+      "licenseFiles": [
+        "licenses/learning-rust/rusqlite-0.32.1/LICENSE"
+      ]
+    },
+    {
+      "name": "vcpkg",
+      "version": "0.2.15",
+      "license": "MIT/Apache-2.0",
+      "source": "https://github.com/mcgoo/vcpkg-rs",
+      "crateArchiveSha256": "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426",
+      "licenseFiles": [
+        "licenses/learning-rust/vcpkg-0.2.15/LICENSE-APACHE",
+        "licenses/learning-rust/vcpkg-0.2.15/LICENSE-MIT"
+      ]
+    },
+    {
+      "name": "zerocopy",
+      "version": "0.8.57",
+      "license": "BSD-2-Clause OR Apache-2.0 OR MIT",
+      "source": "https://github.com/google/zerocopy",
+      "crateArchiveSha256": "d35102a9f36d089ccae9e4c6802bc118be4487b80aaffc0ab4e0cf5ce92d2873",
+      "licenseFiles": [
+        "licenses/learning-rust/zerocopy-0.8.57/LICENSE-APACHE",
+        "licenses/learning-rust/zerocopy-0.8.57/LICENSE-BSD",
+        "licenses/learning-rust/zerocopy-0.8.57/LICENSE-MIT"
+      ]
+    },
+    {
+      "name": "zerocopy-derive",
+      "version": "0.8.57",
+      "license": "BSD-2-Clause OR Apache-2.0 OR MIT",
+      "source": "https://github.com/google/zerocopy",
+      "crateArchiveSha256": "146c01f5ab44258da43cf276c74a2763db2ff3969c9c652c3f2de07041d0b2bc",
+      "licenseFiles": [
+        "licenses/learning-rust/zerocopy-derive-0.8.57/LICENSE-APACHE",
+        "licenses/learning-rust/zerocopy-derive-0.8.57/LICENSE-BSD",
+        "licenses/learning-rust/zerocopy-derive-0.8.57/LICENSE-MIT"
+      ]
+    }
+  ],
+  "SQLite": {
+    "version": "3.46.0",
+    "license": "Public domain",
+    "source": "https://www.sqlite.org/src/info/96c92aba00c8375bc32fafcdf12429c58bd8",
+    "amalgamationSha256": "c01235302fe80da901fb70c7622c39147e29d9f29b7f6eb746b23517f320c90d"
+  },
+  "note": "Crate archive checksums are from Cargo.lock. SQLite source checksum covers the bundled amalgamation; installed executable checksums are in the delivery SHA256SUMS file."
+}

@@ -1,0 +1,13 @@
+{
+  "passed": 7,
+  "checks": [
+    "learning home renders real category and series actions",
+    "series editor opens detail after saving selected category",
+    "local import previews ordered files before explicit database confirmation",
+    "learning player has separate playback controls and seven speeds",
+    "timestamp note editor saves 12:30 text and offers a time jump",
+    "download preview submits complete playlist metadata and selected frozen options",
+    "series update checks once under StrictMode and submits only new entries"
+  ],
+  "errors": []
+}

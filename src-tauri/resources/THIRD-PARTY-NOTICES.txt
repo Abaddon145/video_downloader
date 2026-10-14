@@ -14,3 +14,5 @@ Third-party components: https://github.com/denoland/deno/blob/main/third_party/R
 
 Exact versions, official release URLs and SHA256 digests are in components.json and tools/binaries.json.
 Desktop interface source is provided with this personal-use build. The bundled executables remain under their respective upstream licenses.
+
+Learning Library v0.4.0: rusqlite 0.32.1 (MIT), libsqlite3-sys 0.30.1 (MIT), bundled SQLite 3.46.0 (public domain). Exact added Rust dependency versions, source/archive digests and license copies: learning-components.json and licenses/learning-rust/.

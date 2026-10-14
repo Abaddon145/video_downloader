@@ -114,6 +114,14 @@ pub fn media_preview(url: &str, json: &Value) -> AppResult<MediaPreview> {
         }
     }
     Ok(MediaPreview {
+        source_playlist_id: if is_playlist {
+            json["id"]
+                .as_str()
+                .filter(|s| !s.is_empty())
+                .map(str::to_string)
+        } else {
+            None
+        },
         url: validate_url(url)?,
         title: json["title"].as_str().unwrap_or("未命名视频").into(),
         thumbnail: thumbnail(json),

@@ -2,6 +2,7 @@ pub mod batch;
 pub mod domain;
 pub mod engine;
 pub mod ffmpeg;
+pub mod learning;
 pub mod media;
 pub mod models;
 pub mod naming;
@@ -9,6 +10,7 @@ pub mod native;
 pub mod service;
 
 use domain::AppResult;
+use learning::commands::*;
 use models::*;
 use service::Service;
 use std::sync::Arc;
@@ -104,6 +106,8 @@ async fn update_engine(service: AppService<'_>) -> AppResult<EngineInfo> {
 }
 #[tauri::command]
 fn exit_app(app: tauri::AppHandle, service: AppService<'_>, media: AppMedia<'_>) -> AppResult<()> {
+    app.state::<Arc<learning::service::LearningService>>()
+        .flush_progress()?;
     media.shutdown()?;
     service.shutdown();
     app.exit(0);
@@ -225,6 +229,25 @@ pub fn run() {
     let application = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            learning_check_updates,
+            learning_enqueue_downloads,
+            learning_download_item,
+            learning_notes,
+            learning_save_note,
+            learning_live_progress,
+            learning_save_progress,
+            learning_flush_progress,
+            learning_prepare_player,
+            learning_load_subtitle,
+            learning_scan,
+            learning_import,
+            learning_relink,
+            learning_delete_preview,
+            learning_open_file,
+            learning_home,
+            learning_series,
+            learning_item,
+            learning_change,
             discover_media,
             create_batch_media,
             get_media_capabilities,
@@ -265,6 +288,11 @@ pub fn run() {
             )
             .map_err(std::io::Error::other)?;
             app.manage(media.clone());
+            app.manage(learning::service::LearningService::new(
+                app.handle().clone(),
+                &service.data,
+                media.clone(),
+            ));
             media.start();
             let show = MenuItem::with_id(app, "show", "打开视频下载器", true, None::<&str>)?;
             let exit = MenuItem::with_id(app, "exit", "保存任务并退出", true, None::<&str>)?;
@@ -276,7 +304,11 @@ pub fn run() {
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => show_main(app),
-                    "exit" => match app.state::<Arc<ffmpeg::runner::MediaService>>().shutdown() {
+                    "exit" => match app
+                        .state::<Arc<learning::service::LearningService>>()
+                        .flush_progress()
+                        .and_then(|_| app.state::<Arc<ffmpeg::runner::MediaService>>().shutdown())
+                    {
                         Ok(()) => {
                             app.state::<Arc<Service>>().shutdown();
                             app.exit(0);
@@ -297,6 +329,8 @@ pub fn run() {
                     }
                 })
                 .build(app)?;
+            app.state::<Arc<learning::service::LearningService>>()
+                .start(service.clone());
             service.start();
             show_main(app.handle());
             Ok(())
@@ -304,6 +338,12 @@ pub fn run() {
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
+                use tauri::Emitter;
+                let _ = window.emit("learning-player-hidden", ());
+                let _ = window
+                    .app_handle()
+                    .state::<Arc<learning::service::LearningService>>()
+                    .flush_progress();
                 let _ = window.hide();
             }
         })
@@ -314,6 +354,9 @@ pub fn run() {
                 event,
                 tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit
             ) {
+                let _ = app
+                    .state::<Arc<learning::service::LearningService>>()
+                    .flush_progress();
                 let _ = app.state::<Arc<ffmpeg::runner::MediaService>>().shutdown();
                 app.state::<Arc<Service>>().shutdown();
             }

@@ -1,0 +1,13 @@
+SQLite 3.46.0 — public domain
+https://www.sqlite.org/copyright.html
+Source: https://www.sqlite.org/src/info/96c92aba00c8375bc32fafcdf12429c58bd8
+
+The author disclaims copyright to this source code. In place of
+a legal notice, here is a blessing:
+    May you do good and not evil.
+    May you find forgiveness for yourself and forgive others.
+    May you share freely, never taking more than you give.
+
+Bundled through libsqlite3-sys 0.30.1 and rusqlite 0.32.1.
+The Rust wrappers and added Rust dependencies retain their own licenses;
+see learning-rust/ and learning-components.json.

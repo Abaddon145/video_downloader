@@ -198,6 +198,16 @@ impl Service {
             core_update: state.core_update.clone(),
         }
     }
+    fn learning_update(&self, task: &DownloadTask) {
+        if let Some(learning) = self
+            .app
+            .try_state::<Arc<crate::learning::service::LearningService>>()
+        {
+            if learning.on_download_task(task).is_err() {
+                eprintln!("学习库关联更新失败，下载任务不受影响");
+            }
+        }
+    }
     fn publish(&self) {
         let _ = self.app.emit("snapshot-updated", self.snapshot());
     }
@@ -514,8 +524,10 @@ impl Service {
         } else {
             None
         };
+        let learning_task = task.clone();
         self.commit_disk(&mut state, next)?;
         drop(state);
+        self.learning_update(&learning_task);
         if let Some(job) = job {
             job.terminate()?;
         }
@@ -703,6 +715,7 @@ impl Service {
             claims
         };
         for task in claims {
+            self.learning_update(&task);
             self.changed(&task);
             let service = self.clone();
             std::thread::spawn(move || {
@@ -978,6 +991,7 @@ impl Service {
         if let Err(error) = self.persist(&state) {
             state.notice = Some(format!("任务记录保存失败：{error}"));
         }
+        let learning_task = state.disk.tasks.iter().find(|t| t.id == id).cloned();
         let completed = state
             .disk
             .tasks
@@ -985,6 +999,9 @@ impl Service {
             .find(|t| t.id == id && t.status == TaskStatus::Completed)
             .cloned();
         drop(state);
+        if let Some(task) = learning_task {
+            self.learning_update(&task);
+        }
         if let Some(task) = completed {
             if let Some(media) = self
                 .app

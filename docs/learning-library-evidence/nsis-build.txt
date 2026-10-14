@@ -1,0 +1,68 @@
+
+> video-downloader@0.4.0 tauri
+> tauri build --bundles nsis --verbose
+
+       Debug [tauri_cli::helpers::app_paths] Found Tauri project inside C:\Users\14582\.codex\worktrees\content-updates\视频下载软件\src-tauri on early lookup
+        Info [tauri_cli::build] Looking up installed tauri packages to check mismatched versions...
+     Running [tauri_cli::helpers] beforeBuildCommand `npm run build`
+       Debug [tauri_cli::helpers] Setting environment for hook {"TAURI_ENV_FAMILY": "windows", "TAURI_ENV_PLATFORM": "windows", "TAURI_ENV_PLATFORM_VERSION": "10.0.26200", "TAURI_ENV_TARGET_TRIPLE": "x86_64-pc-windows-msvc", "TAURI_ENV_ARCH": "x86_64"}
+     Running [tauri_cli] Command `cmd /S /C npm run build`
+
+> video-downloader@0.4.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 1778 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.41 kB │ gzip:   0.30 kB
+dist/assets/index-DXprzqJ5.css   45.87 kB │ gzip:  10.20 kB
+dist/assets/index-D6-iok-C.js   398.94 kB │ gzip: 121.47 kB
+✓ built in 2.21s
+     Running [tauri_cli] Command `cargo build --bins --features tauri/custom-protocol --release`
+   Compiling video-downloader v0.4.0 (C:\Users\14582\.codex\worktrees\content-updates\视频下载软件\src-tauri)
+warning: linker stdout: 正在创建库 C:/Users/14582/Documents/ChatGPT/视频下载软件/src-tauri/target\release\deps\video_downloader_lib.dll.lib 和对象 C:/Users/14582/Documents/ChatGPT/视频下载软件/src-tauri/target\release\deps\video_downloader_lib.dll.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `video-downloader` (lib) generated 1 warning
+    Finished `release` profile [optimized] target(s) in 26.29s
+       Built [tauri_cli::build] application at: C:\Users\14582\Documents\ChatGPT\视频下载软件\src-tauri\target\release\video-downloader.exe
+        Info [tauri_bundler::bundle] Patching C:\Users\14582\Documents\ChatGPT\视频下载软件\src-tauri\target\release\video-downloader.exe with bundle type information: nsis
+        Info [tauri_bundler::bundle::windows::nsis] Target: x64
+     Running [tauri_bundler::bundle::windows::nsis] makensis to produce C:\Users\14582\Documents\ChatGPT\视频下载软件\src-tauri\target\release\bundle\nsis\视频下载器_0.4.0_x64-setup.exe
+     Running [tauri_bundler::utils] Command `C:\Users\14582\AppData\Local\tauri\NSIS\makensis.exe  -INPUTCHARSET UTF8 -OUTPUTCHARSET UTF8 -V3 C:/Users/14582/Documents/ChatGPT/视频下载软件/src-tauri/target\release\nsis\x64\installer.nsi`
+MakeNSIS v3.11 - Copyright 1999-2025 Contributors
+See the file COPYING for license details.
+Credits can be found in the Users Manual.
+
+Processing config: C:\Users\14582\AppData\Local\tauri\NSIS\nsisconf.nsh
+Processing script file: "C:/Users/14582/Documents/ChatGPT/视频下载软件/src-tauri/target\release\nsis\x64\installer.nsi" (UTF8)
+
+Processed 1 file, writing output (x86-unicode):
+warning 6010: install function "Skip" not referenced - zeroing code (1493-1495) out
+
+
+Output: "C:\Users\14582\Documents\ChatGPT\视频下载软件\src-tauri\target\release\nsis\x64\nsis-output.exe"
+Install: 6 pages (384 bytes), 3 sections (6216 bytes), 1962 instructions (54936 bytes), 440 strings (14804 bytes), 1 language table (402 bytes).
+Uninstall: 2 pages (192 bytes), 1 section (2072 bytes), 698 instructions (19544 bytes), 247 strings (10466 bytes), 1 language table (274 bytes).
+Datablock optimizer saved 63484 bytes (~0.0%).
+
+Using lzma (compress whole) compression.
+
+EXE header size:               52224 / 38912 bytes
+Install code:                          (77206 bytes)
+Install data:                          (469276316 bytes)
+Uninstall code+data:                   (99148 bytes)
+Compressed data:           150084258 / 469452670 bytes
+CRC (0x10C18059):                  4 / 4 bytes
+
+Total size:                150136486 / 469491586 bytes (31.9%)
+
+1 warning:
+  6010: install function "Skip" not referenced - zeroing code (1493-1495) out
+
+    Finished [tauri_bundler::bundle] 1 bundle at:
+        C:\Users\14582\Documents\ChatGPT\视频下载软件\src-tauri\target\release\bundle\nsis\视频下载器_0.4.0_x64-setup.exe (143.18 MiB)
+
