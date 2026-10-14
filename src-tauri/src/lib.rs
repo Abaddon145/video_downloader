@@ -229,6 +229,8 @@ pub fn run() {
     let application = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            learning_enqueue_downloads,
+            learning_download_item,
             learning_notes,
             learning_save_note,
             learning_live_progress,
@@ -326,6 +328,8 @@ pub fn run() {
                     }
                 })
                 .build(app)?;
+            app.state::<Arc<learning::service::LearningService>>()
+                .start(service.clone());
             service.start();
             show_main(app.handle());
             Ok(())

@@ -110,6 +110,38 @@ pub fn learning_flush_progress(learning: Learning<'_>) -> AppResult<()> {
 }
 
 #[tauri::command]
-pub fn learning_notes(learning:Learning<'_>,item_id:String,page:u32)->AppResult<NotePage>{learning.with(|r|r.notes(&item_id,page))}
+pub fn learning_notes(learning: Learning<'_>, item_id: String, page: u32) -> AppResult<NotePage> {
+    learning.with(|r| r.notes(&item_id, page))
+}
 #[tauri::command]
-pub fn learning_save_note(learning:Learning<'_>,input:NoteInput)->AppResult<String>{let id=learning.with(|r|r.save_note(&input))?;learning.changed("note",&id);Ok(id)}
+pub fn learning_save_note(learning: Learning<'_>, input: NoteInput) -> AppResult<String> {
+    let id = learning.with(|r| r.save_note(&input))?;
+    learning.changed("note", &id);
+    Ok(id)
+}
+
+#[tauri::command]
+pub async fn learning_enqueue_downloads(
+    learning: Learning<'_>,
+    service: State<'_, Arc<crate::service::Service>>,
+    requests: Vec<crate::models::DownloadRequest>,
+    imports: Vec<PlaylistImport>,
+) -> AppResult<LearningEnqueueResult> {
+    let l = learning.inner().clone();
+    let s = service.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || l.enqueue_playlists(&s, requests, imports))
+        .await
+        .map_err(|_| "播放列表入队线程异常")?
+}
+#[tauri::command]
+pub async fn learning_download_item(
+    learning: Learning<'_>,
+    service: State<'_, Arc<crate::service::Service>>,
+    id: String,
+) -> AppResult<()> {
+    let l = learning.inner().clone();
+    let s = service.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || l.download_item(&s, &id))
+        .await
+        .map_err(|_| "课程下载线程异常")?
+}

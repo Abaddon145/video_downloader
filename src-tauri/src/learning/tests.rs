@@ -7,7 +7,7 @@ fn learning_database_creates_versioned_tables_and_enforces_relations() {
     let version: i64 = c
         .query_row("SELECT version FROM schema_version", [], |r| r.get(0))
         .expect("schema must exist");
-    assert_eq!(version, 3);
+    assert_eq!(version, 4);
     for table in [
         "categories",
         "series",
@@ -373,6 +373,144 @@ fn learning_progress_reopens_database_and_keeps_rate_and_completion() {
 }
 
 #[test]
-fn learning_notes_edit_timestamp_search_and_cascade(){let r=repository();let s=r.save_series(&course("笔记",None)).unwrap();r.conn.execute("INSERT INTO series_items(id,series_id,title,duration_ms,created_at,updated_at) VALUES('i',?1,'课程',900000,0,0)",[&s]).unwrap();let mut input=NoteInput{id:None,item_id:"i".into(),time_ms:750000,content:"GPU Collision".into()};let id=r.save_note(&input).unwrap();input.id=Some(id.clone());input.content="Collision 修正".into();r.save_note(&input).unwrap();assert_eq!(r.notes("i",1).unwrap().notes[0].time_ms,750000);assert_eq!(r.list_series("Collision",None,1,false).unwrap().1,1);input.id=None;input.time_ms=30000;r.save_note(&input).unwrap();assert_eq!(r.notes("i",1).unwrap().notes[0].time_ms,30000);input.time_ms=900001;assert!(r.save_note(&input).is_err());r.delete_note(&id).unwrap();assert_eq!(r.notes("i",1).unwrap().total,1);r.delete_series_records(&s).unwrap();assert_eq!(r.conn.query_row("SELECT COUNT(*) FROM video_notes",[],|r|r.get::<_,i64>(0)).unwrap(),0);}
+fn learning_notes_edit_timestamp_search_and_cascade() {
+    let r = repository();
+    let s = r.save_series(&course("笔记", None)).unwrap();
+    r.conn.execute("INSERT INTO series_items(id,series_id,title,duration_ms,created_at,updated_at) VALUES('i',?1,'课程',900000,0,0)",[&s]).unwrap();
+    let mut input = NoteInput {
+        id: None,
+        item_id: "i".into(),
+        time_ms: 750000,
+        content: "GPU Collision".into(),
+    };
+    let id = r.save_note(&input).unwrap();
+    input.id = Some(id.clone());
+    input.content = "Collision 修正".into();
+    r.save_note(&input).unwrap();
+    assert_eq!(r.notes("i", 1).unwrap().notes[0].time_ms, 750000);
+    assert_eq!(r.list_series("Collision", None, 1, false).unwrap().1, 1);
+    input.id = None;
+    input.time_ms = 30000;
+    r.save_note(&input).unwrap();
+    assert_eq!(r.notes("i", 1).unwrap().notes[0].time_ms, 30000);
+    input.time_ms = 900001;
+    assert!(r.save_note(&input).is_err());
+    r.delete_note(&id).unwrap();
+    assert_eq!(r.notes("i", 1).unwrap().total, 1);
+    r.delete_series_records(&s).unwrap();
+    assert_eq!(
+        r.conn
+            .query_row("SELECT COUNT(*) FROM video_notes", [], |r| r
+                .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+}
 #[test]
-fn learning_notes_survive_reopen_with_original_item_and_timestamp(){let dir=std::env::temp_dir().join(format!("learning-notes-{}",crate::ffmpeg::runner::new_id()));std::fs::create_dir(&dir).unwrap();let path=dir.join("learning.db");{let r=Repository::open(&path).unwrap();let s=r.save_series(&course("笔记",None)).unwrap();r.conn.execute("INSERT INTO series_items(id,series_id,title,duration_ms,created_at,updated_at) VALUES('i',?1,'课程',900000,0,0)",[s]).unwrap();r.save_note(&NoteInput{id:None,item_id:"i".into(),time_ms:750000,content:"持久笔记".into()}).unwrap();}{let r=Repository::open(&path).unwrap();let notes=r.notes("i",1).unwrap();assert_eq!(notes.notes[0].content,"持久笔记");assert_eq!(notes.notes[0].time_ms,750000);}std::fs::remove_dir_all(dir).unwrap();}
+fn learning_notes_survive_reopen_with_original_item_and_timestamp() {
+    let dir = std::env::temp_dir().join(format!(
+        "learning-notes-{}",
+        crate::ffmpeg::runner::new_id()
+    ));
+    std::fs::create_dir(&dir).unwrap();
+    let path = dir.join("learning.db");
+    {
+        let r = Repository::open(&path).unwrap();
+        let s = r.save_series(&course("笔记", None)).unwrap();
+        r.conn.execute("INSERT INTO series_items(id,series_id,title,duration_ms,created_at,updated_at) VALUES('i',?1,'课程',900000,0,0)",[s]).unwrap();
+        r.save_note(&NoteInput {
+            id: None,
+            item_id: "i".into(),
+            time_ms: 750000,
+            content: "持久笔记".into(),
+        })
+        .unwrap();
+    }
+    {
+        let r = Repository::open(&path).unwrap();
+        let notes = r.notes("i", 1).unwrap();
+        assert_eq!(notes.notes[0].content, "持久笔记");
+        assert_eq!(notes.notes[0].time_ms, 750000);
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+fn playlist_input() -> PlaylistImport {
+    let raw = serde_json::json!({"_type":"playlist","id":"pl-test","title":"离线播放列表","extractor_key":"Generic","entries":[{"id":"v10","url":"https://example.com/10.mp4","title":"第10课","playlist_index":10},{"id":"v2","url":"https://example.com/2.mp4","title":"第2课","playlist_index":2},{"id":"v1","url":"https://example.com/1.mp4","title":"第1课","playlist_index":1}]});
+    PlaylistImport {
+        preview: crate::engine::media_preview("https://example.com/playlist", &raw).unwrap(),
+        series_id: None,
+        category_id: None,
+        title: "系列".into(),
+        keep_order: true,
+        template: crate::models::DownloadRequest {
+            kind: crate::models::MediaKind::Video,
+            max_height: 720,
+            filename_template: "{播放列表序号} - {标题} [{视频ID}]".into(),
+            ..Default::default()
+        },
+    }
+}
+#[test]
+fn learning_playlist_keeps_source_order_deduplicates_ids_and_freezes_requests() {
+    let mut r = repository();
+    let mut input = playlist_input();
+    let first = r.stage_playlists(&[input.clone()]).unwrap().remove(0);
+    assert_eq!(first.added, 3);
+    let detail = r.series(&first.series_id, 1).unwrap();
+    assert_eq!(
+        detail
+            .items
+            .iter()
+            .map(|i| i.source_playlist_index.unwrap())
+            .collect::<Vec<_>>(),
+        vec![1, 2, 10]
+    );
+    let id = &detail.items[0].id;
+    assert!(!detail.items[0].available);
+    assert_eq!(r.download_request(id).unwrap().max_height, 720);
+    input.template.max_height = 1080;
+    input.preview.entries[0].title = "改名".into();
+    input.preview.entries[0].url = "https://example.com/changed.mp4".into();
+    let again = r.stage_playlists(&[input]).unwrap().remove(0);
+    assert_eq!(again.added, 0);
+    assert_eq!(again.duplicates, 3);
+    assert_eq!(again.series_id, first.series_id);
+    assert_eq!(r.download_request(id).unwrap().max_height, 720);
+}
+#[test]
+fn learning_download_callback_before_binding_and_failure_recovery_are_idempotent() {
+    let mut r = repository();
+    let input = playlist_input();
+    let s = r.stage_playlists(&[input]).unwrap().remove(0).series_id;
+    let item = r.series(&s, 1).unwrap().items.remove(0);
+    let request = r.download_request(&item.id).unwrap();
+    let mut task = crate::models::DownloadTask {
+        id: "download1".into(),
+        request,
+        status: crate::models::TaskStatus::Failed,
+        created_at: super::repository::now() as u64,
+        ..Default::default()
+    };
+    assert_eq!(r.apply_download(&task, None).unwrap().len(), 1);
+    let failed = r.item(&item.id).unwrap();
+    assert_eq!(failed.download_task_id.as_deref(), Some("download1"));
+    assert_eq!(failed.download_state, "failed");
+    assert!(!failed.available);
+    task.status = crate::models::TaskStatus::Completed;
+    let file = PreparedLocal {
+        path: "C:/actual/final.mp4".into(),
+        key: "c:/actual/final.mp4".into(),
+        title: "final".into(),
+        duration_ms: Some(900000),
+    };
+    r.apply_download(&task, Some(&file)).unwrap();
+    r.apply_download(&task, Some(&file)).unwrap();
+    assert_eq!(r.item(&item.id).unwrap().file_path, Some(file.path));
+    assert!(r.item(&item.id).unwrap().available);
+    assert_eq!(r.series(&s, 1).unwrap().total, 3);
+    assert_eq!(
+        r.download_request(&item.id).unwrap().playlist_index,
+        Some(1)
+    );
+}

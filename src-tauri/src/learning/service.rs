@@ -138,7 +138,10 @@ impl LearningService {
                     .remove(&id);
                 Ok(id)
             }
-            LearningChange::DeleteNote{id}=>{r.delete_note(&id)?;Ok(id)},
+            LearningChange::DeleteNote { id } => {
+                r.delete_note(&id)?;
+                Ok(id)
+            }
         })?;
         self.changed("structure", &id);
         Ok(id)

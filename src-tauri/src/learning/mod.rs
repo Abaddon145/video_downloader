@@ -10,3 +10,5 @@ mod tests;
 pub mod player;
 
 pub mod progress;
+
+pub mod download;

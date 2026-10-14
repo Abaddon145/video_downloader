@@ -248,9 +248,37 @@ pub struct PlayerMedia {
     pub subtitle_warning: Option<String>,
 }
 
-#[derive(Debug,Clone,Deserialize)]
-#[serde(rename_all="camelCase",deny_unknown_fields)]
-pub struct NoteInput{pub id:Option<String>,pub item_id:String,pub time_ms:i64,pub content:String}
-#[derive(Debug,Serialize)]
-#[serde(rename_all="camelCase")]
-pub struct NotePage{pub notes:Vec<VideoNote>,pub total:i64,pub page:u32}
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct NoteInput {
+    pub id: Option<String>,
+    pub item_id: String,
+    pub time_ms: i64,
+    pub content: String,
+}
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NotePage {
+    pub notes: Vec<VideoNote>,
+    pub total: i64,
+    pub page: u32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PlaylistImport {
+    pub preview: crate::models::MediaPreview,
+    pub series_id: Option<String>,
+    pub category_id: Option<String>,
+    pub title: String,
+    pub keep_order: bool,
+    pub template: crate::models::DownloadRequest,
+}
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LearningEnqueueResult {
+    pub tasks: Vec<crate::models::DownloadTask>,
+    pub series_ids: Vec<String>,
+    pub added: usize,
+    pub duplicates: usize,
+}

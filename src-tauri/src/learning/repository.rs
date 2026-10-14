@@ -358,8 +358,44 @@ impl Repository {
     }
 }
 
-impl Repository{
- pub fn notes(&self,item:&str,page:u32)->AppResult<NotePage>{self.item(item)?;let total:i64=self.conn.query_row("SELECT COUNT(*) FROM video_notes WHERE item_id=?1",[item],|r|r.get(0)).map_err(db::error)?;let page=page.max(1).min(((total+49)/50).max(1) as u32);let notes=self.rows("SELECT id,item_id,time_ms,content,created_at,updated_at FROM video_notes WHERE item_id=?1 ORDER BY time_ms,created_at,id LIMIT 50 OFFSET ?2",params![item,(page-1)*50],|r|Ok(VideoNote{id:r.get(0)?,item_id:r.get(1)?,time_ms:r.get(2)?,content:r.get(3)?,created_at:r.get(4)?,updated_at:r.get(5)?}))?;Ok(NotePage{notes,total,page})}
- pub fn save_note(&self,n:&NoteInput)->AppResult<String>{let item=self.item(&n.item_id)?;if n.time_ms<0||n.time_ms>item.duration_ms.unwrap_or(604800000){return Err("笔记时间必须在课程范围内".into());}let content=text(&n.content,4000,true)?;let id=n.id.clone().unwrap_or_else(id);if n.id.is_some(){if self.conn.execute("UPDATE video_notes SET time_ms=?1,content=?2,updated_at=?3 WHERE id=?4 AND item_id=?5",params![n.time_ms,content,now(),id,n.item_id]).map_err(db::error)?==0{return Err("笔记不存在或不属于当前课程".into());}}else{self.conn.execute("INSERT INTO video_notes(id,item_id,time_ms,content,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?5)",params![id,n.item_id,n.time_ms,content,now()]).map_err(db::error)?;}Ok(id)}
- pub fn delete_note(&self,id:&str)->AppResult<()>{if self.conn.execute("DELETE FROM video_notes WHERE id=?1",[id]).map_err(db::error)?==0{return Err("笔记不存在".into());}Ok(())}
+impl Repository {
+    pub fn notes(&self, item: &str, page: u32) -> AppResult<NotePage> {
+        self.item(item)?;
+        let total: i64 = self
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM video_notes WHERE item_id=?1",
+                [item],
+                |r| r.get(0),
+            )
+            .map_err(db::error)?;
+        let page = page.max(1).min(((total + 49) / 50).max(1) as u32);
+        let notes=self.rows("SELECT id,item_id,time_ms,content,created_at,updated_at FROM video_notes WHERE item_id=?1 ORDER BY time_ms,created_at,id LIMIT 50 OFFSET ?2",params![item,(page-1)*50],|r|Ok(VideoNote{id:r.get(0)?,item_id:r.get(1)?,time_ms:r.get(2)?,content:r.get(3)?,created_at:r.get(4)?,updated_at:r.get(5)?}))?;
+        Ok(NotePage { notes, total, page })
+    }
+    pub fn save_note(&self, n: &NoteInput) -> AppResult<String> {
+        let item = self.item(&n.item_id)?;
+        if n.time_ms < 0 || n.time_ms > item.duration_ms.unwrap_or(604800000) {
+            return Err("笔记时间必须在课程范围内".into());
+        }
+        let content = text(&n.content, 4000, true)?;
+        let id = n.id.clone().unwrap_or_else(id);
+        if n.id.is_some() {
+            if self.conn.execute("UPDATE video_notes SET time_ms=?1,content=?2,updated_at=?3 WHERE id=?4 AND item_id=?5",params![n.time_ms,content,now(),id,n.item_id]).map_err(db::error)?==0{return Err("笔记不存在或不属于当前课程".into());}
+        } else {
+            self.conn.execute("INSERT INTO video_notes(id,item_id,time_ms,content,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?5)",params![id,n.item_id,n.time_ms,content,now()]).map_err(db::error)?;
+        }
+        Ok(id)
+    }
+    pub fn delete_note(&self, id: &str) -> AppResult<()> {
+        if self
+            .conn
+            .execute("DELETE FROM video_notes WHERE id=?1", [id])
+            .map_err(db::error)?
+            == 0
+        {
+            return Err("笔记不存在".into());
+        }
+        Ok(())
+    }
 }

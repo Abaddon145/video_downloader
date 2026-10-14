@@ -58,9 +58,9 @@ Interfaces: consumes existing Service/MediaService + prior Repository; produces 
 ### Task 7: Downloader Integration
 Files: learning/service/importer; service.rs minimal callback; PlaylistImportOptions; App.
 Interfaces: consumes existing Service/MediaService + prior Repository; produces learning_enqueue_downloads(requests,imports); attach_download(task); learning_download_item(id).
-- [ ] RED: playlistIndex order, ID/URL dedup, placeholders/failed retention; success actual video path; callback-before-bind/restart idempotence. Run focused check; Expected: required behavior fails before implementation.
-- [ ] GREEN: implement minimum safe behavior in files above; Expected: focused check passes.
-- [ ] Verify: cargo test + npm test + offline playlist real tasks; Expected: zero failures; append ledger and commit task.
+- [x] RED: playlistIndex order, ID/URL dedup, placeholders/failed retention; success actual video path; callback-before-bind/restart idempotence. Run focused check; Expected: required behavior fails before implementation.
+- [x] GREEN: implement minimum safe behavior in files above; Expected: focused check passes.
+- [x] Verify: cargo test + npm test + offline playlist real tasks; Expected: zero failures; append ledger and commit task.
 
 ### Task 8: Series Update
 Files: learning/service; features/learning/SeriesUpdateDialog.

@@ -8,6 +8,9 @@ import type { BatchAction, BatchResult, DownloadPreset, PlaylistEntry } from './
 import { emptyPreset, NamingFields, PresetSettings } from './Presets';
 import {MediaProSettingsPanel} from './components/media/MediaProSettingsPanel';
 import MediaToolsPage from './pages/MediaToolsPage';
+import {PlaylistImportOptions,defaultLibraryChoice} from './features/learning/PlaylistImportOptions';
+import {buildPlaylistImports} from './features/learning/lib';
+import type {PlaylistImport,LibraryChoice,LearningEnqueueResult} from './types/learning';
 import LearningLibraryPage from './features/learning/LearningLibraryPage';
 import type { AppSettings, AppSnapshot, DownloadRequest, DownloadTask, EngineUpdate, MediaKind, MediaPreview, PreviewResult, TaskStatus, VideoMode } from './types';
 
@@ -81,7 +84,8 @@ function TaskRow({ task, act, details, checked, select }: { task: DownloadTask; 
   </article>;
 }
 
-function PreviewPanel({ results, expected, busy, directory, presets, savePreset, enqueue, close, configure, retry, openSource }: { presets: DownloadPreset[]; savePreset: (preset: DownloadPreset) => Promise<string|null>; results: PreviewResult[]; expected: number; busy: boolean; directory: string; enqueue: (requests: DownloadRequest[]) => Promise<string | null>; close: () => void; configure: () => void; retry: () => void; openSource: (url: string) => void }) {
+function PreviewPanel({ results, expected, busy, directory, presets, savePreset, enqueue, close, configure, retry, openSource }: { presets: DownloadPreset[]; savePreset: (preset: DownloadPreset) => Promise<string|null>; results: PreviewResult[]; expected: number; busy: boolean; directory: string; enqueue: (requests: DownloadRequest[],imports?:PlaylistImport[]) => Promise<string | null>; close: () => void; configure: () => void; retry: () => void; openSource: (url: string) => void }) {
+  const [libraryChoices,setLibraryChoices]=useState<Record<string,LibraryChoice>>({});
   const [active, setActive] = useState(0);
   const [selected, setSelected] = useState(new Set<string>());
   const [kind, setKind] = useState<MediaKind>('video');
@@ -116,9 +120,10 @@ function PreviewPanel({ results, expected, busy, directory, presets, savePreset,
   const subtitleLanguages = hasPlaylist ? playlistLanguages.split(',').map(lang => lang.trim()).filter(Boolean) : languages;
   const heights = [...new Set(preview?.formats.flatMap(format => format.height ? [format.height] : []) ?? [])].sort((a, b) => b - a);
   const toggle = (url: string) => setSelected(previous => { const next = new Set(previous); if (next.has(url)) next.delete(url); else next.add(url); return next; });
+  const learningImports=buildPlaylistImports(allPreviews,libraryChoices,{url:'',title:'',thumbnail:null,kind,videoMode:mode,maxHeight:height,subtitleLanguages:[...subtitleLanguages],filenameTemplate,byAuthor,playlistIndex:null});
   const download = async () => {
     setSaving(true);
-    try { setSubmissionError(await enqueue(chosen.map(item => ({ url: item.url, title: item.title, thumbnail: item.thumbnail, kind, videoMode: mode, maxHeight: height, subtitleLanguages: [...subtitleLanguages], filenameTemplate, byAuthor, playlistIndex: item.playlistIndex }))) || ''); } finally { setSaving(false); }
+    try { setSubmissionError(await enqueue(chosen.map(item => ({ url: item.url, title: item.title, thumbnail: item.thumbnail, kind, videoMode: mode, maxHeight: height, subtitleLanguages: [...subtitleLanguages], filenameTemplate, byAuthor, playlistIndex: item.playlistIndex })),learningImports) || ''); } finally { setSaving(false); }
   };
   const choosePreset=(value:string)=>{setPresetIndex(value);const preset=applyPreset(value==='' ? emptyPreset : presets[Number(value)]);setKind(preset.kind);setMode(preset.videoMode);setHeight(preset.maxHeight);setLanguages(preset.subtitleLanguages);setPlaylistLanguages(value===''?'zh-Hans,en':preset.subtitleLanguages.join(','));setFilenameTemplate(preset.filenameTemplate);setByAuthor(preset.byAuthor);setSubmissionError('');};
   const storePreset=async()=>{setPresetSaving(true);try {const error=await savePreset({name:presetName.trim(),kind,videoMode:mode,maxHeight:height,subtitleLanguages:[...subtitleLanguages],filenameTemplate,byAuthor});setSubmissionError(error||'');if(!error){setPresetName('');setPresetNotice('预设已保存，可在设置中编辑。');}}finally{setPresetSaving(false);}};
@@ -137,12 +142,13 @@ function PreviewPanel({ results, expected, busy, directory, presets, savePreset,
         {kind === 'video' && <div className="option-grid"><label>格式策略<select value={mode} onChange={event => setMode(event.target.value as VideoMode)}><option value="compatible">兼容优先 · MP4 / H.264 / AAC</option><option value="source">源站最高画质 · 保留源编码</option></select></label><label>最高画质<select value={height} onChange={event => setHeight(Number(event.target.value))}><option value={0}>最佳可用画质</option>{[...new Set([...heights, 2160, 1080, 720, 480, 360, height])].filter(Boolean).sort((a, b) => b - a).map(item => <option key={item} value={item}>{item}p</option>)}</select></label></div>}
         {incompatible && <div className="inline-warning"><CircleAlert size={16} />此视频没有 H.264 / AAC 组合，请选择“源站最高画质”。</div>}
         {(availableSubtitles.length > 0 || hasPlaylist || kind === 'subtitles') && <div className="subtitle-options"><label className="field-label">{kind === 'subtitles' ? '选择字幕语言' : '同时保存字幕 · SRT'}</label>{hasPlaylist ? <><input aria-label="字幕语言代码" value={playlistLanguages} onChange={event => setPlaylistLanguages(event.target.value)} placeholder="zh-Hans,en（以逗号分隔）" /><p className="help">播放列表逐条检查字幕；语言代码示例：zh-Hans、en。空白表示不附加字幕。</p></> : <div className="subtitle-tracks">{availableSubtitles.length ? availableSubtitles.map(track => <label className="check-label" key={track.language}><input type="checkbox" checked={languages.includes(track.language)} onChange={event => setLanguages(previous => event.target.checked ? [...previous, track.language] : previous.filter(lang => lang !== track.language))} />{languageName[track.language] || track.language}{track.automatic && <small>自动</small>}</label>) : <p className="help">此视频未提供可用字幕</p>}</div>}</div>}
+        {preview?.isPlaylist&&kind==='video'&&<PlaylistImportOptions key={preview.url} preview={preview} value={libraryChoices[preview.url]??defaultLibraryChoice(preview)} change={value=>setLibraryChoices(c=>({...c,[preview.url]:value}))}/>}
         <NamingFields template={filenameTemplate} byAuthor={byAuthor} setTemplate={setFilenameTemplate} setByAuthor={setByAuthor} />
         <div className="preset-save-row"><label>保存当前选项为预设<input value={presetName} maxLength={40} placeholder="预设名称" onChange={event=>setPresetName(event.target.value)} /></label><button className="secondary" disabled={presetSaving || !presetName.trim() || presets.length>=20} onClick={()=>{void storePreset();}}>{presetSaving?'正在保存…':'保存预设'}（{presets.length}/20）</button></div>{presetNotice && <p className="help" role="status">{presetNotice}</p>}
         {submissionError && <p className="inline-warning" role="alert">{submissionError}</p>}
         <p className="help">文件大小为解析时的估算，实际格式会在下载前重新检查。</p>
       </div>}
-    </div><div className="modal-footer"><div className="save-location" title={directory}><Folder size={16} /><span>{directory || '系统下载目录'}</span></div><button className="primary" disabled={busy || saving || !chosen.length || chosen.length > 1000 || incompatible || (kind === 'subtitles' && !subtitleLanguages.length)} onClick={() => { void download(); }}>{saving ? <Loader2 size={17} className="spin" /> : <ArrowDownToLine size={17} />}加入下载 · {chosen.length}</button></div>
+    </div><div className="modal-footer"><div className="save-location" title={directory}><Folder size={16} /><span>{directory || '系统下载目录'}</span></div><button className="primary" disabled={busy || saving || (!chosen.length&&!learningImports.length) || learningImports.some(i=>!i.title.trim()) || chosen.length > 1000 || incompatible || (kind === 'subtitles' && !subtitleLanguages.length)} onClick={() => { void download(); }}>{saving ? <Loader2 size={17} className="spin" /> : <ArrowDownToLine size={17} />}加入下载 · {chosen.length}</button></div>
   </Modal>;
 }
 
@@ -280,9 +286,9 @@ export default function App() {
     } finally { setBatchBusy(false); }
   };
   const requestBatch = (action: BatchAction) => { const ids = [...selectedIds]; if (action === 'cancel' || action === 'remove') setConfirmBatch({action, ids}); else void runBatch(action,ids); };
-  const enqueue = async (requests: DownloadRequest[]) => {
-    try { if (!isTauri()) throw new Error('请在 Windows 桌面软件中使用此功能'); const tasks = await invoke<DownloadTask[]>('enqueue_downloads', {requests});
-    if (tasks) { setPreviewOpen(false); setLinks(''); notify(tasks.length ? `${tasks.length} 个任务已加入下载队列` : '所选任务已在队列中'); setFilter('all'); setPage('download'); requestAnimationFrame(() => input.current?.focus()); }
+  const enqueue = async (requests: DownloadRequest[],imports:PlaylistImport[]=[]) => {
+    try { if (!isTauri()) throw new Error('请在 Windows 桌面软件中使用此功能'); const learning=imports.length?await invoke<LearningEnqueueResult>('learning_enqueue_downloads',{requests,imports}):null;const tasks=learning?.tasks??await invoke<DownloadTask[]>('enqueue_downloads', {requests});
+    if (tasks) { setPreviewOpen(false); setLinks(''); notify(learning?`学习库新增 ${learning.added} 课，跳过 ${learning.duplicates} 个重复课时；${tasks.length} 个新任务入队`:tasks.length ? `${tasks.length} 个任务已加入下载队列` : '所选任务已在队列中'); setFilter('all'); setPage(learning&&!tasks.length?'learning':'download'); requestAnimationFrame(() => input.current?.focus()); }
     return null; } catch(error) { return errorText(error); }
   };
   const savePreviewPreset=async(preset:DownloadPreset)=>{try {await invoke('save_download_presets',{presets:[...snapshot.settings.downloadPresets,preset]});return null;}catch(error){return errorText(error);}};

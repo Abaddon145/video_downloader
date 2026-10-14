@@ -5,3 +5,6 @@ export const learningError=(e:unknown)=>typeof e==='string'?e:e instanceof Error
 
 import type {SeriesInput} from '../../types/learning';
 export const seriesInput=({id,categoryId,title,description,coverPath,sourceUrl,favorite}:SeriesInput):SeriesInput=>({id,categoryId,title,description,coverPath,sourceUrl,favorite});
+
+import type {MediaPreview,DownloadRequest} from '../../types';import type {LibraryChoice,PlaylistImport} from '../../types/learning';
+export function buildPlaylistImports(previews:MediaPreview[],choices:Record<string,LibraryChoice>,template:DownloadRequest):PlaylistImport[]{return template.kind==='video'?previews.filter(p=>p.isPlaylist&&choices[p.url]?.enabled).map(preview=>({preview,seriesId:choices[preview.url].seriesId,categoryId:choices[preview.url].categoryId,title:choices[preview.url].title,keepOrder:choices[preview.url].keepOrder,template:{...template,subtitleLanguages:[...template.subtitleLanguages]}})):[];}
