@@ -782,3 +782,149 @@ fn learning_scan_covers_all_required_formats() {
     assert!(found.last().unwrap().ends_with("18.custom"));
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn learning_playback_planner_uses_actual_codecs_and_browser_hevc_support() {
+    use super::compatibility::{plan, BrowserPlaybackSupport, PlaybackMode::*};
+    use crate::ffmpeg::models::*;
+    let mut info = MediaInfo {
+        container: "mov,mp4,m4a,3gp,3g2,mj2".into(),
+        videos: vec![VideoStreamInfo {
+            codec: "h264".into(),
+            pixel_format: Some("yuv420p".into()),
+            ..Default::default()
+        }],
+        audios: vec![AudioStreamInfo {
+            codec: "aac".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let mode = |i: &MediaInfo, s| plan(i, s, PlaybackPreference::Auto, 0).unwrap().mode;
+    let no = BrowserPlaybackSupport::default();
+    assert_eq!(mode(&info, no), Direct);
+    info.container = "matroska,webm".into();
+    assert_eq!(mode(&info, no), Remux);
+    info.videos[0].codec = "vp9".into();
+    info.audios[0].codec = "opus".into();
+    info.path = "test.webm".into();
+    assert_eq!(mode(&info, no), Direct);
+    info.videos[0].codec = "vp8".into();
+    info.audios[0].codec = "vorbis".into();
+    assert_eq!(mode(&info, no), Direct);
+    info.path = "test.mkv".into();
+    assert_eq!(mode(&info, no), Remux);
+    info.container = "asf".into();
+    info.videos[0].codec = "wmv3".into();
+    info.audios[0].codec = "wmav2".into();
+    assert_eq!(mode(&info, no), Transcode);
+    info.videos[0].codec = "vc1".into();
+    assert_eq!(mode(&info, no), Transcode);
+    info.container = "avi".into();
+    info.videos[0].codec = "mpeg4".into();
+    assert_eq!(mode(&info, no), Transcode);
+    info.container = "mpegts".into();
+    info.videos[0].codec = "mpeg2video".into();
+    assert_eq!(mode(&info, no), Transcode);
+    info.container = "mov,mp4".into();
+    info.videos[0].codec = "hevc".into();
+    info.audios[0].codec = "aac".into();
+    assert_eq!(mode(&info, no), Transcode);
+    let yes = BrowserPlaybackSupport {
+        hevc: true,
+        hevc10: false,
+    };
+    assert_eq!(mode(&info, yes), Direct);
+    info.videos[0].bit_depth = Some(10);
+    assert_eq!(mode(&info, yes), Transcode);
+    assert_eq!(
+        mode(
+            &info,
+            BrowserPlaybackSupport {
+                hevc: true,
+                hevc10: true
+            }
+        ),
+        Direct
+    );
+    info.videos[0].codec = "h264".into();
+    assert_eq!(mode(&info, no), Transcode);
+    info.videos.clear();
+    assert!(plan(&info, no, PlaybackPreference::Auto, 0).is_err());
+}
+#[test]
+fn learning_cache_keys_track_source_and_profile_and_reject_outside_files() {
+    use super::cache::{key, owned, stamp};
+    let dir = std::env::temp_dir().join(crate::ffmpeg::runner::new_id());
+    std::fs::create_dir(&dir).unwrap();
+    let path = dir.join("source.mp4");
+    std::fs::write(&path, b"a").unwrap();
+    let a = stamp(&path).unwrap();
+    let ka = key(&a, "h264/aac", "mp4");
+    assert_ne!(ka, key(&a, "h264/aac", "webm"));
+    std::fs::write(&path, b"new content").unwrap();
+    assert_ne!(ka, key(&stamp(&path).unwrap(), "h264/aac", "mp4"));
+    let cache = dir.join("cache");
+    std::fs::create_dir(&cache).unwrap();
+    assert!(owned(&cache, &path).is_err());
+    let image = cache.join("image.jpg");
+    std::fs::write(&image, b"image").unwrap();
+    assert!(owned(&cache, &image).is_ok());
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+#[test]
+fn learning_remux_selects_only_playable_tracks_and_keeps_normal_remux_strict() {
+    use crate::ffmpeg::{command, models::*};
+    let info = MediaInfo {
+        videos: vec![
+            VideoStreamInfo {
+                index: 0,
+                codec: "h264".into(),
+                ..Default::default()
+            },
+            VideoStreamInfo {
+                index: 3,
+                codec: "wmv3".into(),
+                ..Default::default()
+            },
+        ],
+        audios: vec![
+            AudioStreamInfo {
+                index: 1,
+                codec: "aac".into(),
+                ..Default::default()
+            },
+            AudioStreamInfo {
+                index: 4,
+                codec: "wmav2".into(),
+                ..Default::default()
+            },
+        ],
+        subtitles: vec![SubtitleStreamInfo {
+            index: 2,
+            codec: "subrip".into(),
+            ..Default::default()
+        }],
+        other_streams: 1,
+        ..Default::default()
+    };
+    let mut r = MediaRequest {
+        input_path: "C:/in.mkv".into(),
+        output_dir: "C:/cache".into(),
+        operation: MediaOperation::Remux,
+        ..Default::default()
+    };
+    assert!(command::build(&r, &info, Path::new("C:/cache/video.mp4")).is_err());
+    r.learning_playback = true;
+    let a = command::build(&r, &info, Path::new("C:/cache/video.mp4"))
+        .unwrap()
+        .args;
+    let maps = a
+        .windows(2)
+        .filter(|w| w[0] == "-map")
+        .map(|w| w[1].as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(maps, vec!["0:0", "0:1"]);
+    assert!(a.windows(2).any(|w| w == ["-c", "copy"]));
+    assert!(!a.iter().any(|a| a == "libx264"));
+}

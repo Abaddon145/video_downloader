@@ -295,6 +295,20 @@ impl MediaService {
         let id = new_id();
         self.probe_file(&path, &id, false)
     }
+    pub fn task(&self, id: &str) -> AppResult<MediaTask> {
+        self.state
+            .lock()
+            .map_err(|_| "媒体服务暂时不可用")?
+            .tasks
+            .iter()
+            .find(|t| t.id == id)
+            .cloned()
+            .ok_or("媒体任务不存在".into())
+    }
+    pub fn create_playback(&self, mut request: MediaRequest) -> AppResult<MediaTask> {
+        request.learning_playback = true;
+        self.create(request)
+    }
     pub fn create(&self, mut request: MediaRequest) -> AppResult<MediaTask> {
         self.ensure_ready()?;
         crate::media::metadata::validate(&request)?;
@@ -349,7 +363,15 @@ impl MediaService {
                 return Ok(existing.clone());
             }
             let mut next = s.tasks.clone();
-            next.push(task.clone());
+            if task.request.learning_playback {
+                let position = next
+                    .iter()
+                    .position(|t| t.status == MediaTaskStatus::Queued)
+                    .unwrap_or(next.len());
+                next.insert(position, task.clone());
+            } else {
+                next.push(task.clone());
+            }
             self.commit(&mut s, next)?;
         }
         self.emit();

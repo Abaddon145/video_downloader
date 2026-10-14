@@ -27,9 +27,9 @@
 ### Task 2: Compatibility Planner and Cache Rules
 **Files:** learning/compatibility.rs,cache.rs (shared owned-path/fingerprint only), tests.rs; ffmpeg/models.rs,command.rs,runner.rs.
 **Interfaces:** consumes Task1 settings/MediaInfo; produces BrowserPlaybackSupport{hevc,hevc10}, PlaybackMode/PlaybackPlan, plan(info,support,preference,fallback); cache fingerprint/key/check/owned cleanup; MediaRequest.learning_playback defaultfalse, MediaService.task(id)/create_playback(request), AV-only Remux and existing GPU fallback.
-- [ ] RED planner matrix MP4/MOV/H264/AAC/MP3, WebM/VP8/VP9/Opus/Vorbis, MKV copy, WMV/AVI/MPEG fallback, conditional HEVC8/10, no video unsupported; cache key changes on size/mtime/profile; validated hit and linked/outside cache rejection; playback-remux drops subtitle/data/secondary AV without altering ordinary Remux. Expected: missing planner/rules fail.
-- [ ] GREEN minimum plan/cache helpers and controlled queue seam; CRF22/AAC192, faststart, tagged HEVC copy where supported. Expected: no duplicate FFmpeg runner, ordinary Media Pro behavior intact.
-- [ ] Verify full Rust and Node suites + build; commit. Expected: zero failures.
+- [x] RED planner matrix MP4/MOV/H264/AAC/MP3, WebM/VP8/VP9/Opus/Vorbis, MKV copy, WMV/AVI/MPEG fallback, conditional HEVC8/10, no video unsupported; cache key changes on size/mtime/profile; validated hit and linked/outside cache rejection; playback-remux drops subtitle/data/secondary AV without altering ordinary Remux. Expected: missing planner/rules fail.
+- [x] GREEN minimum plan/cache helpers and controlled queue seam; CRF22/AAC192, faststart, tagged HEVC copy where supported. Expected: no duplicate FFmpeg runner, ordinary Media Pro behavior intact.
+- [x] Verify full Rust and Node suites + build; commit. Expected: zero failures.
 
 ### Task 3: Automatic Playback, Shared Proxy and Cleanup
 **Files:** learning/player.rs,compatibility.rs,commands.rs,service.rs; LearningPlayer.tsx,PlaybackCompatibilityStatus.tsx,types/learning.ts,lib.ts/tests; lib.rs command registration.
