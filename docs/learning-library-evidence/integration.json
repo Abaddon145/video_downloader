@@ -1,5 +1,5 @@
 {
-  "run": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\native-1791976553495",
+  "run": "$WORKSPACE\\artifacts\\v04\\native-1791976553495",
   "passed": 8,
   "failed": 0,
   "checks": [
@@ -11,7 +11,7 @@
         "completed": "learn-1791976555871-1",
         "failed": "learn-1791976555871-2",
         "unselected": "learn-1791976555871-3",
-        "actualFile": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\native-1791976553495\\downloads\\001 - lesson1 [lesson1].mp4",
+        "actualFile": "\\\\?\\$WORKSPACE\\artifacts\\v04\\native-1791976553495\\downloads\\001 - lesson1 [lesson1].mp4",
         "reusedEarlierPausedTask": "1791976555581-6760-2"
       }
     },

@@ -6,7 +6,7 @@
       "name": "relink remounts the current missing player without leaving the lesson",
       "passed": false,
       "error": "TimeoutError: page.waitForFunction: Timeout 3500ms exceeded.",
-      "stack": "page.waitForFunction: Timeout 3500ms exceeded.\n    at C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\final-review-ui.mjs:62:251\n    at async check (C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\final-review-ui.mjs:60:35)\n    at async file:///C:/Users/14582/Documents/ChatGPT/%E8%A7%86%E9%A2%91%E4%B8%8B%E8%BD%BD%E8%BD%AF%E4%BB%B6/artifacts/v04/final-review-ui.mjs:62:2"
+      "stack": "page.waitForFunction: Timeout 3500ms exceeded.\n    at $WORKSPACE\\artifacts\\v04\\final-review-ui.mjs:62:251\n    at async check ($WORKSPACE\\artifacts\\v04\\final-review-ui.mjs:60:35)\n    at async file:///C:/Users/14582/Documents/ChatGPT/%E8%A7%86%E9%A2%91%E4%B8%8B%E8%BD%BD%E8%BD%AF%E4%BB%B6/artifacts/v04/final-review-ui.mjs:62:2"
     },
     {
       "name": "paused rate and seek changes publish fresh progress before the five-second timer",
@@ -18,7 +18,7 @@
       "name": "removing the current lesson stops playback and skips progress against the deleted row",
       "passed": false,
       "error": "TimeoutError: locator.waitFor: Timeout 2500ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('region', { name: '学习播放器', exact: true }) to be hidden\u001b[22m\n\u001b[2m    9 × locator resolved to visible <section tabindex=\"0\" aria-label=\"学习播放器\" class=\"learning-player\">…</section>\u001b[22m\n",
-      "stack": "locator.waitFor: Timeout 2500ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('region', { name: '学习播放器', exact: true }) to be hidden\u001b[22m\n\u001b[2m    9 × locator resolved to visible <section tabindex=\"0\" aria-label=\"学习播放器\" class=\"learning-player\">…</section>\u001b[22m\n\n    at C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\final-review-ui.mjs:64:476\n    at async check (C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\final-review-ui.mjs:60:35)\n    at async file:///C:/Users/14582/Documents/ChatGPT/%E8%A7%86%E9%A2%91%E4%B8%8B%E8%BD%BD%E8%BD%AF%E4%BB%B6/artifacts/v04/final-review-ui.mjs:64:2"
+      "stack": "locator.waitFor: Timeout 2500ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('region', { name: '学习播放器', exact: true }) to be hidden\u001b[22m\n\u001b[2m    9 × locator resolved to visible <section tabindex=\"0\" aria-label=\"学习播放器\" class=\"learning-player\">…</section>\u001b[22m\n\n    at $WORKSPACE\\artifacts\\v04\\final-review-ui.mjs:64:476\n    at async check ($WORKSPACE\\artifacts\\v04\\final-review-ui.mjs:60:35)\n    at async file:///C:/Users/14582/Documents/ChatGPT/%E8%A7%86%E9%A2%91%E4%B8%8B%E8%BD%BD%E8%BD%AF%E4%BB%B6/artifacts/v04/final-review-ui.mjs:64:2"
     }
   ],
   "errors": []

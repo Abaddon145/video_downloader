@@ -178,7 +178,7 @@ learning_check_updates
 
 ## 10. 构建与交付
 
-`npm run tauri -- build --bundles nsis` 成功，生成中文 Windows x64 `视频下载器_0.4.0_x64-setup.exe`（约 143.18 MiB）。包含 WebView2 引导、原下载组件、SQLite 来源/校验与新增依赖许可证。交付安装包、Git 源码 ZIP、SHA256SUMS、使用说明与本报告；最终文件与 Draft PR 链接随交付附上。
+`npm run tauri -- build --bundles nsis` 成功，生成中文 Windows x64 `视频下载器_0.4.0_x64-setup.exe`（143.18 MiB / 150,136,486 字节）。包含 WebView2 引导、原下载组件、SQLite 来源/校验与新增依赖许可证。交付安装包、Git 源码 ZIP、SHA256SUMS、使用说明与本报告；最终文件存放于本地 `artifacts/releases/2026-10-14-learning-library-v0.4.0/`；[Draft PR #5](https://github.com/Abaddon145/video_downloader/pull/5) 已创建并附到当前任务。
 
 安装包构建通过，实机验收运行对应发布程序。未执行覆盖个人已安装版本的安装/卸载，也未验证干净 Windows 10 和缺少 WebView2 的安装环境。
 

@@ -31,5 +31,9 @@ Final: fixed removal of playing lesson — removing the current lesson stops pla
 Final: full Node21/21, Rust73/73 plus bin/doc0, frontend42/42 (old31+learning7+StrictMode1+lifecycle3), native34/34 (learning6+integration8+large4+MediaPro16), production and NSIS builds pass. No rulings and no deferred minors.
 Final: fixture correction — pause during resolving instead of waiting for a deliberately blocked HTTP probe; seek checks wait for actual live snapshot within2s instead of fixed150ms. Source behavior regressions observed RED before fixes.
 Task9: Final review fixed4, Rust73/73 Node21/21 UI42/42 native34/34; NSIS143.18MiB succeeds with verification processes stopped before bundling finishes. Source pushed to new branch; Draft PR and local artifact handoff follow.
+Task 9: complete (commits dc32d3e..624efbb, tests: C:/Users/14582/.cargo/bin/cargo.exe test --manifest-path src-tauri/Cargo.toml --locked --offline --lib → test result: ok. 73 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.52s)
+Final handoff: new Draft PR #5 created and attached; base codex/media-pro-v0.3 at50aa2a9, prior PRs retained. Managed worktree retained for feedback. Source ZIP and verified NSIS copied into local release folder with SHA256SUMS.
 
-Task9 verification: StrictMode old source RED → per-effect sessions GREEN; extractor alias changed source-ID test RED → GREEN; Rust73/73, Node21/21, originalUI31/31, learningUI7/7 + StrictMode1/1 + lifecycle3/3; native learning18/18 and Media Pro16/16; NSIS build1/1. One independent review found four Important issues; all fixed RED→GREEN, no Critical/Important remain. No rulings or deferred minors. Review and final verification are archived in the tracked documents.
+最终验证：Node21/21、Rust73/73、界面42/42、Windows34/34。四项独立审查问题已在同一修复阶段完成 RED→GREEN，无 Ruling、无延期 Minor。成功打包后再交付；未安装覆盖个人版本。
+
+Draft PR：https://github.com/Abaddon145/video_downloader/pull/5
