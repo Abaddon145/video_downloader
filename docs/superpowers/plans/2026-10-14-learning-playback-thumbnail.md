@@ -48,9 +48,9 @@
 ### Task 5: Lesson Rows, Thumbnail Controls and Cache Settings
 **Files:** LessonRow.tsx,LessonThumbnail.tsx,LearningLibraryPage.tsx,LearningSettingsDialog.tsx,styles.css,types/lib/tests and UI QA。
 **Interfaces:** row receives item/series/playing/actions; thumbnail renders local cache or cover/placeholder; native details action menu; settings preferences/usage/cleanup and existingGPU label.
-- [ ] RED UI checks fallback/lazy image, duration,50%bar,completion,onlycurrenthighlight,missing retained image, download state,manual replacement confirmation; widths1600/1440/1200/1000/880 and125/150DPI. Expected: old text rows fail.
-- [ ] GREEN128×72/96×54 fixed aspect,2line title,accessible SVG/labels/menu/keyboard/focus,cache settings without duplicate GPU control. Expected: no overflow/broken images, all actions work.
-- [ ] Verify full Node/Rust/build + UI checks. Expected: green; commit.
+- [x] RED UI checks fallback/lazy image, duration,50%bar,completion,onlycurrenthighlight,missing retained image, download state,manual replacement confirmation; widths1600/1440/1200/1000/880 and125/150DPI. Expected: old text rows fail.
+- [x] GREEN128×72/96×54 fixed aspect,2line title,accessible SVG/labels/menu/keyboard/focus,cache settings without duplicate GPU control. Expected: no overflow/broken images, all actions work.
+- [x] Verify full Node/Rust/build + UI checks. Expected: green; commit.
 
 ### Task 6: Windows Acceptance and Delivery
 **Files:** scripts/qa (reused harness + v041 checks), versions/README; docs/learning-playback-v0.4.1.md,delivery/execution/review/evidence。
