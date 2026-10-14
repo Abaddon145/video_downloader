@@ -1,0 +1,19 @@
+{
+  "passed": 3,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "relink remounts the current missing player without leaving the lesson",
+      "passed": true
+    },
+    {
+      "name": "paused rate and seek changes publish fresh progress before the five-second timer",
+      "passed": true
+    },
+    {
+      "name": "removing the current lesson stops playback and skips progress against the deleted row",
+      "passed": true
+    }
+  ],
+  "errors": []
+}

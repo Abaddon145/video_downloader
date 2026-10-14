@@ -1,5 +1,5 @@
 {
-  "run": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\large-1791974193213",
+  "run": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\large-1791976568225",
   "passed": 4,
   "failed": 0,
   "checks": [
@@ -33,7 +33,7 @@
       "name": "window hiding saves exact position and dialog Tab stays inside the modal",
       "passed": true,
       "detail": {
-        "positionMs": 320870,
+        "positionMs": 320860,
         "focusContained": true,
         "actualWindowHidden": true
       }

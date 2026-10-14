@@ -72,6 +72,6 @@ Interfaces: consumes existing Service/MediaService + prior Repository; produces 
 ### Task 9: Stabilization + Deliver
 Files: MediaPro VideoPreview; QA scripts; version/README/docs.
 Interfaces: consumes existing Service/MediaService + prior Repository; produces fresh per-effect preview sessions; compatibility and delivery records.
-- [ ] RED: StrictMode cleanup regression RED; 100/1000/10000 timings; widths1600/1440/1200/1000/880; oldUI + mediaQA + tenWindows library cases. Run focused check; Expected: required behavior fails before implementation.
-- [ ] GREEN: implement minimum safe behavior in files above; Expected: focused check passes.
-- [ ] Verify: npm test; cargo test; npm run build; npm run tauri -- build --bundles nsis; fresh independent final review; Expected: zero failures; append ledger and commit task.
+- [x] RED: StrictMode cleanup regression RED; 100/1000/10000 timings; widths1600/1440/1200/1000/880; oldUI + mediaQA + tenWindows library cases. Run focused check; Expected: required behavior fails before implementation.
+- [x] GREEN: implement minimum safe behavior in files above; Expected: focused check passes.
+- [x] Verify: npm test; cargo test; npm run build; npm run tauri -- build --bundles nsis; fresh independent final review; Expected: zero failures; append ledger and commit task.

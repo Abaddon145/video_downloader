@@ -1,5 +1,5 @@
 {
-  "run": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791973825475",
+  "run": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791976523866",
   "passed": 16,
   "failed": 0,
   "checks": [
@@ -17,8 +17,8 @@
       "name": "H264 and H265 compression with real CPU encoders",
       "passed": true,
       "detail": {
-        "h264": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791973825475\\output\\HEVC 测试-compressed.mp4",
-        "h265": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791973825475\\output\\HEVC 测试-compressed (1).mp4"
+        "h264": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791976523866\\output\\HEVC 测试-compressed.mp4",
+        "h265": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791976523866\\output\\HEVC 测试-compressed (1).mp4"
       }
     },
     {
@@ -56,7 +56,7 @@
       "name": "soft subtitles and SRT/ASS burn with safe quoted Chinese path",
       "passed": true,
       "detail": {
-        "soft": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791973825475\\output\\HEVC 测试-subtitled.mkv",
+        "soft": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791976523866\\output\\HEVC 测试-subtitled.mkv",
         "burned": [
           "srt",
           "ass"
@@ -67,7 +67,7 @@
       "name": "batch folder processes two files with separate status and skips text",
       "passed": true,
       "detail": {
-        "batchId": "media-1791973835400-56",
+        "batchId": "media-1791976532944-58",
         "tasks": 2
       }
     },
@@ -78,17 +78,17 @@
         {
           "mode": "interval",
           "count": 3,
-          "output": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791973825475\\output\\HEVC 测试-frames"
+          "output": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791976523866\\output\\HEVC 测试-frames"
         },
         {
           "mode": "count",
           "count": 20,
-          "output": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791973825475\\output\\HEVC 测试-frames (1)"
+          "output": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791976523866\\output\\HEVC 测试-frames (1)"
         },
         {
           "mode": "fps",
           "count": 75,
-          "output": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791973825475\\output\\HEVC 测试-frames (2)"
+          "output": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791976523866\\output\\HEVC 测试-frames (2)"
         }
       ]
     },
@@ -96,7 +96,7 @@
       "name": "contact sheet includes timecodes, Unicode filename and resolution",
       "passed": true,
       "detail": {
-        "output": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791973825475\\output\\HEVC 测试-storyboard.jpg",
+        "output": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791976523866\\output\\HEVC 测试-storyboard.jpg",
         "width": 992,
         "height": 448
       }
@@ -105,16 +105,16 @@
       "name": "extract and set video cover, extract attached picture",
       "passed": true,
       "detail": {
-        "cover": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791973825475\\output\\HEVC 测试-cover.jpg",
-        "video": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791973825475\\output\\HEVC 测试-with-cover.mp4",
-        "extracted": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791973825475\\output\\HEVC 测试-with-cover-cover.png"
+        "cover": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791976523866\\output\\HEVC 测试-cover.jpg",
+        "video": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791976523866\\output\\HEVC 测试-with-cover.mp4",
+        "extracted": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791976523866\\output\\HEVC 测试-with-cover-cover.png"
       }
     },
     {
       "name": "music cover and Artist/Album/Genre metadata survive decoding",
       "passed": true,
       "detail": {
-        "output": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791973825475\\output\\HEVC 测试-audio-with-cover-metadata.mp3",
+        "output": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791976523866\\output\\HEVC 测试-audio-with-cover-metadata.mp3",
         "tags": {
           "genre": "Test",
           "album": "测试专辑",
@@ -127,16 +127,16 @@
       "name": "video metadata is literal and original/existing outputs never overwritten",
       "passed": true,
       "detail": {
-        "first": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791973825475\\output\\HEVC 测试-metadata.mkv",
-        "next": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791973825475\\output\\HEVC 测试-metadata (1).mkv"
+        "first": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791976523866\\output\\HEVC 测试-metadata.mkv",
+        "next": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\media-regression\\desktop-1791976523866\\output\\HEVC 测试-metadata (1).mkv"
       }
     },
     {
       "name": "AI preset produces independent thumbnail batch",
       "passed": true,
       "detail": {
-        "processed": "media-1791973845663-114",
-        "thumbnails": "media-1791973846111-118"
+        "processed": "media-1791976543194-116",
+        "thumbnails": "media-1791976543874-120"
       }
     },
     {
@@ -144,14 +144,14 @@
       "passed": true,
       "detail": {
         "ok": false,
-        "error": "Error: page.evaluate: [vost#0:0/libx264 @ 000001ae926032c0] Discarding stream metadata 'DURATION' because the stream is being re-encoded. Use '-keep_metadata DURATION' to keep it.\n[aost#0:1/aac @ 000001ae948f9f00] Discarding stream metadata 'DURATION' because the stream is being re-encoded. Use '-keep_metadata DURATION' to keep it.\n[aac @ 000001ae947f1980] Too many bits 6826.666667 > 6144 per frame requested, clamping to max"
+        "error": "Error: page.evaluate: [vost#0:0/libx264 @ 000001e563475fc0] Discarding stream metadata 'DURATION' because the stream is being re-encoded. Use '-keep_metadata DURATION' to keep it.\n[aost#0:1/aac @ 000001e56570b300] Discarding stream metadata 'DURATION' because the stream is being re-encoded. Use '-keep_metadata DURATION' to keep it.\n[aac @ 000001e565638740] Too many bits 6826.666667 > 6144 per frame requested, clamping to max"
       }
     },
     {
       "name": "task cancellation kills FFmpeg tree and task can restart",
       "passed": true,
       "detail": {
-        "cancelled": "media-1791973847149-124",
+        "cancelled": "media-1791976544833-126",
         "orphanProcesses": 0
       }
     },

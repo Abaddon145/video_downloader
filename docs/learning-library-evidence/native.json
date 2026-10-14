@@ -1,6 +1,6 @@
 {
-  "run": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\native-1791974006163",
-  "passed": 5,
+  "run": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v04\\native-1791976529371",
+  "passed": 6,
   "failed": 0,
   "checks": [
     {
@@ -24,12 +24,22 @@
       "name": "native exit flushes live position and reopen continues the exact third lesson",
       "passed": true,
       "detail": {
-        "itemId": "learn-1791974007645-13",
-        "positionMs": 450662,
+        "itemId": "learn-1791976530984-13",
+        "positionMs": 450691,
         "durationMs": 900000,
         "completed": false,
         "playbackRate": 1.5,
-        "lastPlayedAt": 1791974008994
+        "lastPlayedAt": 1791976532325
+      }
+    },
+    {
+      "name": "paused speed and seek survive immediate native exit before timer save",
+      "passed": true,
+      "detail": {
+        "rate": 1.75,
+        "positionMs": 500000,
+        "savedBeforeFiveSecondTimer": true,
+        "exitPath": "same native flush used by tray exit"
       }
     },
     {
