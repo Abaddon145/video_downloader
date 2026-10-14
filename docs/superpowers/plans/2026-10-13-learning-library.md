@@ -65,9 +65,9 @@ Interfaces: consumes existing Service/MediaService + prior Repository; produces 
 ### Task 8: Series Update
 Files: learning/service; features/learning/SeriesUpdateDialog.
 Interfaces: consumes existing Service/MediaService + prior Repository; produces learning_check_updates(seriesId), learning_enqueue_downloads with existing series.
-- [ ] RED: changed title sameID no duplicates; added entries only, source preserved; favorites. Run focused check; Expected: required behavior fails before implementation.
-- [ ] GREEN: implement minimum safe behavior in files above; Expected: focused check passes.
-- [ ] Verify: cargo test + UI updates; Expected: zero failures; append ledger and commit task.
+- [x] RED: changed title sameID no duplicates; added entries only, source preserved; favorites. Run focused check; Expected: required behavior fails before implementation.
+- [x] GREEN: implement minimum safe behavior in files above; Expected: focused check passes.
+- [x] Verify: cargo test + UI updates; Expected: zero failures; append ledger and commit task.
 
 ### Task 9: Stabilization + Deliver
 Files: MediaPro VideoPreview; QA scripts; version/README/docs.

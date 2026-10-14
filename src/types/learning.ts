@@ -22,3 +22,6 @@ import type {MediaPreview,DownloadRequest,DownloadTask} from '../types';
 export interface LibraryChoice{enabled:boolean;title:string;seriesId:string|null;categoryId:string|null;keepOrder:boolean}
 export interface PlaylistImport{preview:MediaPreview;seriesId:string|null;categoryId:string|null;title:string;keepOrder:boolean;template:DownloadRequest}
 export interface LearningEnqueueResult{tasks:DownloadTask[];seriesIds:string[];added:number;duplicates:number}
+
+import type {PlaylistEntry} from '../types';
+export interface SeriesUpdate{series:LearningSeries;preview:MediaPreview;newEntries:PlaylistEntry[];template:DownloadRequest}

@@ -514,3 +514,6 @@ fn learning_download_callback_before_binding_and_failure_recovery_are_idempotent
         Some(1)
     );
 }
+
+#[test]
+fn learning_updates_only_add_new_source_ids_and_preserve_favorites(){let mut r=repository();let mut input=playlist_input();let s=r.stage_playlists(&[input.clone()]).unwrap().remove(0).series_id;input.preview.entries[0].title="标题改变".into();input.preview.entries[0].url="https://example.com/new-title".into();assert!(r.new_entries(&s,&input.preview).unwrap().is_empty());input.preview.entries.push(crate::models::PlaylistEntry{id:"new-video".into(),url:"https://example.com/11.mp4".into(),title:"新课".into(),duration:Some(900.),thumbnail:None,playlist_index:11});let delta=r.new_entries(&s,&input.preview).unwrap();assert_eq!(delta.len(),1);assert_eq!(delta[0].id,"new-video");let series=r.get_series(&s).unwrap();let mut edit=course(&series.title,None);edit.id=Some(s.clone());edit.source_url=series.source_url;edit.favorite=true;r.save_series(&edit).unwrap();assert_eq!(r.list_series("",None,1,true).unwrap().1,1);input.series_id=Some(s.clone());input.preview.entries=delta;r.stage_playlists(&[input]).unwrap();assert_eq!(r.get_series(&s).unwrap().total_items,4);assert!(r.get_series(&s).unwrap().favorite);}

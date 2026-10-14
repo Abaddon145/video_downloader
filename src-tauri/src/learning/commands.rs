@@ -145,3 +145,6 @@ pub async fn learning_download_item(
         .await
         .map_err(|_| "课程下载线程异常")?
 }
+
+#[tauri::command]
+pub async fn learning_check_updates(learning:Learning<'_>,service:State<'_,Arc<crate::service::Service>>,series_id:String)->AppResult<SeriesUpdate>{let l=learning.inner().clone();let s=service.inner().clone();tauri::async_runtime::spawn_blocking(move||l.check_updates(&s,&series_id)).await.map_err(|_|"系列检查线程异常")?}
