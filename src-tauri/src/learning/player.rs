@@ -16,15 +16,44 @@ use std::{
     collections::{HashMap, HashSet},
     fs,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
     time::Duration,
 };
 use tauri::Emitter;
 #[derive(Clone)]
 pub(crate) struct SharedPlayback {
     task: String,
-    finalize: Arc<Mutex<()>>,
+    finalize: Arc<Mutex<Option<cache::PlaybackEntry>>>,
+    failed: Arc<AtomicBool>,
+    published: Arc<AtomicBool>,
 }
+impl SharedPlayback {
+    fn new(task: String) -> Self {
+        Self {
+            task,
+            finalize: Arc::new(Mutex::new(None)),
+            failed: Arc::new(AtomicBool::new(false)),
+            published: Arc::new(AtomicBool::new(false)),
+        }
+    }
+    fn reusable(&self, status: MediaTaskStatus, force: bool) -> bool {
+        !self.failed.load(Ordering::Acquire)
+            && !(force
+                && status == MediaTaskStatus::Completed
+                && self.published.load(Ordering::Acquire))
+            && matches!(
+                status,
+                MediaTaskStatus::Queued
+                    | MediaTaskStatus::Probing
+                    | MediaTaskStatus::Processing
+                    | MediaTaskStatus::Completed
+            )
+    }
+}
+
 #[derive(Default)]
 pub(crate) struct PlaybackState {
     sessions: HashMap<String, Option<String>>,
@@ -117,12 +146,17 @@ impl LearningService {
     pub fn cancel_player(&self, session: &str) -> AppResult<()> {
         crate::media::trim::timeline::validate_session(session)?;
         let mut state = self.playback.lock().map_err(|_| "播放缓存暂不可用")?;
-        if let Some(key) = state.release(session) {
-            if let Some(shared) = state.jobs.remove(&key) {
+        let verification = state
+            .release(session)
+            .and_then(|key| state.jobs.remove(&key))
+            .map(|shared| {
                 let _ = self.media.cancel(&shared.task);
-            }
-        }
+                format!("{}-cache", shared.task)
+            });
         drop(state);
+        if let Some(verification) = verification {
+            self.media.cancel_editor(&verification)?;
+        }
         self.media.cancel_editor(session)
     }
     pub fn prepare_player(
@@ -294,14 +328,9 @@ impl LearningService {
                 .jobs
                 .get(&key)
                 .filter(|job| {
-                    self.media.task(&job.task).is_ok_and(|t| {
-                        matches!(
-                            t.status,
-                            MediaTaskStatus::Queued
-                                | MediaTaskStatus::Probing
-                                | MediaTaskStatus::Processing
-                        )
-                    })
+                    self.media
+                        .task(&job.task)
+                        .is_ok_and(|t| job.reusable(t.status, force))
                 })
                 .cloned();
             let shared = if let Some(job) = active {
@@ -312,10 +341,7 @@ impl LearningService {
                     &dir.to_string_lossy(),
                     plan,
                 ))?;
-                SharedPlayback {
-                    task: task.id,
-                    finalize: Arc::new(Mutex::new(())),
-                }
+                SharedPlayback::new(task.id)
             };
             state.jobs.insert(key.clone(), shared.clone());
             shared
@@ -334,49 +360,73 @@ impl LearningService {
             }
             match t.status {
                 MediaTaskStatus::Completed => {
-                    let _finish = shared.finalize.lock().map_err(|_| "缓存发布失败")?;
-                    let mut e = if let Some(e) = cache::read_entry(&dir, &source_stamp, &profile)
-                        .ok()
-                        .filter(|e| Some(e.file.as_str()) == t.output_path.as_deref())
-                    {
-                        e
-                    } else {
-                        if cache::stamp(source)? != source_stamp {
-                            return Err("源视频在处理期间改变，请重新播放".into());
+                    let mut _finish = shared.finalize.lock().map_err(|_| "缓存发布失败")?;
+                    let finalized: AppResult<cache::PlaybackEntry> = (|| {
+                        if let Some(e) = _finish.as_ref() {
+                            let path = cache::owned(&dir, Path::new(&e.file))?;
+                            if cache::stamp(source)? != source_stamp
+                                || cache::stamp(&path)? != e.output
+                            {
+                                return Err("已准备的视频发生改变，请重新生成".into());
+                            }
+                            return Ok(e.clone());
                         }
-                        let path = cache::owned(
-                            &dir,
-                            Path::new(t.output_path.as_deref().ok_or("兼容视频未生成")?),
-                        )?;
-                        let verified =
-                            self.media
-                                .probe_file(&path, &format!("{session}-verify"), false)?;
-                        if !verified.videos.iter().any(|v| !v.attached_picture)
-                            || info
-                                .duration
-                                .zip(verified.duration)
-                                .is_some_and(|(a, b)| b + 1. < a)
+                        let mut e = if let Some(e) =
+                            cache::read_entry(&dir, &source_stamp, &profile)
+                                .ok()
+                                .filter(|e| Some(e.file.as_str()) == t.output_path.as_deref())
                         {
-                            return Err("兼容视频不完整，请重新生成".into());
+                            e
+                        } else {
+                            if cache::stamp(source)? != source_stamp {
+                                return Err("源视频在处理期间改变，请重新播放".into());
+                            }
+                            let path = cache::owned(
+                                &dir,
+                                Path::new(t.output_path.as_deref().ok_or("兼容视频未生成")?),
+                            )?;
+                            let verified = self.media.probe_file(
+                                &path,
+                                &format!("{}-cache-verify", shared.task),
+                                false,
+                            )?;
+                            if !verified.videos.iter().any(|v| !v.attached_picture)
+                                || info
+                                    .duration
+                                    .zip(verified.duration)
+                                    .is_some_and(|(a, b)| b + 1. < a)
+                            {
+                                return Err("兼容视频不完整，请重新生成".into());
+                            }
+                            cache::PlaybackEntry {
+                                source: source_stamp.clone(),
+                                profile: profile.clone(),
+                                output: cache::stamp(&path)?,
+                                file: path.to_string_lossy().into(),
+                                last_used: crate::service::now(),
+                            }
+                        };
+                        let state = self.playback.lock().map_err(|_| "播放缓存暂不可用")?;
+                        if !state.protected().contains(&key) {
+                            return Err("播放准备已取消".into());
                         }
-                        cache::PlaybackEntry {
-                            source: source_stamp.clone(),
-                            profile: profile.clone(),
-                            output: cache::stamp(&path)?,
-                            file: path.to_string_lossy().into(),
-                            last_used: crate::service::now(),
+                        if cache::stamp(source)? != source_stamp {
+                            return Err("源视频已改变，请重新准备".into());
                         }
-                    };
+                        e.last_used = crate::service::now();
+                        native::save_atomic(
+                            &dir.join("info.json"),
+                            &serde_json::to_vec(&e).map_err(|_| "缓存记录无效")?,
+                        )?;
+                        *_finish = Some(e.clone());
+                        shared.published.store(true, Ordering::Release);
+                        Ok(e)
+                    })();
+                    shared.failed.store(finalized.is_err(), Ordering::Release);
+                    let e = finalized?;
+                    drop(_finish);
                     let mut state = self.playback.lock().map_err(|_| "播放缓存暂不可用")?;
                     state.begin(session)?;
-                    if cache::stamp(source)? != source_stamp {
-                        return Err("源视频已改变，请重新准备".into());
-                    }
-                    e.last_used = crate::service::now();
-                    native::save_atomic(
-                        &dir.join("info.json"),
-                        &serde_json::to_vec(&e).map_err(|_| "缓存记录无效")?,
-                    )?;
                     self.media.authorize_asset(session, Path::new(&e.file))?;
                     return Ok(e.file);
                 }
@@ -463,5 +513,56 @@ impl LearningService {
             label: p.file_name().unwrap_or_default().to_string_lossy().into(),
             path: self.convert_subtitle(&p, &info, session, None)?,
         })
+    }
+}
+
+#[cfg(test)]
+mod publication_tests {
+    use super::*;
+    #[test]
+    fn completed_proxy_stays_shared_while_finalization_is_paused() {
+        let job = SharedPlayback::new("task".into());
+        let paused = job.finalize.lock().unwrap();
+        let shared = job.clone();
+        let barrier = Arc::new(std::sync::Barrier::new(2));
+        let b = barrier.clone();
+        let joined = std::thread::spawn(move || {
+            b.wait();
+            assert!(
+                shared.reusable(MediaTaskStatus::Completed, false),
+                "a late requester must reuse the completed task before info publication"
+            );
+            shared.finalize
+        });
+        barrier.wait();
+        let same = joined.join().unwrap();
+        assert!(Arc::ptr_eq(&same, &job.finalize));
+        drop(paused);
+    }
+}
+
+#[cfg(test)]
+mod failed_publication_tests {
+    use super::*;
+    #[test]
+    fn failed_proxy_publication_allows_a_new_task_instead_of_reusing_bad_output() {
+        let job = SharedPlayback::new("bad".into());
+        assert!(job.reusable(MediaTaskStatus::Completed, false));
+        job.failed.store(true, Ordering::Release);
+        assert!(!job.reusable(MediaTaskStatus::Completed, false));
+        assert!(!job.reusable(MediaTaskStatus::Failed, false));
+    }
+}
+
+#[cfg(test)]
+mod force_publication_tests {
+    use super::*;
+    #[test]
+    fn force_rebuild_shares_inflight_publication_but_rebuilds_a_published_proxy() {
+        let job = SharedPlayback::new("task".into());
+        assert!(job.reusable(MediaTaskStatus::Completed, true));
+        job.published.store(true, Ordering::Release);
+        assert!(job.reusable(MediaTaskStatus::Completed, false));
+        assert!(!job.reusable(MediaTaskStatus::Completed, true));
     }
 }

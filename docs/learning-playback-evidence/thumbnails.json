@@ -1,5 +1,5 @@
 {
-  "run": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\thumb-1792058971384",
+  "run": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\thumb-1792063956571",
   "passed": 4,
   "failed": 0,
   "checks": [
@@ -7,12 +7,12 @@
       "name": "four source ratios create 320x180 JPEG frames asynchronously",
       "passed": true,
       "detail": {
-        "importMs": 156,
+        "importMs": 163,
         "images": [
-          "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\thumb-1792058971384\\state\\learning-cache\\thumbnails\\90a9080d16dfce71a010b16c108ec9cbab94f2576dd2bd7ad9f47f752cb37c81\\image.jpg",
-          "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\thumb-1792058971384\\state\\learning-cache\\thumbnails\\ea1d2ca2f510dd38828abea285aa8dec9f9775804f117301f29dc38107e511c0\\image.jpg",
-          "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\thumb-1792058971384\\state\\learning-cache\\thumbnails\\91826bc35c2357463824ab283a17fa2fb2e3b4b32001334f1b07ce7278ac2392\\image.jpg",
-          "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\thumb-1792058971384\\state\\learning-cache\\thumbnails\\ecfe0ba120090ee35ca83df9eb839939f5668fa8ed88f4ced69a9dec54af56d5\\image.jpg"
+          "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\thumb-1792063956571\\state\\learning-cache\\thumbnails\\d9dd81c533770f205c04b8754d1fea2fac5a431a9864743de1f9c45d86f32e8e\\image.jpg",
+          "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\thumb-1792063956571\\state\\learning-cache\\thumbnails\\9bfd211e9f5a67bf1d53a7683dd7884008bb8dc46749505af9b6a3e104485392\\image.jpg",
+          "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\thumb-1792063956571\\state\\learning-cache\\thumbnails\\dc22fa75950c87d69cfe39f68738efa8f80fe819c4b0b4ace42bee561174b890\\image.jpg",
+          "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\thumb-1792063956571\\state\\learning-cache\\thumbnails\\18e3815afa9071b9ac3e6e8db730a9878c59819ac454efeb3692a963247e5479\\image.jpg"
         ]
       }
     },
@@ -22,14 +22,14 @@
       "detail": {
         "manualCopied": true,
         "confirmationRequired": true,
-        "regenerated": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\thumb-1792058971384\\state\\learning-cache\\thumbnails\\90a9080d16dfce71a010b16c108ec9cbab94f2576dd2bd7ad9f47f752cb37c81\\image.jpg"
+        "regenerated": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\thumb-1792063956571\\state\\learning-cache\\thumbnails\\d9dd81c533770f205c04b8754d1fea2fac5a431a9864743de1f9c45d86f32e8e\\image.jpg"
       }
     },
     {
       "name": "remote lesson thumbnail becomes an offline local JPEG and survives restart",
       "passed": true,
       "detail": {
-        "cached": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\thumb-1792058971384\\state\\learning-cache\\thumbnails\\5d1b64557b9fa8caf40a2af2b6dcdd546387ca77eeb544644fe1e9720f989e07\\image.jpg",
+        "cached": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\thumb-1792063956571\\state\\learning-cache\\thumbnails\\2b85f6629d52af8805223c6c8f89e9ebb6062b2bcbcb940c6368a871a5f22cbc\\image.jpg",
         "offlineRestart": true
       }
     },

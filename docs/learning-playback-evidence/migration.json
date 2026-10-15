@@ -1,0 +1,16 @@
+{
+  "run": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792063928952",
+  "passed": 1,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "v4 external manual thumbnail stays visible and normalizes without losing priority",
+      "passed": true,
+      "detail": {
+        "sourceImageKept": true,
+        "manualPriorityKept": true,
+        "normalized": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792063928952\\state\\learning-cache\\thumbnails\\8a2a2177c3e6efa6c8f51c3ecf4c1c6606b51308a7e49498245dae618ef5af1e\\image.jpg"
+      }
+    }
+  ]
+}

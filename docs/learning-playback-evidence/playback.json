@@ -1,5 +1,5 @@
 {
-  "run": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792058593211",
+  "run": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792063933018",
   "passed": 19,
   "failed": 0,
   "checks": [
@@ -101,11 +101,11 @@
       "name": "real playback seek rate pause save: 01-MP4-H264-AAC",
       "passed": true,
       "detail": {
-        "id": "learn-1792058595739-13",
+        "id": "learn-1792063934341-13",
         "title": "01-MP4-H264-AAC",
         "mode": "direct",
         "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\fixtures\\matrix\\01-MP4-H264-AAC.mp4",
-        "savedPositionMs": 7012,
+        "savedPositionMs": 7000,
         "rate": 1.5
       }
     },
@@ -113,11 +113,11 @@
       "name": "real playback seek rate pause save: 02-MKV-H264-AAC",
       "passed": true,
       "detail": {
-        "id": "learn-1792058595739-14",
+        "id": "learn-1792063934342-14",
         "title": "02-MKV-H264-AAC",
         "mode": "remux",
-        "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792058593211\\state\\learning-cache\\playback\\f0d2be04a2e9cc62c725ab9ce82230354a77447fc953c1000ce8204b71bb5816\\02-MKV-H264-AAC-remuxed.mp4",
-        "savedPositionMs": 7000,
+        "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792063933018\\state\\learning-cache\\playback\\345738c39f0c427426742b85fc2bfee8a0c10a2acc6d401f1586aba8b919849b\\02-MKV-H264-AAC-remuxed.mp4",
+        "savedPositionMs": 7005,
         "rate": 1.5
       }
     },
@@ -125,11 +125,11 @@
       "name": "real playback seek rate pause save: 03-MKV-HEVC-AAC",
       "passed": true,
       "detail": {
-        "id": "learn-1792058595739-15",
+        "id": "learn-1792063934342-15",
         "title": "03-MKV-HEVC-AAC",
         "mode": "remux",
-        "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792058593211\\state\\learning-cache\\playback\\735a70c632155070f24d2fa4e759294f9fdb933f24896f727fae0d1af9dd530d\\03-MKV-HEVC-AAC-remuxed.mp4",
-        "savedPositionMs": 7004,
+        "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792063933018\\state\\learning-cache\\playback\\735a70c632155070f24d2fa4e759294f9fdb933f24896f727fae0d1af9dd530d\\03-MKV-HEVC-AAC-remuxed.mp4",
+        "savedPositionMs": 7000,
         "rate": 1.5
       }
     },
@@ -137,11 +137,11 @@
       "name": "real playback seek rate pause save: 04-MOV-H264",
       "passed": true,
       "detail": {
-        "id": "learn-1792058595740-16",
+        "id": "learn-1792063934342-16",
         "title": "04-MOV-H264",
         "mode": "direct",
         "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\fixtures\\matrix\\04-MOV-H264.mov",
-        "savedPositionMs": 7000,
+        "savedPositionMs": 7005,
         "rate": 1.5
       }
     },
@@ -149,11 +149,11 @@
       "name": "real playback seek rate pause save: 05-AVI-MPEG4",
       "passed": true,
       "detail": {
-        "id": "learn-1792058595740-17",
+        "id": "learn-1792063934342-17",
         "title": "05-AVI-MPEG4",
         "mode": "transcode",
-        "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792058593211\\state\\learning-cache\\playback\\28b8e445e102af155d42c8ab7d5fd70db72e67de61d84362688db7aa63da8201\\05-AVI-MPEG4-converted.mp4",
-        "savedPositionMs": 7001,
+        "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792063933018\\state\\learning-cache\\playback\\28b8e445e102af155d42c8ab7d5fd70db72e67de61d84362688db7aa63da8201\\05-AVI-MPEG4-converted.mp4",
+        "savedPositionMs": 7000,
         "rate": 1.5
       }
     },
@@ -161,11 +161,11 @@
       "name": "real playback seek rate pause save: 06-WMV-WMV3-WMA",
       "passed": true,
       "detail": {
-        "id": "learn-1792058595740-18",
+        "id": "learn-1792063934342-18",
         "title": "06-WMV-WMV3-WMA",
         "mode": "transcode",
-        "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792058593211\\state\\learning-cache\\playback\\d6ede0da97421b4e8c44dc0adc71cb759cd8403ee188bf2ed5095df141496b5f\\06-WMV-WMV3-WMA-converted.mp4",
-        "savedPositionMs": 7001,
+        "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792063933018\\state\\learning-cache\\playback\\d6ede0da97421b4e8c44dc0adc71cb759cd8403ee188bf2ed5095df141496b5f\\06-WMV-WMV3-WMA-converted.mp4",
+        "savedPositionMs": 7000,
         "rate": 1.5
       }
     },
@@ -173,10 +173,10 @@
       "name": "real playback seek rate pause save: 07-WMV-VC1-WMA",
       "passed": true,
       "detail": {
-        "id": "learn-1792058595740-19",
+        "id": "learn-1792063934342-19",
         "title": "07-WMV-VC1-WMA",
         "mode": "transcode",
-        "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792058593211\\state\\learning-cache\\playback\\11305ed97d225d4c566c4302f1310f9b44a36b147fb198b8a69f8450458e216d\\07-WMV-VC1-WMA-converted.mp4",
+        "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792063933018\\state\\learning-cache\\playback\\11305ed97d225d4c566c4302f1310f9b44a36b147fb198b8a69f8450458e216d\\07-WMV-VC1-WMA-converted.mp4",
         "savedPositionMs": 7000,
         "rate": 1.5
       }
@@ -185,10 +185,10 @@
       "name": "real playback seek rate pause save: 08-MPEG-MPEG2",
       "passed": true,
       "detail": {
-        "id": "learn-1792058595740-20",
+        "id": "learn-1792063934342-20",
         "title": "08-MPEG-MPEG2",
         "mode": "transcode",
-        "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792058593211\\state\\learning-cache\\playback\\ea9183dccabc4dcd31fafc249fb30cba0b119ef78673836b379e322b214b4a80\\08-MPEG-MPEG2-converted.mp4",
+        "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792063933018\\state\\learning-cache\\playback\\ea9183dccabc4dcd31fafc249fb30cba0b119ef78673836b379e322b214b4a80\\08-MPEG-MPEG2-converted.mp4",
         "savedPositionMs": 7000,
         "rate": 1.5
       }
@@ -197,10 +197,10 @@
       "name": "real playback seek rate pause save: 09-TS-H264",
       "passed": true,
       "detail": {
-        "id": "learn-1792058595740-21",
+        "id": "learn-1792063934342-21",
         "title": "09-TS-H264",
         "mode": "remux",
-        "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792058593211\\state\\learning-cache\\playback\\25e8c9ba3b2fe099b2c8572487a3b833929dd6aae0e1afe7c34c702d80685457\\09-TS-H264-remuxed.mp4",
+        "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792063933018\\state\\learning-cache\\playback\\25e8c9ba3b2fe099b2c8572487a3b833929dd6aae0e1afe7c34c702d80685457\\09-TS-H264-remuxed.mp4",
         "savedPositionMs": 7000,
         "rate": 1.5
       }
@@ -209,11 +209,11 @@
       "name": "real playback seek rate pause save: 10-M2TS-H264",
       "passed": true,
       "detail": {
-        "id": "learn-1792058595740-22",
+        "id": "learn-1792063934342-22",
         "title": "10-M2TS-H264",
         "mode": "remux",
-        "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792058593211\\state\\learning-cache\\playback\\9ea535c01b4d3b95cfaa55ea9c2884fef9aebd85fff40489142e3941a35be689\\10-M2TS-H264-remuxed.mp4",
-        "savedPositionMs": 7004,
+        "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792063933018\\state\\learning-cache\\playback\\9ea535c01b4d3b95cfaa55ea9c2884fef9aebd85fff40489142e3941a35be689\\10-M2TS-H264-remuxed.mp4",
+        "savedPositionMs": 7000,
         "rate": 1.5
       }
     },
@@ -221,7 +221,7 @@
       "name": "real playback seek rate pause save: 11-WebM-VP9-Opus",
       "passed": true,
       "detail": {
-        "id": "learn-1792058595740-23",
+        "id": "learn-1792063934342-23",
         "title": "11-WebM-VP9-Opus",
         "mode": "direct",
         "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\fixtures\\matrix\\11-WebM-VP9-Opus.webm",
@@ -233,10 +233,10 @@
       "name": "real playback seek rate pause save: 12-FLV",
       "passed": true,
       "detail": {
-        "id": "learn-1792058595740-24",
+        "id": "learn-1792063934342-24",
         "title": "12-FLV",
         "mode": "transcode",
-        "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792058593211\\state\\learning-cache\\playback\\d8fd756d6d54ba58b83e6ffc1a64f83eb6b4b3cd46c8437b277f3743bcb98141\\12-FLV-converted.mp4",
+        "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792063933018\\state\\learning-cache\\playback\\d8fd756d6d54ba58b83e6ffc1a64f83eb6b4b3cd46c8437b277f3743bcb98141\\12-FLV-converted.mp4",
         "savedPositionMs": 7000,
         "rate": 1.5
       }
@@ -267,8 +267,8 @@
       "name": "source timestamp invalidates proxy and thumbnail independently while source bytes stay unchanged",
       "passed": true,
       "detail": {
-        "oldProxy": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792058593211\\state\\learning-cache\\playback\\f0d2be04a2e9cc62c725ab9ce82230354a77447fc953c1000ce8204b71bb5816\\02-MKV-H264-AAC-remuxed.mp4",
-        "newProxy": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792058593211\\state\\learning-cache\\playback\\345738c39f0c427426742b85fc2bfee8a0c10a2acc6d401f1586aba8b919849b\\02-MKV-H264-AAC-remuxed.mp4",
+        "oldProxy": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792063933018\\state\\learning-cache\\playback\\345738c39f0c427426742b85fc2bfee8a0c10a2acc6d401f1586aba8b919849b\\02-MKV-H264-AAC-remuxed.mp4",
+        "newProxy": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792063933018\\state\\learning-cache\\playback\\64b36d295dd970d3d4f75cf9a5bc7240cf71b6a907f34f8f1d20a8208c48e79b\\02-MKV-H264-AAC-remuxed.mp4",
         "thumbnailChanged": true
       }
     },
@@ -345,87 +345,87 @@
   ],
   "flow": [
     {
-      "id": "learn-1792058595739-13",
+      "id": "learn-1792063934341-13",
       "title": "01-MP4-H264-AAC",
       "mode": "direct",
       "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\fixtures\\matrix\\01-MP4-H264-AAC.mp4",
-      "savedPositionMs": 7012,
-      "rate": 1.5
-    },
-    {
-      "id": "learn-1792058595739-14",
-      "title": "02-MKV-H264-AAC",
-      "mode": "remux",
-      "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792058593211\\state\\learning-cache\\playback\\f0d2be04a2e9cc62c725ab9ce82230354a77447fc953c1000ce8204b71bb5816\\02-MKV-H264-AAC-remuxed.mp4",
       "savedPositionMs": 7000,
       "rate": 1.5
     },
     {
-      "id": "learn-1792058595739-15",
-      "title": "03-MKV-HEVC-AAC",
+      "id": "learn-1792063934342-14",
+      "title": "02-MKV-H264-AAC",
       "mode": "remux",
-      "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792058593211\\state\\learning-cache\\playback\\735a70c632155070f24d2fa4e759294f9fdb933f24896f727fae0d1af9dd530d\\03-MKV-HEVC-AAC-remuxed.mp4",
-      "savedPositionMs": 7004,
+      "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792063933018\\state\\learning-cache\\playback\\345738c39f0c427426742b85fc2bfee8a0c10a2acc6d401f1586aba8b919849b\\02-MKV-H264-AAC-remuxed.mp4",
+      "savedPositionMs": 7005,
       "rate": 1.5
     },
     {
-      "id": "learn-1792058595740-16",
+      "id": "learn-1792063934342-15",
+      "title": "03-MKV-HEVC-AAC",
+      "mode": "remux",
+      "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792063933018\\state\\learning-cache\\playback\\735a70c632155070f24d2fa4e759294f9fdb933f24896f727fae0d1af9dd530d\\03-MKV-HEVC-AAC-remuxed.mp4",
+      "savedPositionMs": 7000,
+      "rate": 1.5
+    },
+    {
+      "id": "learn-1792063934342-16",
       "title": "04-MOV-H264",
       "mode": "direct",
       "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\fixtures\\matrix\\04-MOV-H264.mov",
-      "savedPositionMs": 7000,
+      "savedPositionMs": 7005,
       "rate": 1.5
     },
     {
-      "id": "learn-1792058595740-17",
+      "id": "learn-1792063934342-17",
       "title": "05-AVI-MPEG4",
       "mode": "transcode",
-      "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792058593211\\state\\learning-cache\\playback\\28b8e445e102af155d42c8ab7d5fd70db72e67de61d84362688db7aa63da8201\\05-AVI-MPEG4-converted.mp4",
-      "savedPositionMs": 7001,
+      "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792063933018\\state\\learning-cache\\playback\\28b8e445e102af155d42c8ab7d5fd70db72e67de61d84362688db7aa63da8201\\05-AVI-MPEG4-converted.mp4",
+      "savedPositionMs": 7000,
       "rate": 1.5
     },
     {
-      "id": "learn-1792058595740-18",
+      "id": "learn-1792063934342-18",
       "title": "06-WMV-WMV3-WMA",
       "mode": "transcode",
-      "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792058593211\\state\\learning-cache\\playback\\d6ede0da97421b4e8c44dc0adc71cb759cd8403ee188bf2ed5095df141496b5f\\06-WMV-WMV3-WMA-converted.mp4",
-      "savedPositionMs": 7001,
+      "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792063933018\\state\\learning-cache\\playback\\d6ede0da97421b4e8c44dc0adc71cb759cd8403ee188bf2ed5095df141496b5f\\06-WMV-WMV3-WMA-converted.mp4",
+      "savedPositionMs": 7000,
       "rate": 1.5
     },
     {
-      "id": "learn-1792058595740-19",
+      "id": "learn-1792063934342-19",
       "title": "07-WMV-VC1-WMA",
       "mode": "transcode",
-      "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792058593211\\state\\learning-cache\\playback\\11305ed97d225d4c566c4302f1310f9b44a36b147fb198b8a69f8450458e216d\\07-WMV-VC1-WMA-converted.mp4",
+      "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792063933018\\state\\learning-cache\\playback\\11305ed97d225d4c566c4302f1310f9b44a36b147fb198b8a69f8450458e216d\\07-WMV-VC1-WMA-converted.mp4",
       "savedPositionMs": 7000,
       "rate": 1.5
     },
     {
-      "id": "learn-1792058595740-20",
+      "id": "learn-1792063934342-20",
       "title": "08-MPEG-MPEG2",
       "mode": "transcode",
-      "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792058593211\\state\\learning-cache\\playback\\ea9183dccabc4dcd31fafc249fb30cba0b119ef78673836b379e322b214b4a80\\08-MPEG-MPEG2-converted.mp4",
+      "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792063933018\\state\\learning-cache\\playback\\ea9183dccabc4dcd31fafc249fb30cba0b119ef78673836b379e322b214b4a80\\08-MPEG-MPEG2-converted.mp4",
       "savedPositionMs": 7000,
       "rate": 1.5
     },
     {
-      "id": "learn-1792058595740-21",
+      "id": "learn-1792063934342-21",
       "title": "09-TS-H264",
       "mode": "remux",
-      "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792058593211\\state\\learning-cache\\playback\\25e8c9ba3b2fe099b2c8572487a3b833929dd6aae0e1afe7c34c702d80685457\\09-TS-H264-remuxed.mp4",
+      "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792063933018\\state\\learning-cache\\playback\\25e8c9ba3b2fe099b2c8572487a3b833929dd6aae0e1afe7c34c702d80685457\\09-TS-H264-remuxed.mp4",
       "savedPositionMs": 7000,
       "rate": 1.5
     },
     {
-      "id": "learn-1792058595740-22",
+      "id": "learn-1792063934342-22",
       "title": "10-M2TS-H264",
       "mode": "remux",
-      "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792058593211\\state\\learning-cache\\playback\\9ea535c01b4d3b95cfaa55ea9c2884fef9aebd85fff40489142e3941a35be689\\10-M2TS-H264-remuxed.mp4",
-      "savedPositionMs": 7004,
+      "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792063933018\\state\\learning-cache\\playback\\9ea535c01b4d3b95cfaa55ea9c2884fef9aebd85fff40489142e3941a35be689\\10-M2TS-H264-remuxed.mp4",
+      "savedPositionMs": 7000,
       "rate": 1.5
     },
     {
-      "id": "learn-1792058595740-23",
+      "id": "learn-1792063934342-23",
       "title": "11-WebM-VP9-Opus",
       "mode": "direct",
       "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\fixtures\\matrix\\11-WebM-VP9-Opus.webm",
@@ -433,10 +433,10 @@
       "rate": 1.5
     },
     {
-      "id": "learn-1792058595740-24",
+      "id": "learn-1792063934342-24",
       "title": "12-FLV",
       "mode": "transcode",
-      "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792058593211\\state\\learning-cache\\playback\\d8fd756d6d54ba58b83e6ffc1a64f83eb6b4b3cd46c8437b277f3743bcb98141\\12-FLV-converted.mp4",
+      "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792063933018\\state\\learning-cache\\playback\\d8fd756d6d54ba58b83e6ffc1a64f83eb6b4b3cd46c8437b277f3743bcb98141\\12-FLV-converted.mp4",
       "savedPositionMs": 7000,
       "rate": 1.5
     }

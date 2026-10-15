@@ -64,6 +64,34 @@ pub(crate) struct ThumbnailState {
     memo: HashMap<String, String>,
     forced: HashSet<String>,
 }
+impl ThumbnailState {
+    fn finish_attempt(&mut self, id: &str, attempted: String, current: Option<String>) {
+        if self.memo.len() >= 10000 {
+            self.memo.clear();
+        }
+        let changed = current.as_ref().is_some_and(|latest| latest != &attempted);
+        if current.is_some() {
+            self.memo.insert(id.into(), attempted);
+        } else {
+            self.memo.remove(id);
+        }
+        self.queue.finish(id);
+        if changed {
+            self.queue.add(id);
+        }
+    }
+}
+fn manual_input(path: &str) -> AppResult<std::path::PathBuf> {
+    let input = super::importer::regular_file(path)?;
+    if !input.extension().is_some_and(|e| {
+        ["jpg", "jpeg", "png", "webp"].contains(&e.to_string_lossy().to_ascii_lowercase().as_str())
+    }) || fs::metadata(&input).map_err(|_| "图片无法读取")?.len() > 20 * 1024 * 1024
+    {
+        return Err("请选择20MiB以内的JPEG、PNG或WebP图片".into());
+    }
+    Ok(input)
+}
+
 impl Repository {
     pub(crate) fn set_thumbnail_cas(
         &self,
@@ -149,14 +177,15 @@ impl LearningService {
                     let memo = this.thumbnails.0.lock().unwrap().memo.get(&id).cloned();
                     if forced || memo.as_deref() != Some(&signature) {
                         let _ = this.resolve_thumbnail(&item, forced);
-                        if let Ok(latest) = this.with(|r| r.item(&id)) {
-                            let signature = this.thumbnail_signature(&latest);
-                            let mut state = this.thumbnails.0.lock().unwrap();
-                            if state.memo.len() >= 10000 {
-                                state.memo.clear();
-                            }
-                            state.memo.insert(id.clone(), signature);
-                        }
+                        let current = this
+                            .with(|r| r.item(&id))
+                            .ok()
+                            .map(|i| this.thumbnail_signature(&i));
+                        this.thumbnails
+                            .0
+                            .lock()
+                            .unwrap()
+                            .finish_attempt(&id, signature, current);
                     }
                 }
                 this.thumbnails.0.lock().unwrap().queue.finish(&id);
@@ -170,7 +199,9 @@ impl LearningService {
     }
     pub(crate) fn authorize_thumbnail(&self, item: &mut LearningItem) {
         if let Some(path) = item.thumbnail_path.as_ref() {
-            if self.thumbnail_file(path) {
+            if self.thumbnail_file(path)
+                || item.thumbnail_source.as_deref() == Some("manual") && manual_input(path).is_ok()
+            {
                 let _ = self.app.asset_protocol_scope().allow_file(path);
             } else {
                 item.thumbnail_path = None;
@@ -251,12 +282,12 @@ impl LearningService {
     fn resolve_thumbnail(&self, old: &LearningItem, force: bool) -> AppResult<()> {
         let _single = self.thumbnail_guard.lock().map_err(|_| "缩略图暂不可用")?;
         let current = self.with(|r| r.item(&old.id))?;
-        if current.thumbnail_source.as_deref() == Some("manual")
-            && current
-                .thumbnail_path
-                .as_ref()
-                .is_some_and(|p| self.thumbnail_file(p))
-        {
+        if current.thumbnail_source.as_deref() == Some("manual") {
+            if let Some(path) = current.thumbnail_path.as_deref() {
+                if !self.thumbnail_file(path) {
+                    self.store_manual(&current, path)?;
+                }
+            }
             return Ok(());
         }
         // Keep the existing image when the video goes missing; relinking changes its fingerprint.
@@ -335,14 +366,11 @@ impl LearningService {
     pub fn set_thumbnail(&self, id: &str, path: &str) -> AppResult<LearningItem> {
         let _single = self.thumbnail_guard.lock().map_err(|_| "缩略图暂不可用")?;
         let old = self.with(|r| r.item(id))?;
-        let input = super::importer::regular_file(path)?;
-        if !input.extension().is_some_and(|e| {
-            ["jpg", "jpeg", "png", "webp"]
-                .contains(&e.to_string_lossy().to_ascii_lowercase().as_str())
-        }) || fs::metadata(&input).map_err(|_| "图片无法读取")?.len() > 20 * 1024 * 1024
-        {
-            return Err("请选择20MiB以内的JPEG、PNG或WebP图片".into());
-        }
+        self.store_manual(&old, path)
+    }
+    fn store_manual(&self, old: &LearningItem, path: &str) -> AppResult<LearningItem> {
+        let id = &old.id;
+        let input = manual_input(path)?;
         let before = cache::stamp(&input)?;
         let key = cache::key(&before, "manual", "320x180-v1");
         let dir = cache::directory(&self.data, "thumbnails", &key)?;
@@ -392,5 +420,48 @@ impl LearningService {
             }
         }
         Ok(removed)
+    }
+}
+
+#[cfg(test)]
+mod worker_race_tests {
+    use super::*;
+    #[test]
+    fn relink_during_paused_thumbnail_work_requeues_latest_input_once() {
+        let mut state = ThumbnailState::default();
+        state.queue.add("lesson");
+        assert_eq!(state.queue.take().as_deref(), Some("lesson"));
+        let attempted = "source-A".to_string();
+        state.queue.add("lesson"); // relink B arrives while A is still pending
+        state.finish_attempt("lesson", attempted, Some("source-B".into()));
+        assert_eq!(
+            state.queue.take().as_deref(),
+            Some("lesson"),
+            "B must receive its own attempt after A's CAS rejection"
+        );
+        assert_ne!(
+            state.memo.get("lesson").map(String::as_str),
+            Some("source-B")
+        );
+        state.finish_attempt("lesson", "source-B".into(), Some("source-B".into()));
+        assert!(state.queue.take().is_none());
+        assert_eq!(
+            state.memo.get("lesson").map(String::as_str),
+            Some("source-B")
+        );
+    }
+}
+
+#[cfg(test)]
+mod failure_memo_tests {
+    use super::*;
+    #[test]
+    fn unchanged_thumbnail_failure_is_not_rescheduled_forever() {
+        let mut s = ThumbnailState::default();
+        s.queue.add("a");
+        s.queue.take();
+        s.finish_attempt("a", "same".into(), Some("same".into()));
+        assert!(s.queue.take().is_none());
+        assert_eq!(s.memo.get("a").map(String::as_str), Some("same"));
     }
 }
