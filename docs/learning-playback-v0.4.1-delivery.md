@@ -1,6 +1,6 @@
 # 映流 v0.4.1 交付报告
 
-验收日期：2026-10-15。分支：`codex/learning-playback-thumbnail-v0.4.1`。基线：`c580e5d7d0e20ed17457a18ecf590876f5ec1ec0`。安装包校验与源码提交记录在随包交付清单中；不合并、不创建 Release。
+验收日期：2026-10-15。分支：`codex/learning-playback-thumbnail-v0.4.1`。基线：`c580e5d7d0e20ed17457a18ecf590876f5ec1ec0`。[Draft PR #6](https://github.com/Abaddon145/video_downloader/pull/6) 已创建。安装包校验与源码提交记录在随包交付清单中；不合并、不创建 Release。
 
 ## 1 修改文件完整列表
 
@@ -198,11 +198,15 @@ H.264/AAC带内嵌SRT的MKV通过无损AV封装播放，字幕独立转换；没
 
 ## 23 NSIS构建结果
 
-最终安装包、源码ZIP、提交ID、大小和SHA256写入随包交付清单；完成构建后再核验。捆绑yt-dlp/FFmpeg/ffprobe/Deno及上游许可、组件清单，安装器为中文并包含WebView2引导安装。当前验证不覆盖用户现有安装与个人数据。
+`npm run tauri -- build --bundles nsis --verbose` 退出码0，产出 `视频下载器_0.4.1_x64-setup.exe`，150252739字节（143.29MiB）。发布程序产品版本0.4.1；安装器x64、SimpChinese、当前用户安装，配置了WebView2 embedBootstrapper及桌面/开始菜单入口。生成脚本与构建日志已核对。NSIS6010为模板未使用函数警告，构建成功。
+
+安装包SHA256：`6783d728378f522e2fca56338cc7fe828dc99b1d5b26996a977bdffe5bfd2e6a`。构建提交：`7a7b0e5a35dc16d3cd85f31e64aea354f5e1d872`。最终源码提交只在该提交后补充文档与验收记录，源码ZIP内包含提交标识；最终ZIP大小、SHA256及提交ID见随包 `delivery-manifest.json`、`SHA256SUMS.txt`。Git归档通过CRC、版本与排除项检查，不包含node_modules、target、测试视频、数据库或个人Cookie。
+
+yt-dlp/FFmpeg/ffprobe/Deno实际文件SHA256与捆绑清单4项全部一致；上游许可、版本与来源清单随包提供。见[构建日志](learning-playback-evidence/nsis-build.log)、[Rust测试日志](learning-playback-evidence/rust-tests.log)、[Node测试日志](learning-playback-evidence/node-tests.log)、[执行记录](learning-playback-execution.md)与[审查修复](learning-playback-final-review.md)。当前使用独立测试数据运行发布程序，没有覆盖用户现有安装；未验证干净Windows10或缺少WebView2的安装环境。
 
 ## 24 已知限制
 
-播放器兼容缓存需要磁盘空间与第一次等待；损坏、加密或FFmpeg不支持的输入仍会失败并保留原文件。图像文本型字幕可以转换，PGS等位图字幕不做OCR。远程图片可能因源站限制失效并回退。GPU性能依设备；Windows10与所有独立GPU/Codec Pack组合未逐一物理覆盖。源文件变化依文件尺寸/时间戳检测，不为每次打开计算整片哈希。
+播放器兼容缓存需要磁盘空间与第一次等待；损坏、加密或FFmpeg不支持的输入仍会失败并保留原文件。文本字幕可以转换，PGS等位图字幕不做OCR。远程图片可能因源站限制失效并回退。GPU性能依设备；Windows10与所有独立GPU/Codec Pack组合未逐一物理覆盖。源文件变化依文件尺寸/时间戳检测，不为每次打开计算整片哈希。
 
 ## 25 下一阶段建议
 
