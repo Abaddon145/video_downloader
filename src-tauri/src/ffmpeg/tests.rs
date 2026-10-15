@@ -341,3 +341,33 @@ fn v03_metadata_preserves_existing_artwork_and_rejects_incompatible_targets() {
     .expect("covered video must support tags");
     assert!(c.args.windows(2).any(|a| a == ["-map", "0"]));
 }
+
+#[test]
+fn learning_transcode_pads_odd_dimensions_for_h264_without_changing_media_tools() {
+    let info = MediaInfo {
+        videos: vec![VideoStreamInfo {
+            codec: "ffv1".into(),
+            width: Some(321),
+            height: Some(181),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let mut r = MediaRequest {
+        input_path: "C:/odd.mkv".into(),
+        output_dir: "C:/cache".into(),
+        learning_playback: true,
+        ..Default::default()
+    };
+    let a = command::build(&r, &info, Path::new("C:/cache/odd.mp4"))
+        .unwrap()
+        .args;
+    assert!(a
+        .windows(2)
+        .any(|w| w[0] == "-vf" && w[1].contains("ceil(iw/2)")));
+    r.learning_playback = false;
+    let ordinary = command::build(&r, &info, Path::new("C:/cache/odd.mp4"))
+        .unwrap()
+        .args;
+    assert!(!ordinary.iter().any(|a| a.contains("ceil(iw/2)")));
+}

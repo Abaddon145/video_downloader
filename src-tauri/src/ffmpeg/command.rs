@@ -111,6 +111,9 @@ fn video(a: &mut Vec<String>, r: &MediaRequest) {
         if let Some(h) = r.height {
             pair(a, "-vf", format!("scale=-2:min({h}\\,ih)"));
         }
+        if r.learning_playback && r.height.is_none() {
+            pair(a, "-vf", "scale=ceil(iw/2)*2:ceil(ih/2)*2");
+        }
         if let Some(f) = r.fps {
             pair(a, "-r", f);
         }
@@ -200,7 +203,13 @@ pub fn build(r: &MediaRequest, info: &MediaInfo, output: &Path) -> AppResult<Bui
     }
     let copying = r.operation == MediaOperation::Remux
         || r.operation == MediaOperation::Trim && r.trim_mode == TrimMode::Fast;
-    if copying {
+    if copying && r.learning_playback {
+        if v.is_none_or(|v| !video_compatible(r.output_format, &v.codec))
+            || first_audio.is_some_and(|a| !audio_compatible(r.output_format, &a.codec))
+        {
+            return Err("播放轨道无法无损封装".into());
+        }
+    } else if copying {
         if info.other_streams > 0
             || info
                 .videos
@@ -307,7 +316,22 @@ pub fn build(r: &MediaRequest, info: &MediaInfo, output: &Path) -> AppResult<Bui
     }
     match r.operation {
         MediaOperation::Remux => {
-            pair(&mut args, "-map", "0");
+            if r.learning_playback {
+                pair(
+                    &mut args,
+                    "-map",
+                    format!("0:{}", v.ok_or("缺少视频轨道")?.index),
+                );
+                if let Some(a) = first_audio {
+                    pair(&mut args, "-map", format!("0:{}", a.index));
+                }
+                args.extend(["-sn".into(), "-dn".into()]);
+                if v.is_some_and(|v| v.codec == "hevc") && r.output_format == OutputFormat::Mp4 {
+                    pair(&mut args, "-tag:v", "hvc1");
+                }
+            } else {
+                pair(&mut args, "-map", "0");
+            }
             pair(&mut args, "-c", "copy");
         }
         MediaOperation::Trim if copying => {

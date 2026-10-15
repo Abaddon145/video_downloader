@@ -1,0 +1,32 @@
+{
+  "run": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792063953981",
+  "passed": 3,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "SSA external subtitles are cached as VTT and reused without rewriting input",
+      "passed": true,
+      "detail": {
+        "cachedPath": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\playback-1792063953981\\state\\learning-cache\\subtitles\\41b01d96d92096dd767b6259d2abce6c2a002dfff9335819978884d0f8e8d6d3\\subtitles.vtt",
+        "reused": true
+      }
+    },
+    {
+      "name": "oversized remote thumbnail falls back to source frame without blocking playback",
+      "passed": true,
+      "detail": {
+        "remoteLimitEnforced": true,
+        "sourceFrameGenerated": true,
+        "directPlaybackUnaffected": true
+      }
+    },
+    {
+      "name": "cancelling the last playback lease rejects preparation and terminates its task",
+      "passed": true,
+      "detail": {
+        "cancelled": true,
+        "noPublishedOutput": true
+      }
+    }
+  ]
+}

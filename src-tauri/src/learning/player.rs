@@ -1,14 +1,97 @@
 use super::{
-    db, importer::regular_file, models::*, repository::Repository, service::LearningService,
+    cache,
+    compatibility::{self, BrowserPlaybackSupport, PlaybackMode, PlaybackPlan},
+    db,
+    importer::regular_file,
+    models::*,
+    repository::Repository,
+    service::LearningService,
 };
 use crate::{
     domain::AppResult,
     ffmpeg::{command, models::*},
+    native,
 };
 use std::{
+    collections::{HashMap, HashSet},
     fs,
     path::{Path, PathBuf},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
+    time::Duration,
 };
+use tauri::Emitter;
+#[derive(Clone)]
+pub(crate) struct SharedPlayback {
+    task: String,
+    finalize: Arc<Mutex<Option<cache::PlaybackEntry>>>,
+    failed: Arc<AtomicBool>,
+    published: Arc<AtomicBool>,
+}
+impl SharedPlayback {
+    fn new(task: String) -> Self {
+        Self {
+            task,
+            finalize: Arc::new(Mutex::new(None)),
+            failed: Arc::new(AtomicBool::new(false)),
+            published: Arc::new(AtomicBool::new(false)),
+        }
+    }
+    fn reusable(&self, status: MediaTaskStatus, force: bool) -> bool {
+        !self.failed.load(Ordering::Acquire)
+            && !(force
+                && status == MediaTaskStatus::Completed
+                && self.published.load(Ordering::Acquire))
+            && matches!(
+                status,
+                MediaTaskStatus::Queued
+                    | MediaTaskStatus::Probing
+                    | MediaTaskStatus::Processing
+                    | MediaTaskStatus::Completed
+            )
+    }
+}
+
+#[derive(Default)]
+pub(crate) struct PlaybackState {
+    sessions: HashMap<String, Option<String>>,
+    cancelled: HashSet<String>,
+    jobs: HashMap<String, SharedPlayback>,
+    subtitle_keys: HashMap<String, HashSet<String>>,
+}
+impl PlaybackState {
+    pub(crate) fn begin(&mut self, session: &str) -> AppResult<()> {
+        if self.cancelled.contains(session) {
+            return Err("播放准备已取消".into());
+        }
+        self.sessions.entry(session.into()).or_insert(None);
+        Ok(())
+    }
+    pub(crate) fn join(&mut self, session: &str, key: &str) -> AppResult<()> {
+        self.begin(session)?;
+        self.sessions.insert(session.into(), Some(key.into()));
+        Ok(())
+    }
+    pub(crate) fn protected(&self) -> HashSet<String> {
+        self.sessions
+            .values()
+            .filter_map(Clone::clone)
+            .chain(self.subtitle_keys.values().flatten().cloned())
+            .collect()
+    }
+    pub(crate) fn release(&mut self, session: &str) -> Option<String> {
+        // ponytail: 4096 late-cancel tombstones, matching the bounded native preview cancellation policy; use generation IDs if sessions exceed this in one run.
+        if self.cancelled.len() >= 4096 {
+            self.cancelled.clear();
+        }
+        self.cancelled.insert(session.into());
+        self.subtitle_keys.remove(session);
+        let key = self.sessions.remove(session).flatten()?;
+        (!self.sessions.values().any(|v| v.as_deref() == Some(&key))).then_some(key)
+    }
+}
 impl Repository {
     pub fn playback_file(&self, id: &str) -> AppResult<PathBuf> {
         let item = self.item(id)?;
@@ -18,7 +101,7 @@ impl Repository {
             .ok_or_else(|| "课程尚未下载".to_string())
             .and_then(regular_file);
         match result {
-            Ok(path) if super::importer::video_path(&path.to_string_lossy()) => {
+            Ok(path) => {
                 self.conn
                     .execute("UPDATE series_items SET available=1 WHERE id=?1", [id])
                     .map_err(db::error)?;
@@ -47,11 +130,51 @@ impl Repository {
         ))
     }
 }
+
 impl LearningService {
-    pub fn prepare_player(&self, id: &str, session: &str, proxy: bool) -> AppResult<PlayerMedia> {
+    fn playback_event(
+        &self,
+        session: &str,
+        id: &str,
+        plan: Option<&PlaybackPlan>,
+        state: &str,
+        percent: Option<f64>,
+        eta: Option<f64>,
+    ) {
+        let _=self.app.emit("learning-playback-updated",serde_json::json!({"session":session,"itemId":id,"mode":plan.map(|p|p.mode),"state":state,"percent":percent,"eta":eta}));
+    }
+    pub fn cancel_player(&self, session: &str) -> AppResult<()> {
         crate::media::trim::timeline::validate_session(session)?;
-        let source = self.with(|r| r.playback_file(id));
-        let source = match source {
+        let mut state = self.playback.lock().map_err(|_| "播放缓存暂不可用")?;
+        let verification = state
+            .release(session)
+            .and_then(|key| state.jobs.remove(&key))
+            .map(|shared| {
+                let _ = self.media.cancel(&shared.task);
+                format!("{}-cache", shared.task)
+            });
+        drop(state);
+        if let Some(verification) = verification {
+            self.media.cancel_editor(&verification)?;
+        }
+        self.media.cancel_editor(session)
+    }
+    pub fn prepare_player(
+        &self,
+        id: &str,
+        session: &str,
+        proxy: bool,
+        support: BrowserPlaybackSupport,
+        fallback: u8,
+        force: bool,
+    ) -> AppResult<PlayerMedia> {
+        crate::media::trim::timeline::validate_session(session)?;
+        self.playback
+            .lock()
+            .map_err(|_| "播放缓存暂不可用")?
+            .begin(session)?;
+        self.playback_event(session, id, None, "解析课程", None, None);
+        let source = match self.with(|r| r.playback_file(id)) {
             Ok(p) => p,
             Err(e) => {
                 self.changed("missing", id);
@@ -59,19 +182,29 @@ impl LearningService {
             }
         };
         let (item, series, settings, previous, next) = self.with(|r| {
-            let item = r.item(id)?;
+            let i = r.item(id)?;
             let (a, b) = r.neighbors(id)?;
-            Ok((
-                item.clone(),
-                r.get_series(&item.series_id)?,
-                r.settings()?,
-                a,
-                b,
-            ))
+            Ok((i.clone(), r.get_series(&i.series_id)?, r.settings()?, a, b))
         })?;
-        let path = self
+        let original_stamp = cache::stamp(&source)?;
+        let info = self
             .media
-            .editor_preview(&source.to_string_lossy(), session, proxy)?;
+            .probe_file(&source, &format!("{session}-probe"), false)?;
+        if cache::stamp(&source)? != original_stamp {
+            return Err("源视频在读取期间改变，请重新播放".into());
+        }
+        let preference = if proxy {
+            PlaybackPreference::Compatible
+        } else {
+            settings.playback_preference
+        };
+        let mut plan = compatibility::plan(&info, support, preference, fallback)?;
+        let path = if plan.mode == PlaybackMode::Direct {
+            self.media.authorize_asset(session, &source)?;
+            source.to_string_lossy().into_owned()
+        } else {
+            self.compatible_path(id, session, &source, &info, &mut plan, force)?
+        };
         let mut subtitles = vec![];
         let mut warnings = vec![];
         if settings.auto_subtitles {
@@ -93,7 +226,7 @@ impl LearningService {
                                 .to_string_lossy()
                                 .to_lowercase();
                             (name == stem || name.starts_with(&format!("{stem}.")))
-                                && ["srt", "ass", "vtt"].contains(
+                                && ["srt", "ass", "ssa", "vtt"].contains(
                                     &p.extension()
                                         .unwrap_or_default()
                                         .to_string_lossy()
@@ -112,24 +245,30 @@ impl LearningService {
                 }
             }
             if subtitles.is_empty() {
-                if let Ok(info) = self.media.probe(&source.to_string_lossy()) {
-                    if let Some(track) = info.subtitles.iter().find(|s| {
-                        ["subrip", "ass", "ssa", "webvtt", "mov_text"].contains(&s.codec.as_str())
-                    }) {
-                        let mut selected = info.clone();
-                        selected.subtitles = vec![track.clone()];
-                        match self.convert_subtitle(&source, &selected, session, Some(track.index))
-                        {
-                            Ok(path) => subtitles.push(PlayerSubtitle {
-                                label: "内嵌字幕".into(),
-                                path,
-                            }),
-                            Err(e) => warnings.push(e),
-                        }
+                if let Some(track) = info.subtitles.iter().find(|s| {
+                    ["subrip", "ass", "ssa", "webvtt", "mov_text"].contains(&s.codec.as_str())
+                }) {
+                    let mut selected = info.clone();
+                    selected.subtitles = vec![track.clone()];
+                    match self.convert_subtitle(&source, &selected, session, Some(track.index)) {
+                        Ok(path) => subtitles.push(PlayerSubtitle {
+                            label: "内嵌字幕".into(),
+                            path,
+                        }),
+                        Err(e) => warnings.push(e),
                     }
                 }
             }
         }
+        self.playback
+            .lock()
+            .map_err(|_| "播放缓存暂不可用")?
+            .begin(session)?;
+        if cache::stamp(&source)? != original_stamp || self.with(|r| r.playback_file(id))? != source
+        {
+            return Err("课程文件已经重新定位，请重新播放".into());
+        }
+        self.playback_event(session, id, Some(&plan), "准备完成", Some(100.), None);
         Ok(PlayerMedia {
             item,
             series,
@@ -139,7 +278,170 @@ impl LearningService {
             path,
             subtitles,
             subtitle_warning: (!warnings.is_empty()).then(|| warnings.join("；")),
+            plan,
+            technical: format!(
+                "{} · {} · {}",
+                info.container,
+                info.videos
+                    .iter()
+                    .find(|v| !v.attached_picture)
+                    .map(|v| v.codec.as_str())
+                    .unwrap_or("?"),
+                info.audios
+                    .first()
+                    .map(|a| a.codec.as_str())
+                    .unwrap_or("无音频")
+            ),
         })
+    }
+    fn compatible_path(
+        &self,
+        id: &str,
+        session: &str,
+        source: &Path,
+        info: &MediaInfo,
+        plan: &mut PlaybackPlan,
+        force: bool,
+    ) -> AppResult<String> {
+        let source_stamp = cache::stamp(source)?;
+        let profile = format!("learning-v1-{:?}-{:?}-crf22-aac192", plan.mode, plan.format);
+        let codecs = serde_json::to_string(&(info.container.clone(), &info.videos, &info.audios))
+            .map_err(|_| "编码信息无效")?;
+        let key = cache::key(&source_stamp, &codecs, &profile);
+        let dir = cache::directory(&self.data, "playback", &key)?;
+        let shared = {
+            let mut state = self.playback.lock().map_err(|_| "播放缓存暂不可用")?;
+            state.join(session, &key)?;
+            if !force {
+                if let Ok(mut e) = cache::read_entry(&dir, &source_stamp, &profile) {
+                    e.last_used = crate::service::now();
+                    native::save_atomic(
+                        &dir.join("info.json"),
+                        &serde_json::to_vec(&e).map_err(|_| "缓存信息无效")?,
+                    )?;
+                    self.media.authorize_asset(session, Path::new(&e.file))?;
+                    plan.cached = true;
+                    return Ok(e.file);
+                }
+            }
+            let active = state
+                .jobs
+                .get(&key)
+                .filter(|job| {
+                    self.media
+                        .task(&job.task)
+                        .is_ok_and(|t| job.reusable(t.status, force))
+                })
+                .cloned();
+            let shared = if let Some(job) = active {
+                job
+            } else {
+                let task = self.media.create_playback(compatibility::request(
+                    &source.to_string_lossy(),
+                    &dir.to_string_lossy(),
+                    plan,
+                ))?;
+                SharedPlayback::new(task.id)
+            };
+            state.jobs.insert(key.clone(), shared.clone());
+            shared
+        };
+        let mut emitted = None;
+        loop {
+            self.playback
+                .lock()
+                .map_err(|_| "播放缓存暂不可用")?
+                .begin(session)?;
+            let t = self.media.task(&shared.task)?;
+            let signature = (t.status, t.progress.map(|p| p as u16), t.phase.clone());
+            if emitted.as_ref() != Some(&signature) {
+                self.playback_event(session, id, Some(plan), &t.phase, t.progress, t.eta);
+                emitted = Some(signature);
+            }
+            match t.status {
+                MediaTaskStatus::Completed => {
+                    let mut _finish = shared.finalize.lock().map_err(|_| "缓存发布失败")?;
+                    let finalized: AppResult<cache::PlaybackEntry> = (|| {
+                        if let Some(e) = _finish.as_ref() {
+                            let path = cache::owned(&dir, Path::new(&e.file))?;
+                            if cache::stamp(source)? != source_stamp
+                                || cache::stamp(&path)? != e.output
+                            {
+                                return Err("已准备的视频发生改变，请重新生成".into());
+                            }
+                            return Ok(e.clone());
+                        }
+                        let mut e = if let Some(e) =
+                            cache::read_entry(&dir, &source_stamp, &profile)
+                                .ok()
+                                .filter(|e| Some(e.file.as_str()) == t.output_path.as_deref())
+                        {
+                            e
+                        } else {
+                            if cache::stamp(source)? != source_stamp {
+                                return Err("源视频在处理期间改变，请重新播放".into());
+                            }
+                            let path = cache::owned(
+                                &dir,
+                                Path::new(t.output_path.as_deref().ok_or("兼容视频未生成")?),
+                            )?;
+                            let verified = self.media.probe_file(
+                                &path,
+                                &format!("{}-cache-verify", shared.task),
+                                false,
+                            )?;
+                            if !verified.videos.iter().any(|v| !v.attached_picture)
+                                || info
+                                    .duration
+                                    .zip(verified.duration)
+                                    .is_some_and(|(a, b)| b + 1. < a)
+                            {
+                                return Err("兼容视频不完整，请重新生成".into());
+                            }
+                            cache::PlaybackEntry {
+                                source: source_stamp.clone(),
+                                profile: profile.clone(),
+                                output: cache::stamp(&path)?,
+                                file: path.to_string_lossy().into(),
+                                last_used: crate::service::now(),
+                            }
+                        };
+                        let state = self.playback.lock().map_err(|_| "播放缓存暂不可用")?;
+                        if !state.protected().contains(&key) {
+                            return Err("播放准备已取消".into());
+                        }
+                        if cache::stamp(source)? != source_stamp {
+                            return Err("源视频已改变，请重新准备".into());
+                        }
+                        e.last_used = crate::service::now();
+                        native::save_atomic(
+                            &dir.join("info.json"),
+                            &serde_json::to_vec(&e).map_err(|_| "缓存记录无效")?,
+                        )?;
+                        *_finish = Some(e.clone());
+                        shared.published.store(true, Ordering::Release);
+                        Ok(e)
+                    })();
+                    shared.failed.store(finalized.is_err(), Ordering::Release);
+                    let e = finalized?;
+                    drop(_finish);
+                    let mut state = self.playback.lock().map_err(|_| "播放缓存暂不可用")?;
+                    state.begin(session)?;
+                    self.media.authorize_asset(session, Path::new(&e.file))?;
+                    return Ok(e.file);
+                }
+                MediaTaskStatus::Failed
+                | MediaTaskStatus::Cancelled
+                | MediaTaskStatus::Interrupted => {
+                    return Err(format!(
+                        "{}；{}",
+                        t.error.unwrap_or(t.phase),
+                        t.logs.join("\n")
+                    ))
+                }
+                _ => std::thread::sleep(Duration::from_millis(200)),
+            }
+        }
     }
     fn convert_subtitle(
         &self,
@@ -148,23 +450,53 @@ impl LearningService {
         session: &str,
         index: Option<u32>,
     ) -> AppResult<String> {
-        let dir = self.media.preview_directory(session)?;
-        let target = dir.join(format!("{}.vtt", super::repository::id()));
-        let request = MediaRequest {
-            input_path: input.to_string_lossy().into(),
-            output_dir: dir.to_string_lossy().into(),
-            operation: MediaOperation::SubtitleConvert,
-            output_format: OutputFormat::Vtt,
-            ..Default::default()
-        };
-        let mut c = command::build(&request, info, &target)?;
-        if let Some(i) = index {
-            if let Some(n) = c.args.iter().position(|a| a == "-map") {
-                c.args[n + 1] = format!("0:{i}");
-            }
+        let _single = self.subtitle_guard.lock().map_err(|_| "字幕缓存暂不可用")?;
+        let before = cache::stamp(input)?;
+        let key = cache::key(&before, &format!("subtitle:{index:?}"), "webvtt-v1");
+        let dir = cache::directory(&self.data, "subtitles", &key)?;
+        let target = dir.join("subtitles.vtt");
+        {
+            let mut state = self.playback.lock().map_err(|_| "播放缓存暂不可用")?;
+            state.begin(session)?;
+            state
+                .subtitle_keys
+                .entry(session.into())
+                .or_default()
+                .insert(key);
         }
-        self.media.auxiliary(session, &c.args, 30)?;
-        self.media.authorize_asset(session, &target)?;
+        if cache::owned(&dir, &target).is_err() {
+            let temp = dir.join(format!("{}.vtt", super::repository::id()));
+            let request = MediaRequest {
+                input_path: input.to_string_lossy().into(),
+                output_dir: dir.to_string_lossy().into(),
+                operation: MediaOperation::SubtitleConvert,
+                output_format: OutputFormat::Vtt,
+                ..Default::default()
+            };
+            let mut c = command::build(&request, info, &temp)?;
+            if let Some(i) = index {
+                if let Some(n) = c.args.iter().position(|a| a == "-map") {
+                    c.args[n + 1] = format!("0:{i}");
+                }
+            }
+            let result: AppResult<()> = (|| {
+                self.media.auxiliary(session, &c.args, 30)?;
+                if cache::stamp(input)? != before {
+                    return Err("字幕源已改变".into());
+                }
+                fs::rename(&temp, &target).map_err(|_| "无法保存字幕缓存")?;
+                Ok(())
+            })();
+            let _ = fs::remove_file(&temp);
+            result?;
+        }
+        native::save_atomic(
+            &dir.join("info.json"),
+            &serde_json::to_vec(&serde_json::json!({"lastUsed":crate::service::now()}))
+                .map_err(|_| "字幕缓存无效")?,
+        )?;
+        self.media
+            .authorize_asset(session, &cache::owned(&dir, &target)?)?;
         Ok(target.to_string_lossy().into())
     }
     pub fn subtitle(&self, path: &Path, session: &str) -> AppResult<PlayerSubtitle> {
@@ -174,11 +506,63 @@ impl LearningService {
         if fs::metadata(&p).map_err(|_| "无法读取字幕")?.len() > 8 * 1024 * 1024 {
             return Err("字幕超过8MiB，请选择较小文件".into());
         }
-        let info = self.media.probe(&p.to_string_lossy())?;
-        let converted = self.convert_subtitle(&p, &info, session, None)?;
+        let info = self
+            .media
+            .probe_file(&p, &format!("{session}-subtitle-probe"), false)?;
         Ok(PlayerSubtitle {
             label: p.file_name().unwrap_or_default().to_string_lossy().into(),
-            path: converted,
+            path: self.convert_subtitle(&p, &info, session, None)?,
         })
+    }
+}
+
+#[cfg(test)]
+mod publication_tests {
+    use super::*;
+    #[test]
+    fn completed_proxy_stays_shared_while_finalization_is_paused() {
+        let job = SharedPlayback::new("task".into());
+        let paused = job.finalize.lock().unwrap();
+        let shared = job.clone();
+        let barrier = Arc::new(std::sync::Barrier::new(2));
+        let b = barrier.clone();
+        let joined = std::thread::spawn(move || {
+            b.wait();
+            assert!(
+                shared.reusable(MediaTaskStatus::Completed, false),
+                "a late requester must reuse the completed task before info publication"
+            );
+            shared.finalize
+        });
+        barrier.wait();
+        let same = joined.join().unwrap();
+        assert!(Arc::ptr_eq(&same, &job.finalize));
+        drop(paused);
+    }
+}
+
+#[cfg(test)]
+mod failed_publication_tests {
+    use super::*;
+    #[test]
+    fn failed_proxy_publication_allows_a_new_task_instead_of_reusing_bad_output() {
+        let job = SharedPlayback::new("bad".into());
+        assert!(job.reusable(MediaTaskStatus::Completed, false));
+        job.failed.store(true, Ordering::Release);
+        assert!(!job.reusable(MediaTaskStatus::Completed, false));
+        assert!(!job.reusable(MediaTaskStatus::Failed, false));
+    }
+}
+
+#[cfg(test)]
+mod force_publication_tests {
+    use super::*;
+    #[test]
+    fn force_rebuild_shares_inflight_publication_but_rebuilds_a_published_proxy() {
+        let job = SharedPlayback::new("task".into());
+        assert!(job.reusable(MediaTaskStatus::Completed, true));
+        job.published.store(true, Ordering::Release);
+        assert!(job.reusable(MediaTaskStatus::Completed, false));
+        assert!(!job.reusable(MediaTaskStatus::Completed, true));
     }
 }

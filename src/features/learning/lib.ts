@@ -8,3 +8,9 @@ export const seriesInput=({id,categoryId,title,description,coverPath,sourceUrl,f
 
 import type {MediaPreview,DownloadRequest} from '../../types';import type {LibraryChoice,PlaylistImport} from '../../types/learning';
 export function buildPlaylistImports(previews:MediaPreview[],choices:Record<string,LibraryChoice>,template:DownloadRequest):PlaylistImport[]{return template.kind==='video'?previews.filter(p=>p.isPlaylist&&choices[p.url]?.enabled).map(preview=>({preview,seriesId:choices[preview.url].seriesId,categoryId:choices[preview.url].categoryId,title:choices[preview.url].title,keepOrder:choices[preview.url].keepOrder,template:{...template,subtitleLanguages:[...template.subtitleLanguages]}})):[];}
+
+export function nextPlaybackFallback(mode:string,level:number):number|null{return mode==='transcode'||level>=2?null:mode==='remux'?2:level+1;}
+export async function browserPlaybackSupport(){
+ const supports=async(codec:string)=>{try{return (await navigator.mediaCapabilities.decodingInfo({type:'file',video:{contentType:`video/mp4; codecs="${codec}"`,width:1920,height:1080,bitrate:8000000,framerate:30}})).supported;}catch{return false;}};
+ const [hevc,hevc10]=await Promise.all([supports('hvc1.1.6.L120.B0'),supports('hvc1.2.4.L120.B0')]);return {hevc,hevc10};
+}

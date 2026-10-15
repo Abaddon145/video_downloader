@@ -1,6 +1,6 @@
 use super::{
     db,
-    importer::{prepare, regular_file, video_path},
+    importer::{prepare, regular_file},
     models::*,
     repository::{id, now, optional, text, Repository},
     service::LearningService,
@@ -133,7 +133,7 @@ impl Repository {
                     .filter(|d| d.is_finite() && *d >= 0. && *d <= 604800.)
                     .map(|d| (d * 1000.).round() as i64);
                 let frozen = serde_json::to_string(&request).map_err(|_| "下载参数无法保存")?;
-                tx.execute("INSERT INTO series_items(id,series_id,title,source_url,source_video_id,source_playlist_index,duration_ms,sort_order,thumbnail_path,available,source_key,download_request,request_key,download_state,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,0,?10,?11,?12,'waiting',?13,?13)",params![id(),series,request.title,request.url,video_id,entry.playlist_index,duration,next+added as i64,request.thumbnail,key,frozen,request_key(&request),now()]).map_err(db::error)?;
+                tx.execute("INSERT INTO series_items(id,series_id,title,source_url,source_video_id,source_playlist_index,duration_ms,sort_order,source_thumbnail_url,available,source_key,download_request,request_key,download_state,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,0,?10,?11,?12,'waiting',?13,?13)",params![id(),series,request.title,request.url,video_id,entry.playlist_index,duration,next+added as i64,request.thumbnail.as_ref().and_then(|url| validate_url(url).ok()),key,frozen,request_key(&request),now()]).map_err(db::error)?;
                 added += 1;
             }
             tx.execute("UPDATE series SET updated_at=?1,source_url=COALESCE(source_url,?3),source_type=COALESCE(source_type,?4),source_playlist_id=COALESCE(source_playlist_id,?5),author=COALESCE(author,?6),cover_path=COALESCE(cover_path,?7) WHERE id=?2",params![now(),series,url,site,source_playlist_id,author,cover]).map_err(db::error)?;
@@ -232,7 +232,7 @@ impl LearningService {
         let mut file = None;
         if task.status == TaskStatus::Completed {
             let root = std::fs::canonicalize(&task.output_dir).ok();
-            for path in task.files.iter().filter(|p| video_path(p)) {
+            for path in &task.files {
                 if let Ok(p) = regular_file(path) {
                     if root.as_ref().is_some_and(|root| p.starts_with(root)) {
                         if let Ok(info) = self.media.probe(&p.to_string_lossy()) {
@@ -325,6 +325,9 @@ impl LearningService {
                 self.on_download_task(task)?;
             }
         }
+        for result in &staged {
+            self.schedule_series_thumbnails(&result.series_id);
+        }
         self.changed("import", "");
         Ok(LearningEnqueueResult {
             tasks,
@@ -381,6 +384,7 @@ impl LearningService {
         Ok(())
     }
     pub fn start(self: &Arc<Self>, service: Arc<Service>) {
+        self.start_thumbnails();
         let this = self.clone();
         std::thread::spawn(move || {
             for _ in 0..120 {
@@ -389,6 +393,7 @@ impl LearningService {
                 }
                 std::thread::sleep(std::time::Duration::from_millis(250));
             }
+            let _ = this.clean_cache("playback", false);
             let Ok(pending) = this.with(|r| r.pending_downloads()) else {
                 return;
             };

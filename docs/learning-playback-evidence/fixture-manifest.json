@@ -1,0 +1,240 @@
+{
+  "officialSources": [
+    "https://samples.ffmpeg.org/V-codecs/WMV9/halo2_wmp9_WMV3+audio0x162.wmv",
+    "https://samples.ffmpeg.org/V-codecs/WVC1/FlightSimX_720p60_51_15Mbps.wmv"
+  ],
+  "records": [
+    {
+      "name": "01-MP4-H264-AAC.mp4",
+      "path": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\fixtures\\matrix\\01-MP4-H264-AAC.mp4",
+      "sha256": "e4bf3ff314cb1a9610adc27a29be624f8416bff1154a61e3821bf69e9d0e57f3",
+      "duration": 20,
+      "container": "mov,mp4,m4a,3gp,3g2,mj2",
+      "streams": [
+        {
+          "codec": "h264",
+          "type": "video",
+          "width": 320,
+          "height": 180
+        },
+        {
+          "codec": "aac",
+          "type": "audio"
+        }
+      ]
+    },
+    {
+      "name": "02-MKV-H264-AAC.mkv",
+      "path": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\fixtures\\matrix\\02-MKV-H264-AAC.mkv",
+      "sha256": "245c23d5bf6f4be337cc7922da9e8804195242f6dfc489199f0df14337ebdcfd",
+      "duration": 20.031,
+      "container": "matroska,webm",
+      "streams": [
+        {
+          "codec": "h264",
+          "type": "video",
+          "width": 320,
+          "height": 180
+        },
+        {
+          "codec": "aac",
+          "type": "audio"
+        },
+        {
+          "codec": "subrip",
+          "type": "subtitle"
+        }
+      ]
+    },
+    {
+      "name": "03-MKV-HEVC-AAC.mkv",
+      "path": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\fixtures\\matrix\\03-MKV-HEVC-AAC.mkv",
+      "sha256": "d23a38f93eb5b9c6343f12505481bb35e82fd57ae0d805f5169f10b8bcd5c304",
+      "duration": 20.031,
+      "container": "matroska,webm",
+      "streams": [
+        {
+          "codec": "hevc",
+          "type": "video",
+          "width": 320,
+          "height": 180
+        },
+        {
+          "codec": "aac",
+          "type": "audio"
+        }
+      ]
+    },
+    {
+      "name": "04-MOV-H264.mov",
+      "path": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\fixtures\\matrix\\04-MOV-H264.mov",
+      "sha256": "5c586f5d343cdbc3dbfc1ccf888558ff9142960ace2b5d00eb166b72fd7d900d",
+      "duration": 20,
+      "container": "mov,mp4,m4a,3gp,3g2,mj2",
+      "streams": [
+        {
+          "codec": "h264",
+          "type": "video",
+          "width": 320,
+          "height": 180
+        },
+        {
+          "codec": "aac",
+          "type": "audio"
+        }
+      ]
+    },
+    {
+      "name": "05-AVI-MPEG4.avi",
+      "path": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\fixtures\\matrix\\05-AVI-MPEG4.avi",
+      "sha256": "e4a3cbac7cce2ef917375d57086d92546bc6a7ac5b34f87647a7e191e7a78e9d",
+      "duration": 20.1,
+      "container": "avi",
+      "streams": [
+        {
+          "codec": "mpeg4",
+          "type": "video",
+          "width": 320,
+          "height": 180
+        },
+        {
+          "codec": "mp3",
+          "type": "audio"
+        }
+      ]
+    },
+    {
+      "name": "06-WMV-WMV3-WMA.wmv",
+      "path": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\fixtures\\matrix\\06-WMV-WMV3-WMA.wmv",
+      "sha256": "82df61ed90b5e4dee35088fab2908f712f805c125c43af67bf3e7a68d7b542bc",
+      "duration": 20.019,
+      "container": "asf",
+      "streams": [
+        {
+          "codec": "wmv3",
+          "type": "video",
+          "width": 640,
+          "height": 384
+        },
+        {
+          "codec": "wmapro",
+          "type": "audio"
+        }
+      ]
+    },
+    {
+      "name": "07-WMV-VC1-WMA.wmv",
+      "path": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\fixtures\\matrix\\07-WMV-VC1-WMA.wmv",
+      "sha256": "31a06915c686fe0e28d8cea35bee9c4a0b5ed2b8a86502a965cff72f2be2869b",
+      "duration": 20.002,
+      "container": "asf",
+      "streams": [
+        {
+          "codec": "vc1",
+          "type": "video",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "codec": "wmapro",
+          "type": "audio"
+        }
+      ]
+    },
+    {
+      "name": "08-MPEG-MPEG2.mpg",
+      "path": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\fixtures\\matrix\\08-MPEG-MPEG2.mpg",
+      "sha256": "bc042c874b0cf94f92d612153686a8d4e908a0511728a2b3dc9731213cd2d224",
+      "duration": 20.010022,
+      "container": "mpeg",
+      "streams": [
+        {
+          "codec": "mpeg2video",
+          "type": "video",
+          "width": 320,
+          "height": 180
+        },
+        {
+          "codec": "mp2",
+          "type": "audio"
+        }
+      ]
+    },
+    {
+      "name": "09-TS-H264.ts",
+      "path": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\fixtures\\matrix\\09-TS-H264.ts",
+      "sha256": "9b69a2cf932345f1e165fde181a7e39da1b56a301cf45a67f45f45656c144cf5",
+      "duration": 20.021333,
+      "container": "mpegts",
+      "streams": [
+        {
+          "codec": "h264",
+          "type": "video",
+          "width": 320,
+          "height": 180
+        },
+        {
+          "codec": "aac",
+          "type": "audio"
+        }
+      ]
+    },
+    {
+      "name": "10-M2TS-H264.m2ts",
+      "path": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\fixtures\\matrix\\10-M2TS-H264.m2ts",
+      "sha256": "97b7d571d3e3953ad4e692d417f5ee46d3a1a64314d7da06e6c0066861f20b54",
+      "duration": 20.021333,
+      "container": "mpegts",
+      "streams": [
+        {
+          "codec": "h264",
+          "type": "video",
+          "width": 320,
+          "height": 180
+        },
+        {
+          "codec": "aac",
+          "type": "audio"
+        }
+      ]
+    },
+    {
+      "name": "11-WebM-VP9-Opus.webm",
+      "path": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\fixtures\\matrix\\11-WebM-VP9-Opus.webm",
+      "sha256": "c47a7030301fbf9365514e3767690e736a5c03b8ff8c2927211430d37a943aa5",
+      "duration": 20.008,
+      "container": "matroska,webm",
+      "streams": [
+        {
+          "codec": "vp9",
+          "type": "video",
+          "width": 320,
+          "height": 180
+        },
+        {
+          "codec": "opus",
+          "type": "audio"
+        }
+      ]
+    },
+    {
+      "name": "12-FLV.flv",
+      "path": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\fixtures\\matrix\\12-FLV.flv",
+      "sha256": "5e3d5cba0bddd1bd8e83e89e5e965c1ae66b061a323cd2012cbe7a3ebee4c36f",
+      "duration": 20.025,
+      "container": "flv",
+      "streams": [
+        {
+          "codec": "mp3",
+          "type": "audio"
+        },
+        {
+          "codec": "flv1",
+          "type": "video",
+          "width": 320,
+          "height": 180
+        }
+      ]
+    }
+  ]
+}

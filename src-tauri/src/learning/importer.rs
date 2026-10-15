@@ -19,8 +19,11 @@ use std::{
 use tauri::Manager;
 pub(crate) fn video_path(p: &str) -> bool {
     Path::new(p).extension().is_some_and(|e| {
-        ["mp4", "mkv", "mov", "webm", "avi", "m4v", "wmv", "ts"]
-            .contains(&e.to_string_lossy().to_lowercase().as_str())
+        [
+            "mp4", "m4v", "mov", "mkv", "avi", "wmv", "asf", "webm", "flv", "mpg", "mpeg", "ts",
+            "m2ts", "mts", "3gp", "3g2", "ogv",
+        ]
+        .contains(&e.to_string_lossy().to_lowercase().as_str())
     })
 }
 fn prefix(s: &str) -> Option<u64> {
@@ -62,8 +65,9 @@ fn natural(a: &str, b: &str) -> Ordering {
     }
 }
 pub fn scan_paths(paths: &[String]) -> AppResult<Vec<String>> {
-    let mut files = crate::media::batch::discover(paths)?;
-    files.retain(|p| video_path(p));
+    let mut files = crate::media::batch::discover_filtered(paths, |p, explicit| {
+        explicit || video_path(&p.to_string_lossy())
+    })?;
     files.sort_by(|a, b| {
         let a_name = Path::new(a)
             .file_stem()
@@ -93,7 +97,7 @@ pub(crate) fn regular_file(p: &str) -> AppResult<PathBuf> {
 }
 pub(crate) fn prepare(path: &str, info: &MediaInfo) -> AppResult<PreparedLocal> {
     let path = regular_file(path)?;
-    if !video_path(&path.to_string_lossy()) || !info.videos.iter().any(|v| !v.attached_picture) {
+    if !info.videos.iter().any(|v| !v.attached_picture) {
         return Err("文件没有可播放的视频流".into());
     }
     let title = path
@@ -363,6 +367,7 @@ impl LearningService {
         let info = self.media.probe(path)?;
         let f = prepare(path, &info)?;
         self.with(|r| r.relink(id, &f))?;
+        self.schedule_thumbnails(&[id.into()]);
         self.changed("relink", id);
         self.with(|r| r.item(id))
     }
@@ -439,49 +444,6 @@ impl LearningService {
         Ok(())
     }
     pub(crate) fn try_cover(&self, series: &str) {
-        let candidate = self.with(|r| {
-            let d = r.series(series, 1)?;
-            Ok(if d.series.cover_path.is_none() {
-                d.items.first().and_then(|i| i.file_path.clone())
-            } else {
-                None
-            })
-        });
-        let Ok(Some(path)) = candidate else {
-            return;
-        };
-        let Ok(info) = self.media.probe(&path) else {
-            return;
-        };
-        let Ok(dir) = self.cover_directory() else {
-            return;
-        };
-        let target = dir.join(format!("{}.jpg", id()));
-        let request = MediaRequest {
-            input_path: path,
-            output_dir: dir.to_string_lossy().into_owned(),
-            operation: MediaOperation::CoverExtract,
-            output_format: OutputFormat::Jpg,
-            ..Default::default()
-        };
-        let Ok(command) = crate::ffmpeg::command::build(&request, &info, &target) else {
-            return;
-        };
-        let session = format!("cover-{}", id());
-        let result = self.media.auxiliary(&session, &command.args, 30);
-        if result.is_ok() && fs::metadata(&target).is_ok_and(|m| m.len() > 0) {
-            let _ = self.with(|r| {
-                r.conn
-                    .execute(
-                        "UPDATE series SET cover_path=?1 WHERE id=?2 AND cover_path IS NULL",
-                        params![target.to_string_lossy(), series],
-                    )
-                    .map_err(db::error)?;
-                Ok(())
-            });
-            self.authorize_cover(&target.to_string_lossy());
-        } else {
-            let _ = fs::remove_file(target);
-        }
+        self.schedule_series_thumbnails(series);
     }
 }

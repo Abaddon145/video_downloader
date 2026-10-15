@@ -7,7 +7,10 @@ pub mod service;
 #[cfg(test)]
 mod tests;
 
+pub mod cache;
+pub mod compatibility;
 pub mod player;
+pub mod thumbnail;
 
 pub mod progress;
 

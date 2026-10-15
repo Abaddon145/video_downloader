@@ -1,18 +1,33 @@
 use crate::domain::AppResult;
 pub fn discover(paths: &[String]) -> AppResult<Vec<String>> {
+    discover_filtered(paths, |p, _| {
+        p.extension().is_some_and(|e| {
+            [
+                "mp4", "mkv", "mov", "webm", "avi", "m4v", "mp3", "aac", "flac", "wav", "m4a",
+                "opus", "ogg", "wma", "wmv", "ts", "flv", "asf", "mpg", "mpeg", "m2ts", "mts",
+                "3gp", "3g2", "ogv",
+            ]
+            .contains(&e.to_string_lossy().to_ascii_lowercase().as_str())
+        })
+    })
+}
+pub(crate) fn discover_filtered(
+    paths: &[String],
+    accepted: impl Fn(&std::path::Path, bool) -> bool,
+) -> AppResult<Vec<String>> {
     use std::{collections::HashSet, fs, os::windows::fs::MetadataExt, path::PathBuf};
     if paths.is_empty() || paths.len() > 500 {
         return Err("请选择1至500个文件或目录".into());
     }
-    let mut pending = Vec::<PathBuf>::new();
+    let mut pending = Vec::<(PathBuf, bool)>::new();
     for path in paths {
         crate::ffmpeg::command::valid_path(path)?;
-        pending.push(path.into());
+        pending.push((path.into(), true));
     }
     let mut seen = HashSet::new();
     let mut files = Vec::new();
     let mut visited = 0;
-    while let Some(path) = pending.pop() {
+    while let Some((path, explicit)) = pending.pop() {
         visited += 1;
         if visited > 10000 {
             return Err("目录项目过多，请选择更小的文件夹".into());
@@ -24,6 +39,9 @@ pub fn discover(paths: &[String]) -> AppResult<Vec<String>> {
         } // Never follow Windows reparse points (including junctions).
         let p = fs::canonicalize(&path).map_err(|_| "无法读取媒体路径")?;
         crate::ffmpeg::command::valid_path(&p.to_string_lossy())?;
+        if m.is_file() && !accepted(&p, explicit) {
+            continue;
+        }
         if !seen.insert(p.to_string_lossy().to_lowercase()) {
             continue;
         }
@@ -33,16 +51,8 @@ pub fn discover(paths: &[String]) -> AppResult<Vec<String>> {
                 .map(|e| e.map(|e| e.path()).map_err(|_| "文件夹项目无法读取"))
                 .collect::<Result<Vec<_>, _>>()?;
             children.sort();
-            pending.extend(children.into_iter().rev());
-        } else if m.is_file()
-            && p.extension().is_some_and(|e| {
-                [
-                    "mp4", "mkv", "mov", "webm", "avi", "m4v", "mp3", "aac", "flac", "wav", "m4a",
-                    "opus", "ogg", "wma", "wmv", "ts", "flv",
-                ]
-                .contains(&e.to_string_lossy().to_ascii_lowercase().as_str())
-            })
-        {
+            pending.extend(children.into_iter().rev().map(|p| (p, false)));
+        } else if m.is_file() {
             files.push(p.to_string_lossy().into_owned());
             if files.len() > 500 {
                 return Err("单批最多500个媒体文件".into());

@@ -1,0 +1,19 @@
+{
+  "passed": 3,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "lesson thumbnails show lazy 16:9 frames, duration, half progress and completion",
+      "passed": true
+    },
+    {
+      "name": "five window widths and DPI retain titles without horizontal overflow",
+      "passed": true
+    },
+    {
+      "name": "manual regeneration requires explicit confirmation and settings expose cache controls",
+      "passed": true
+    }
+  ],
+  "errors": []
+}

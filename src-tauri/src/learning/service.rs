@@ -11,6 +11,10 @@ pub struct LearningService {
     pub(crate) app: tauri::AppHandle,
     pub(crate) media: Arc<MediaService>,
     pub(crate) data: PathBuf,
+    pub(crate) playback: Mutex<super::player::PlaybackState>,
+    pub(crate) subtitle_guard: Mutex<()>,
+    pub(crate) thumbnails: (Mutex<super::thumbnail::ThumbnailState>, std::sync::Condvar),
+    pub(crate) thumbnail_guard: Mutex<()>,
 }
 impl LearningService {
     pub fn new(app: tauri::AppHandle, data: &Path, media: Arc<MediaService>) -> Arc<Self> {
@@ -20,6 +24,10 @@ impl LearningService {
             app,
             media,
             data: data.into(),
+            playback: Mutex::new(Default::default()),
+            subtitle_guard: Mutex::new(()),
+            thumbnails: (Mutex::new(Default::default()), std::sync::Condvar::new()),
+            thumbnail_guard: Mutex::new(()),
         })
     }
     pub(crate) fn with<R>(&self, f: impl FnOnce(&mut Repository) -> AppResult<R>) -> AppResult<R> {
@@ -76,6 +84,10 @@ impl LearningService {
                 }
             }
         }
+        for item in &mut d.items {
+            self.authorize_thumbnail(item);
+        }
+        self.schedule_thumbnails(&d.items.iter().map(|i| i.id.clone()).collect::<Vec<_>>());
         Ok(d)
     }
     pub fn change(&self, change: LearningChange) -> AppResult<String> {
@@ -146,6 +158,7 @@ impl LearningService {
                 Ok(id)
             }
         })?;
+        self.schedule_series_thumbnails(&id);
         self.changed("structure", &id);
         Ok(id)
     }

@@ -379,22 +379,38 @@ pub fn capture_with(
     args: &[String],
     on_start: impl FnOnce(Arc<Job>),
 ) -> AppResult<String> {
+    let output = capture_bytes_with(exe, args, 32 * 1024 * 1024, on_start)?;
+    Ok(String::from_utf8_lossy(&output)
+        .trim_start_matches('﻿')
+        .trim()
+        .to_string())
+}
+pub fn capture_bytes_with(
+    exe: &Path,
+    args: &[String],
+    limit: usize,
+    on_start: impl FnOnce(Arc<Job>),
+) -> AppResult<Vec<u8>> {
     let (process, stdout, stderr) = spawn(exe, args)?;
     on_start(process.job.clone());
     let errors = std::thread::spawn(move || read_bounded(stderr, 64 * 1024));
-    // ponytail: previews are bounded to 32 MiB; stream/paginate remote metadata if huge playlists become a real use case.
-    let output = read_bounded(stdout, 32 * 1024 * 1024)?;
+    let mut output = Vec::new();
+    let read = stdout.take(limit as u64 + 1).read_to_end(&mut output);
+    if read.is_err() || output.len() > limit {
+        let _ = process.job.terminate();
+    }
     let code = process.wait()?;
     let errors = errors.join().map_err(|_| "读取内核日志失败")??;
+    read.map_err(|_| "读取内核结果失败")?;
+    if output.len() > limit {
+        return Err("内核返回内容超过大小限制".into());
+    }
     if code != 0 {
         return Err(crate::domain::redact(&String::from_utf8_lossy(&errors))
             .trim()
             .to_string());
     }
-    Ok(String::from_utf8_lossy(&output)
-        .trim_start_matches('\u{feff}')
-        .trim()
-        .to_string())
+    Ok(output)
 }
 
 #[cfg(test)]

@@ -52,6 +52,9 @@ pub struct LearningItem {
     pub duration_ms: Option<i64>,
     pub sort_order: i64,
     pub thumbnail_path: Option<String>,
+    pub thumbnail_source: Option<String>,
+    pub source_thumbnail_url: Option<String>,
+    pub thumbnail_key: Option<String>,
     pub download_task_id: Option<String>,
     pub available: bool,
     pub download_state: String,
@@ -68,13 +71,24 @@ pub struct VideoNote {
     pub updated_at: i64,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields, default)]
 pub struct LearningSettings {
     pub autoplay_next: bool,
     pub completion_threshold: f64,
     pub default_playback_rate: f64,
     pub restore_position: bool,
     pub auto_subtitles: bool,
+    pub playback_preference: PlaybackPreference,
+    pub playback_cache_gb: u16,
+    pub playback_cache_days: u16,
+}
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum PlaybackPreference {
+    #[default]
+    Auto,
+    Original,
+    Compatible,
 }
 impl Default for LearningSettings {
     fn default() -> Self {
@@ -84,6 +98,9 @@ impl Default for LearningSettings {
             default_playback_rate: 1.,
             restore_position: true,
             auto_subtitles: true,
+            playback_preference: PlaybackPreference::Auto,
+            playback_cache_gb: 50,
+            playback_cache_days: 30,
         }
     }
 }
@@ -246,6 +263,8 @@ pub struct PlayerMedia {
     pub path: String,
     pub subtitles: Vec<PlayerSubtitle>,
     pub subtitle_warning: Option<String>,
+    pub plan: super::compatibility::PlaybackPlan,
+    pub technical: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]

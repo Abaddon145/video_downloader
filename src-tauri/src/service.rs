@@ -1016,19 +1016,19 @@ impl Service {
         }
         self.publish();
     }
-    fn curl(&self, url: &str, destination: Option<&Path>) -> AppResult<String> {
+    fn curl_args(&self, protocol: &str, seconds: &str) -> AppResult<Vec<String>> {
         let mut args = [
             "-sS",
             "--fail",
             "--location",
             "--proto",
-            "=https",
+            protocol,
             "--proto-redir",
-            "=https",
+            protocol,
             "--connect-timeout",
             "20",
             "--max-time",
-            "300",
+            seconds,
             "--user-agent",
             "Windows-Video-Downloader/0.1",
         ]
@@ -1046,6 +1046,10 @@ impl Service {
                 args.extend(["--proxy".into(), String::new()]);
             }
         }
+        Ok(args)
+    }
+    fn curl(&self, url: &str, destination: Option<&Path>) -> AppResult<String> {
+        let mut args = self.curl_args("=https", "300")?;
         if let Some(path) = destination {
             args.extend(["--output".into(), path.to_string_lossy().into_owned()]);
         }
@@ -1054,6 +1058,21 @@ impl Service {
             PathBuf::from(std::env::var_os("SystemRoot").unwrap_or("C:/Windows".into()))
                 .join("System32/curl.exe");
         native::capture(&executable, &args)
+    }
+    pub(crate) fn download_thumbnail(&self, url: &str) -> AppResult<Vec<u8>> {
+        let url = crate::domain::validate_url(url)?;
+        let mut args = self.curl_args("=http,https", "30")?;
+        args.extend([
+            "--max-redirs".into(),
+            "3".into(),
+            "--max-filesize".into(),
+            (20 * 1024 * 1024).to_string(),
+            url,
+        ]);
+        let executable =
+            PathBuf::from(std::env::var_os("SystemRoot").unwrap_or("C:/Windows".into()))
+                .join("System32/curl.exe");
+        native::capture_bytes_with(&executable, &args, 20 * 1024 * 1024, |_| {})
     }
     fn automatic_check(&self) -> AppResult<()> {
         {

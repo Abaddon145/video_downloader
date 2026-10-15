@@ -7,7 +7,7 @@ fn learning_database_creates_versioned_tables_and_enforces_relations() {
     let version: i64 = c
         .query_row("SELECT version FROM schema_version", [], |r| r.get(0))
         .expect("schema must exist");
-    assert_eq!(version, 4);
+    assert_eq!(version, 5);
     for table in [
         "categories",
         "series",
@@ -665,5 +665,419 @@ fn learning_reuses_earlier_download_without_matching_old_history() {
     assert!(
         r.item(&later_item.id).unwrap().download_task_id.is_none(),
         "an explicit link must not attach unrelated later imports to old history"
+    );
+}
+
+#[test]
+fn learning_v4_upgrade_preserves_progress_notes_and_source_thumbnail() {
+    let dir = std::env::temp_dir().join(crate::ffmpeg::runner::new_id());
+    std::fs::create_dir(&dir).unwrap();
+    let path = dir.join("learning.db");
+    {
+        let r = Repository::open(&path).unwrap();
+        r.conn.execute_batch("INSERT INTO categories(id,name,sort_order,created_at,updated_at) VALUES('c','分类',3,1,1);
+        INSERT INTO series(id,category_id,title,favorite,sort_order,created_at,updated_at) VALUES('s','c','保留系列',1,9,1,1);
+        INSERT INTO series_items(id,series_id,title,source_url,source_video_id,source_playlist_index,duration_ms,thumbnail_path,download_task_id,download_request,request_key,sort_order,created_at,updated_at) VALUES('i','s','保留课程','https://example.com/video','v7',7,900000,'https://example.com/thumb.jpg','existing-task','{}','frozen',17,1,1);
+        INSERT INTO playback_progress(item_id,position_ms,duration_ms,completed,playback_rate,last_played_at,updated_at,last_sequence) VALUES('i',450000,900000,1,1.5,2,2,100);
+        INSERT INTO video_notes(id,item_id,time_ms,content,created_at,updated_at) VALUES('n','i',750000,'保留笔记',1,1);").unwrap();
+        let old=serde_json::json!({"autoplayNext":false,"completionThreshold":0.8,"defaultPlaybackRate":1.25,"restorePosition":true,"autoSubtitles":false}).to_string();
+        r.conn
+            .execute(
+                "INSERT INTO learning_settings(key,value) VALUES('settings',?1)",
+                [old],
+            )
+            .unwrap();
+        // Construct a genuine v4 layout even after the test is run on v5 code.
+        let columns = r
+            .rows(
+                "SELECT name FROM pragma_table_info('series_items')",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .unwrap();
+        for col in ["thumbnail_source", "source_thumbnail_url", "thumbnail_key"] {
+            if columns.iter().any(|c| c == col) {
+                r.conn
+                    .execute_batch(&format!("ALTER TABLE series_items DROP COLUMN {col};"))
+                    .unwrap();
+            }
+        }
+        r.conn
+            .execute_batch("UPDATE schema_version SET version=4; PRAGMA user_version=4;")
+            .unwrap();
+    }
+    let r = Repository::open(&path).unwrap();
+    assert_eq!(
+        r.conn
+            .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
+            .unwrap(),
+        5
+    );
+    let item = r.item("i").unwrap();
+    assert_eq!(item.progress.position_ms, 450000);
+    assert_eq!(item.progress.playback_rate, 1.5);
+    assert!(item.progress.completed);
+    assert_eq!(item.download_task_id.as_deref(), Some("existing-task"));
+    assert_eq!(item.source_playlist_index, Some(7));
+    assert_eq!(item.sort_order, 17);
+    assert_eq!(r.notes("i", 1).unwrap().notes[0].content, "保留笔记");
+    assert!(r.get_series("s").unwrap().favorite);
+    assert_eq!(r.get_series("s").unwrap().category_id.as_deref(), Some("c"));
+    let thumb: (Option<String>, Option<String>) = r
+        .conn
+        .query_row(
+            "SELECT thumbnail_path,source_thumbnail_url FROM series_items WHERE id='i'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(thumb, (None, Some("https://example.com/thumb.jpg".into())));
+    let settings = serde_json::to_value(r.settings().unwrap()).unwrap();
+    assert_eq!(settings["playbackPreference"], "auto");
+    assert_eq!(settings["playbackCacheGb"], 50);
+    assert_eq!(settings["playbackCacheDays"], 30);
+    assert_eq!(settings["autoplayNext"], false);
+    drop(r);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+#[test]
+fn learning_import_accepts_video_regardless_extension() {
+    let dir = std::env::temp_dir().join(crate::ffmpeg::runner::new_id());
+    std::fs::create_dir(&dir).unwrap();
+    let file = dir.join("01 课程.custom");
+    std::fs::write(&file, b"fixture").unwrap();
+    let info = crate::ffmpeg::models::MediaInfo {
+        duration: Some(20.),
+        videos: vec![crate::ffmpeg::models::VideoStreamInfo {
+            codec: "h264".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    assert!(super::importer::prepare(&file.to_string_lossy(), &info).is_ok());
+    assert!(super::importer::prepare(&file.to_string_lossy(), &Default::default()).is_err());
+    assert_eq!(std::fs::read(&file).unwrap(), b"fixture");
+    std::fs::remove_dir_all(dir).unwrap();
+}
+#[test]
+fn learning_scan_covers_all_required_formats() {
+    let dir = std::env::temp_dir().join(crate::ffmpeg::runner::new_id());
+    std::fs::create_dir(&dir).unwrap();
+    let extensions = [
+        "mp4", "m4v", "mov", "mkv", "avi", "wmv", "asf", "webm", "flv", "mpg", "mpeg", "ts",
+        "m2ts", "mts", "3gp", "3g2", "ogv",
+    ];
+    for (n, ext) in extensions.iter().enumerate() {
+        std::fs::write(dir.join(format!("{:02}.{ext}", n + 1)), b"fixture").unwrap();
+    }
+    std::fs::write(dir.join("笔记.txt"), b"text").unwrap();
+    let unknown = dir.join("18.custom");
+    std::fs::write(&unknown, b"fixture").unwrap();
+    let found = super::importer::scan_paths(&[
+        dir.to_string_lossy().into(),
+        unknown.to_string_lossy().into(),
+    ])
+    .unwrap();
+    assert_eq!(found.len(), 18);
+    assert!(found.last().unwrap().ends_with("18.custom"));
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn learning_playback_planner_uses_actual_codecs_and_browser_hevc_support() {
+    use super::compatibility::{plan, BrowserPlaybackSupport, PlaybackMode::*};
+    use crate::ffmpeg::models::*;
+    let mut info = MediaInfo {
+        container: "mov,mp4,m4a,3gp,3g2,mj2".into(),
+        videos: vec![VideoStreamInfo {
+            codec: "h264".into(),
+            pixel_format: Some("yuv420p".into()),
+            ..Default::default()
+        }],
+        audios: vec![AudioStreamInfo {
+            codec: "aac".into(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let mode = |i: &MediaInfo, s| plan(i, s, PlaybackPreference::Auto, 0).unwrap().mode;
+    let no = BrowserPlaybackSupport::default();
+    assert_eq!(mode(&info, no), Direct);
+    info.container = "matroska,webm".into();
+    assert_eq!(mode(&info, no), Remux);
+    info.videos[0].codec = "vp9".into();
+    info.audios[0].codec = "opus".into();
+    info.path = "test.webm".into();
+    assert_eq!(mode(&info, no), Direct);
+    info.videos[0].codec = "vp8".into();
+    info.audios[0].codec = "vorbis".into();
+    assert_eq!(mode(&info, no), Direct);
+    info.path = "test.mkv".into();
+    assert_eq!(mode(&info, no), Remux);
+    info.container = "asf".into();
+    info.videos[0].codec = "wmv3".into();
+    info.audios[0].codec = "wmav2".into();
+    assert_eq!(mode(&info, no), Transcode);
+    info.videos[0].codec = "vc1".into();
+    assert_eq!(mode(&info, no), Transcode);
+    info.container = "avi".into();
+    info.videos[0].codec = "mpeg4".into();
+    assert_eq!(mode(&info, no), Transcode);
+    info.container = "mpegts".into();
+    info.videos[0].codec = "mpeg2video".into();
+    assert_eq!(mode(&info, no), Transcode);
+    info.container = "mov,mp4".into();
+    info.videos[0].codec = "hevc".into();
+    info.audios[0].codec = "aac".into();
+    assert_eq!(mode(&info, no), Transcode);
+    let yes = BrowserPlaybackSupport {
+        hevc: true,
+        hevc10: false,
+    };
+    assert_eq!(mode(&info, yes), Direct);
+    info.videos[0].bit_depth = Some(10);
+    assert_eq!(mode(&info, yes), Transcode);
+    assert_eq!(
+        mode(
+            &info,
+            BrowserPlaybackSupport {
+                hevc: true,
+                hevc10: true
+            }
+        ),
+        Direct
+    );
+    info.videos[0].codec = "h264".into();
+    assert_eq!(mode(&info, no), Transcode);
+    info.videos.clear();
+    assert!(plan(&info, no, PlaybackPreference::Auto, 0).is_err());
+}
+#[test]
+fn learning_cache_keys_track_source_and_profile_and_reject_outside_files() {
+    use super::cache::{key, owned, stamp};
+    let dir = std::env::temp_dir().join(crate::ffmpeg::runner::new_id());
+    std::fs::create_dir(&dir).unwrap();
+    let path = dir.join("source.mp4");
+    std::fs::write(&path, b"a").unwrap();
+    let a = stamp(&path).unwrap();
+    let ka = key(&a, "h264/aac", "mp4");
+    assert_ne!(ka, key(&a, "h264/aac", "webm"));
+    std::fs::write(&path, b"new content").unwrap();
+    assert_ne!(ka, key(&stamp(&path).unwrap(), "h264/aac", "mp4"));
+    let cache = dir.join("cache");
+    std::fs::create_dir(&cache).unwrap();
+    assert!(owned(&cache, &path).is_err());
+    let image = cache.join("image.jpg");
+    std::fs::write(&image, b"image").unwrap();
+    assert!(owned(&cache, &image).is_ok());
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+#[test]
+fn learning_remux_selects_only_playable_tracks_and_keeps_normal_remux_strict() {
+    use crate::ffmpeg::{command, models::*};
+    let info = MediaInfo {
+        videos: vec![
+            VideoStreamInfo {
+                index: 0,
+                codec: "h264".into(),
+                ..Default::default()
+            },
+            VideoStreamInfo {
+                index: 3,
+                codec: "wmv3".into(),
+                ..Default::default()
+            },
+        ],
+        audios: vec![
+            AudioStreamInfo {
+                index: 1,
+                codec: "aac".into(),
+                ..Default::default()
+            },
+            AudioStreamInfo {
+                index: 4,
+                codec: "wmav2".into(),
+                ..Default::default()
+            },
+        ],
+        subtitles: vec![SubtitleStreamInfo {
+            index: 2,
+            codec: "subrip".into(),
+            ..Default::default()
+        }],
+        other_streams: 1,
+        ..Default::default()
+    };
+    let mut r = MediaRequest {
+        input_path: "C:/in.mkv".into(),
+        output_dir: "C:/cache".into(),
+        operation: MediaOperation::Remux,
+        ..Default::default()
+    };
+    assert!(command::build(&r, &info, Path::new("C:/cache/video.mp4")).is_err());
+    r.learning_playback = true;
+    let a = command::build(&r, &info, Path::new("C:/cache/video.mp4"))
+        .unwrap()
+        .args;
+    let maps = a
+        .windows(2)
+        .filter(|w| w[0] == "-map")
+        .map(|w| w[1].as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(maps, vec!["0:0", "0:1"]);
+    assert!(a.windows(2).any(|w| w == ["-c", "copy"]));
+    assert!(!a.iter().any(|a| a == "libx264"));
+}
+
+#[test]
+fn learning_playback_leases_share_cancel_and_protect_cache() {
+    use super::player::PlaybackState;
+    let mut s = PlaybackState::default();
+    for session in ["one", "two", "three"] {
+        s.begin(session).unwrap();
+        s.join(session, "key").unwrap();
+    }
+    assert!(s.release("one").is_none());
+    assert!(s.release("two").is_none());
+    assert!(s.protected().contains("key"));
+    assert_eq!(s.release("three").as_deref(), Some("key"));
+    assert!(s.protected().is_empty());
+    assert!(s.begin("one").is_err());
+    assert!(s.join("one", "other").is_err());
+    s.release("before-invoke");
+    assert!(s.begin("before-invoke").is_err());
+}
+#[test]
+fn learning_cached_output_validates_stamp_and_metadata_without_touching_original() {
+    use super::cache::*;
+    let data = std::env::temp_dir().join(crate::ffmpeg::runner::new_id());
+    std::fs::create_dir(&data).unwrap();
+    let original = data.join("original.mp4");
+    std::fs::write(&original, b"original").unwrap();
+    let source = stamp(&original).unwrap();
+    let dir = directory(&data, "playback", &hash(b"test")).unwrap();
+    let file = dir.join("video.mp4");
+    std::fs::write(&file, b"proxy").unwrap();
+    let e = PlaybackEntry {
+        source: source.clone(),
+        profile: "mp4-v1".into(),
+        file: std::fs::canonicalize(&file)
+            .unwrap()
+            .to_string_lossy()
+            .into(),
+        output: stamp(&file).unwrap(),
+        last_used: 1,
+    };
+    std::fs::write(dir.join("info.json"), serde_json::to_vec(&e).unwrap()).unwrap();
+    assert!(read_entry(&dir, &source, "mp4-v1").is_ok());
+    assert!(read_entry(&dir, &source, "new-profile").is_err());
+    std::fs::write(&file, b"changed").unwrap();
+    assert!(read_entry(&dir, &source, "mp4-v1").is_err());
+    assert_eq!(std::fs::read(&original).unwrap(), b"original");
+    std::fs::remove_dir_all(data).unwrap();
+}
+
+#[test]
+fn learning_thumbnails_sample_after_first_frame_and_use_one_queue_entry() {
+    use super::thumbnail::{sample, ThumbnailQueue};
+    assert_eq!(sample(100.), 12.);
+    assert_eq!(sample(30.), 3.6);
+    assert_eq!(sample(20.), 5.);
+    assert_eq!(sample(5.), 1.25);
+    assert_eq!(sample(2.), 1.);
+    assert!(sample(0.) > 0.);
+    let mut q = ThumbnailQueue::default();
+    q.add("a");
+    q.add("a");
+    q.add("b");
+    assert_eq!(q.take().as_deref(), Some("a"));
+    q.add("a");
+    assert_eq!(q.take().as_deref(), Some("b"));
+    assert!(q.take().is_none());
+    q.finish("a");
+    q.add("a");
+    assert_eq!(q.take().as_deref(), Some("a"));
+}
+#[test]
+fn learning_thumbnail_cas_preserves_manual_choice_and_relinked_sources() {
+    let mut r = repository();
+    let s = r.save_series(&course("缩略图", None)).unwrap();
+    let prepared = |path: &str, title: &str| PreparedLocal {
+        path: path.into(),
+        key: path.to_lowercase(),
+        title: title.into(),
+        duration_ms: Some(900000),
+    };
+    let input = LocalImportInput {
+        paths: vec![],
+        title: "缩略图".into(),
+        series_id: Some(s.clone()),
+        category_id: None,
+    };
+    r.import_local(&input, &[prepared("C:/test.mp4", "test")])
+        .unwrap();
+    let old = r.series(&s, 1).unwrap().items.remove(0);
+    assert!(r
+        .set_thumbnail_cas(&old, "C:/cache/frame.jpg", "generated", "frame-key")
+        .unwrap());
+    assert!(!r
+        .set_thumbnail_cas(&old, "C:/cache/late-remote.jpg", "remote", "remote-key")
+        .unwrap());
+    let frame = r.item(&old.id).unwrap();
+    assert!(r
+        .set_thumbnail_cas(&frame, "C:/cache/manual.jpg", "manual", "manual-key")
+        .unwrap());
+    assert!(!r
+        .set_thumbnail_cas(&frame, "C:/cache/late-frame.jpg", "generated", "late-key")
+        .unwrap());
+    let manual = r.item(&old.id).unwrap();
+    r.relink(&old.id, &prepared("C:/new.mp4", "new")).unwrap();
+    assert!(!r
+        .set_thumbnail_cas(&manual, "C:/cache/stale.jpg", "generated", "stale-key")
+        .unwrap());
+    assert_eq!(
+        r.item(&old.id).unwrap().thumbnail_source.as_deref(),
+        Some("manual")
+    );
+}
+
+#[test]
+fn learning_hevc_depth_uses_pixel_format_when_ffprobe_omits_bits() {
+    use super::compatibility::{plan, BrowserPlaybackSupport, PlaybackMode};
+    use crate::ffmpeg::models::*;
+    let i = MediaInfo {
+        container: "mov,mp4".into(),
+        videos: vec![VideoStreamInfo {
+            codec: "hevc".into(),
+            pixel_format: Some("yuv420p10le".into()),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    assert_eq!(
+        plan(
+            &i,
+            BrowserPlaybackSupport {
+                hevc: true,
+                hevc10: false
+            },
+            PlaybackPreference::Auto,
+            0
+        )
+        .unwrap()
+        .mode,
+        PlaybackMode::Transcode
+    );
+}
+
+#[test]
+fn learning_thumbnail_retry_uses_accurate_output_seek_preserving_literal_paths() {
+    let mut a = ["-ss", "2.4", "-i", "C:/a b.ts", "-map", "0:0", "out.jpg"]
+        .map(String::from)
+        .to_vec();
+    assert!(super::thumbnail::accurate_seek(&mut a));
+    assert_eq!(
+        a,
+        ["-i", "C:/a b.ts", "-ss", "2.4", "-map", "0:0", "out.jpg"]
     );
 }
