@@ -14,8 +14,11 @@
 - `docs/learning-playback-evidence/media-pro.json`
 - `docs/learning-playback-evidence/migration.json`
 - `docs/learning-playback-evidence/native-regression.json`
+- `docs/learning-playback-evidence/node-tests.txt`
+- `docs/learning-playback-evidence/nsis-build.txt`
 - `docs/learning-playback-evidence/playback.json`
 - `docs/learning-playback-evidence/player-880.png`
+- `docs/learning-playback-evidence/rust-tests.txt`
 - `docs/learning-playback-evidence/thumbnails.json`
 - `docs/learning-playback-evidence/wmv-cache-resume.png`
 - `docs/learning-playback-execution.md`
@@ -202,7 +205,7 @@ H.264/AAC带内嵌SRT的MKV通过无损AV封装播放，字幕独立转换；没
 
 安装包SHA256：`6783d728378f522e2fca56338cc7fe828dc99b1d5b26996a977bdffe5bfd2e6a`。构建提交：`7a7b0e5a35dc16d3cd85f31e64aea354f5e1d872`。最终源码提交只在该提交后补充文档与验收记录，源码ZIP内包含提交标识；最终ZIP大小、SHA256及提交ID见随包 `delivery-manifest.json`、`SHA256SUMS.txt`。Git归档通过CRC、版本与排除项检查，不包含node_modules、target、测试视频、数据库或个人Cookie。
 
-yt-dlp/FFmpeg/ffprobe/Deno实际文件SHA256与捆绑清单4项全部一致；上游许可、版本与来源清单随包提供。见[构建日志](learning-playback-evidence/nsis-build.log)、[Rust测试日志](learning-playback-evidence/rust-tests.log)、[Node测试日志](learning-playback-evidence/node-tests.log)、[执行记录](learning-playback-execution.md)与[审查修复](learning-playback-final-review.md)。当前使用独立测试数据运行发布程序，没有覆盖用户现有安装；未验证干净Windows10或缺少WebView2的安装环境。
+yt-dlp/FFmpeg/ffprobe/Deno实际文件SHA256与捆绑清单4项全部一致；上游许可、版本与来源清单随包提供。见[构建日志](learning-playback-evidence/nsis-build.txt)、[Rust测试日志](learning-playback-evidence/rust-tests.txt)、[Node测试日志](learning-playback-evidence/node-tests.txt)、[执行记录](learning-playback-execution.md)与[审查修复](learning-playback-final-review.md)。当前使用独立测试数据运行发布程序，没有覆盖用户现有安装；未验证干净Windows10或缺少WebView2的安装环境。
 
 ## 24 已知限制
 

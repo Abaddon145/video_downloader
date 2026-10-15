@@ -29,3 +29,5 @@ Task 6: complete (commits f522e20..7a7b0e5, tests: C:/Users/14582/.cargo/bin/car
 
 Task6 delivery: Chinese x64 NSIS exited0, version0.4.1, 150252739 bytes, SHA256 6783d728378f522e2fca56338cc7fe828dc99b1d5b26996a977bdffe5bfd2e6a. Bundled binaries match all4 pinned digests. Git source ZIP passed archive CRC, commit/version and exclusion checks. Draft PR https://github.com/Abaddon145/video_downloader/pull/6 created and attached, base remains c580e5d; no merge/Release. Final source commit/hash recorded in delivery-manifest.json.
 Final: all6 tasks complete; Rust91/91, Node22/22, UI46/46, Windows desktop61/61, production and NSIS builds passed. All3 Important accepted and fixed in one pass; Critical0/Minor0/Declined0. Ledger and final validation logs archived; only this plan-owned temporary workspace is removed, managed worktree is retained for PR feedback.
+
+Final packaging check: general *.log ignore rule omitted3 linked validation logs from Git archive; renamed only those evidence files to .txt and checked source/release document links. Final source after installer build differs only in documentation.

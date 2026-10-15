@@ -1,0 +1,34 @@
+
+> video-downloader@0.4.1 test
+> node --test src/lib.test.ts src/media.test.ts src/features/learning/lib.test.ts
+
+✔ learning completion percentage handles empty and partial series (0.4502ms)
+✔ learning resume restores meaningful unfinished positions only (0.1216ms)
+✔ series edits send writable fields without computed counters (0.4619ms)
+✔ playlist learning opt-in preserves full preview and independent frozen download options (0.1645ms)
+✔ playback fallback is bounded and source preferences never loop (0.0818ms)
+✔ only new Cookie failures are detected after import and old progress snapshots stay quiet (0.7992ms)
+✔ preset application copies all existing choices and naming without retaining mutable arrays (0.477ms)
+✔ browser Cookie errors offer category-specific next steps without echoing secrets (0.2653ms)
+✔ Cookie statistics distinguish expiry from session-only files (11.2586ms)
+✔ selection survives progress events and removes only missing IDs (0.158ms)
+✔ Shift selects a visible range and select all respects the filter (0.1331ms)
+✔ toolbar counts follow single buttons and confirmation preserves files (0.1814ms)
+✔ Escape closes preview or cancels parsing before clearing selection (0.1211ms)
+✔ extracts multiple share URLs without duplicates or surrounding Chinese punctuation (0.4023ms)
+✔ paginates 50 entries and safely clamps pages after deletion (0.1783ms)
+✔ explains Bilibili 412 without mistaking a bundled Python warning for the cause (0.1609ms)
+✔ media time accepts milliseconds and rejects invalid or reversed boundaries (0.8943ms)
+✔ media operation availability and all requests remain structured (0.2024ms)
+✔ late probe results are ignored and task updates preserve other records (0.5568ms)
+✔ source directory preserves normal and extended drive roots (0.0952ms)
+✔ v03 editor clamps ranges, preserves frame timing and pages thumbnails at exact intervals (0.1963ms)
+✔ v03 presets apply explicit encoding choices without changing source or time (0.1504ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 113.0266
