@@ -5,9 +5,9 @@ import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
 const require=createRequire(import.meta.url);
-const {chromium}=require('C:/Users/14582/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
-const root=resolve('.'),out=join(root,'artifacts/media-pro'),run=join(out,`desktop-${Date.now()}`),data=join(run,'state'),output=join(run,'output'),fixtures=join(root,'artifacts/media-tools/fixtures');
-const app=join(root,'src-tauri/target/release/video-downloader.exe'),ffmpeg=join(root,'src-tauri/target/release/tools/ffmpeg.exe'),ffprobe=join(root,'src-tauri/target/release/tools/ffprobe.exe');
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE??'playwright');
+const root=resolve('.'),out=resolve(process.env.QA_OUTPUT_DIR??'artifacts/media-pro'),run=join(out,`desktop-${Date.now()}`),data=join(run,'state'),output=join(run,'output'),fixtures=resolve(process.env.QA_MEDIA_FIXTURES??join(out,'fixtures'));
+const app=join(process.env.CARGO_TARGET_DIR??join(root,'src-tauri/target'),'release/video-downloader.exe'),ffmpeg=join(process.env.CARGO_TARGET_DIR??join(root,'src-tauri/target'),'release/tools/ffmpeg.exe'),ffprobe=join(process.env.CARGO_TARGET_DIR??join(root,'src-tauri/target'),'release/tools/ffprobe.exe');
 for(const p of [out,run,data,output,fixtures])mkdirSync(p,{recursive:true});
 const main=join(fixtures,'中文 测试 10分钟.mkv'),hevc=join(fixtures,'HEVC 测试.mkv'),multi=join(fixtures,'多轨道.mkv');
 function ff(args){return execFileSync(ffmpeg,['-hide_banner','-nostdin','-loglevel','error',...args],{encoding:'utf8',windowsHide:true,timeout:180000,maxBuffer:8*1024*1024});}

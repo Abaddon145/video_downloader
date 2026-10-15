@@ -1,0 +1,52 @@
+{
+  "run": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\thumb-1792058971384",
+  "passed": 4,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "four source ratios create 320x180 JPEG frames asynchronously",
+      "passed": true,
+      "detail": {
+        "importMs": 156,
+        "images": [
+          "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\thumb-1792058971384\\state\\learning-cache\\thumbnails\\90a9080d16dfce71a010b16c108ec9cbab94f2576dd2bd7ad9f47f752cb37c81\\image.jpg",
+          "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\thumb-1792058971384\\state\\learning-cache\\thumbnails\\ea1d2ca2f510dd38828abea285aa8dec9f9775804f117301f29dc38107e511c0\\image.jpg",
+          "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\thumb-1792058971384\\state\\learning-cache\\thumbnails\\91826bc35c2357463824ab283a17fa2fb2e3b4b32001334f1b07ce7278ac2392\\image.jpg",
+          "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\thumb-1792058971384\\state\\learning-cache\\thumbnails\\ecfe0ba120090ee35ca83df9eb839939f5668fa8ed88f4ced69a9dec54af56d5\\image.jpg"
+        ]
+      }
+    },
+    {
+      "name": "manual thumbnail is copied, protected until confirmation and restored to a source frame",
+      "passed": true,
+      "detail": {
+        "manualCopied": true,
+        "confirmationRequired": true,
+        "regenerated": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\thumb-1792058971384\\state\\learning-cache\\thumbnails\\90a9080d16dfce71a010b16c108ec9cbab94f2576dd2bd7ad9f47f752cb37c81\\image.jpg"
+      }
+    },
+    {
+      "name": "remote lesson thumbnail becomes an offline local JPEG and survives restart",
+      "passed": true,
+      "detail": {
+        "cached": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v041\\native\\thumb-1792058971384\\state\\learning-cache\\thumbnails\\5d1b64557b9fa8caf40a2af2b6dcdd546387ca77eeb544644fe1e9720f989e07\\image.jpg",
+        "offlineRestart": true
+      }
+    },
+    {
+      "name": "thumbnail cleanup removes only unreferenced cache and retains originals and referenced covers",
+      "passed": true,
+      "detail": {
+        "removedBytes": 1022,
+        "originalHashesUnchanged": true
+      }
+    }
+  ],
+  "sourceHashes": [
+    "9b16670a5cb3ec88d09a949438db3a8de3c87b3e12448f8a791a6ed75bff7d6e",
+    "3ba06c6adbec8ae77feed765045b8d6bcf395dadda0e0dabe88b5a4b1ed9e977",
+    "28427c285f2939b6ede33ea2e07f8833581760f88fe1cf989ef79d3ca667e7a6",
+    "bbf31959686ece5d986d510d6c0bdeb1121cfd83d1b4badf7ea5b28000fa35a9",
+    "b29a13ba47510fb5a6fc6c66815a7d2c2c17338d3a634de327b0fb206eb2fba2"
+  ]
+}

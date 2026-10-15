@@ -2,8 +2,8 @@ import {createRequire} from 'node:module';
 import {mkdirSync,writeFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 const require=createRequire(import.meta.url);
-const {chromium}=require('C:/Users/14582/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
-const out='C:/Users/14582/Documents/ChatGPT/视频下载软件/artifacts/media-pro';mkdirSync(out,{recursive:true});
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE??'playwright');
+const out=process.env.QA_OUTPUT_DIR??'artifacts/media-pro-ui';mkdirSync(out,{recursive:true});
 const browser=await chromium.launch({executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true});
 const context=await browser.newContext({viewport:{width:1200,height:780},reducedMotion:'reduce'});
 await context.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
@@ -49,7 +49,7 @@ const drop=async paths=>page.evaluate(paths=>window.testEmit('tauri://drag-drop'
 
 const settle=()=>page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
 try{
- await page.goto('http://127.0.0.1:5196');await page.getByRole('navigation',{name:'主导航'}).getByRole('button',{name:'媒体工具',exact:true}).click();
+ await page.goto(process.env.QA_BASE_URL??'http://127.0.0.1:5226');await page.getByRole('navigation',{name:'主导航'}).getByRole('button',{name:'媒体工具',exact:true}).click();
  await page.getByRole('button',{name:'选择媒体文件',exact:true}).click();await page.getByRole('heading',{name:'fixture.mkv',exact:true}).waitFor();
  await check('late single discovery cannot replace newer selected source',async()=>{
   await drop(['C:/scan-slow-old.mkv']);await page.waitForFunction(()=>window.finishDiscovery?.length===1);

@@ -111,6 +111,9 @@ fn video(a: &mut Vec<String>, r: &MediaRequest) {
         if let Some(h) = r.height {
             pair(a, "-vf", format!("scale=-2:min({h}\\,ih)"));
         }
+        if r.learning_playback && r.height.is_none() {
+            pair(a, "-vf", "scale=ceil(iw/2)*2:ceil(ih/2)*2");
+        }
         if let Some(f) = r.fps {
             pair(a, "-r", f);
         }

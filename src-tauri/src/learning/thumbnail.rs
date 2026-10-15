@@ -24,6 +24,20 @@ pub fn sample(duration: f64) -> f64 {
     };
     (t * 1000.).round() / 1000.
 }
+pub(crate) fn accurate_seek(args: &mut Vec<String>) -> bool {
+    let Some(n) = args.iter().position(|a| a == "-ss") else {
+        return false;
+    };
+    if n + 1 >= args.len() {
+        return false;
+    }
+    let pair = args.drain(n..n + 2).collect::<Vec<_>>();
+    let Some(i) = args.iter().position(|a| a == "-i") else {
+        return false;
+    };
+    args.splice(i + 2..i + 2, pair);
+    true
+}
 #[derive(Default)]
 pub(crate) struct ThumbnailQueue {
     queue: VecDeque<String>,
@@ -205,7 +219,17 @@ impl LearningService {
         }
         let session = format!("thumb-{}", super::repository::id());
         let result: AppResult<()> = (|| {
-            self.media.auxiliary(&session, &c.args, 30)?;
+            if let Err(first) = self.media.auxiliary(&session, &c.args, 30) {
+                // Sparse TS/M2TS keyframes can leave input seeking with no decodable frame.
+                if seek.is_none() || !accurate_seek(&mut c.args) {
+                    return Err(first);
+                }
+                if temp.exists() {
+                    cache::owned(temp.parent().unwrap(), &temp)?;
+                    fs::remove_file(&temp).map_err(|_| "无法重试缩略图")?;
+                }
+                self.media.auxiliary(&session, &c.args, 30)?;
+            }
             let generated = self.media.probe(&temp.to_string_lossy())?;
             if !generated
                 .videos

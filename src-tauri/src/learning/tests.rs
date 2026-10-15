@@ -1069,3 +1069,15 @@ fn learning_hevc_depth_uses_pixel_format_when_ffprobe_omits_bits() {
         PlaybackMode::Transcode
     );
 }
+
+#[test]
+fn learning_thumbnail_retry_uses_accurate_output_seek_preserving_literal_paths() {
+    let mut a = ["-ss", "2.4", "-i", "C:/a b.ts", "-map", "0:0", "out.jpg"]
+        .map(String::from)
+        .to_vec();
+    assert!(super::thumbnail::accurate_seek(&mut a));
+    assert_eq!(
+        a,
+        ["-i", "C:/a b.ts", "-ss", "2.4", "-map", "0:0", "out.jpg"]
+    );
+}
