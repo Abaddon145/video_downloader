@@ -27,7 +27,7 @@ const binaryManifest = {};
 for (const [name, component] of Object.entries(components)) {
   const archive = join(cache, `${name}-${component.sha256.slice(0, 12)}.${component.archive ?? (name === 'yt-dlp' ? 'exe' : 'zip')}`);
   if (!existsSync(archive) || digest(archive) !== component.sha256) {
-    console.log(`Downloading ${name} ${component.version} from official release…`);
+    console.log(`Downloading ${name} ${component.version} from pinned upstream release…`);
     execFileSync('curl.exe', ['-sS', '-L', '--fail', '--retry', '2', '--connect-timeout', '30', ...proxyArguments, component.url, '-o', archive], { stdio: 'inherit' });
   }
   if (digest(archive) !== component.sha256) throw new Error(`${name}: SHA256 verification failed. Refusing to bundle unverified component.`);
@@ -42,7 +42,7 @@ for (const [name, component] of Object.entries(components)) {
   }
   for (const binary of binaries) {
     const source = name === 'yt-dlp' ? archive : find(directory, binary);
-    if (!source) throw new Error(`Missing ${binary} in official archive`);
+    if (!source) throw new Error(`Missing ${binary} in verified archive`);
     copyFileSync(source, join(tools, binary));
     binaryManifest[binary] = { sha256: digest(join(tools, binary)), version: component.version, source: component.source };
   }

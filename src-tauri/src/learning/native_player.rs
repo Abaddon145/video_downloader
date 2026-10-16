@@ -236,6 +236,15 @@ pub(crate) struct NativeRuntime {
     starting: Option<String>,
     active: Option<Arc<NativeSession>>,
 }
+fn claim_start(
+    starting: &mut Option<String>,
+    session: &str,
+    state: &mut super::player::PlaybackState,
+) -> AppResult<()> {
+    state.begin(session)?;
+    *starting = Some(session.into());
+    Ok(())
+}
 fn update(s: &mut NativeSnapshot, name: &str, v: &Value) {
     match name {
         "time-pos" => {
@@ -329,13 +338,13 @@ impl LearningService {
         autoplay: bool,
     ) -> AppResult<NativeSnapshot> {
         crate::media::trim::timeline::validate_session(session)?;
-        self.playback
-            .lock()
-            .map_err(|_| "播放状态不可用")?
-            .begin(session)?;
         let old = {
             let mut r = self.native_player.lock().map_err(|_| "播放状态不可用")?;
-            r.starting = Some(session.into());
+            claim_start(
+                &mut r.starting,
+                session,
+                &mut *self.playback.lock().map_err(|_| "播放状态不可用")?,
+            )?;
             r.active.take()
         };
         if let Some(old) = old {
@@ -605,6 +614,7 @@ impl LearningService {
             let session = session.to_string();
             thread::spawn(move || {
                 let mut last = Instant::now();
+                let mut was_ended = false;
                 loop {
                     thread::sleep(Duration::from_millis(250));
                     let Some(service) = weak.upgrade() else { break };
@@ -622,9 +632,12 @@ impl LearningService {
                     let s = engine.snapshot();
                     let _ = service.app.emit("learning-native-updated", &s);
                     if s.error.is_some() {
+                        drop(_guard);
+                        service.native_stop(&session);
                         break;
                     }
-                    let persist = last.elapsed() >= Duration::from_secs(5) || s.ended;
+                    let persist = last.elapsed() >= Duration::from_secs(5) || s.ended && !was_ended;
+                    was_ended = s.ended;
                     let _ = service.persist_native(&engine, &s, persist, false);
                     if persist {
                         last = Instant::now();
@@ -759,6 +772,29 @@ impl LearningService {
 mod tests {
     use super::*;
     #[test]
+    fn native_cancelled_claim_preserves_newer_owner() {
+        let mut state = super::super::player::PlaybackState::default();
+        state.begin("old").unwrap();
+        state.release("old");
+        let mut starting = Some("new".into());
+        assert!(claim_start(&mut starting, "old", &mut state).is_err());
+        assert_eq!(starting.as_deref(), Some("new"));
+    }
+    #[test]
+    fn native_input_routes_transport_keys_through_learning_controls() {
+        let bindings = include_str!("../../resources/mpv-input.conf");
+        for binding in [
+            "SPACE script-message yingliu-toggle",
+            "LEFT script-message yingliu-seek-back",
+            "RIGHT script-message yingliu-seek-forward",
+        ] {
+            assert!(
+                bindings.lines().any(|line| line == binding),
+                "binding bypasses learning controls: {binding}"
+            );
+        }
+    }
+    #[test]
     fn native_rejects_unsafe_controls() {
         for action in [
             NativeAction::Seek { position: f64::NAN },
@@ -795,6 +831,11 @@ mod tests {
         assert_eq!(
             (scaled.x, scaled.y, scaled.width, scaled.height),
             (15, 30, 450, 300)
+        );
+        let quarter = rect.physical(1.25, 900, 700).unwrap();
+        assert_eq!(
+            (quarter.x, quarter.y, quarter.width, quarter.height),
+            (13, 25, 375, 250)
         );
         assert!(NativeViewport {
             left: f64::NAN,

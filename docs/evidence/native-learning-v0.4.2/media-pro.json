@@ -1,0 +1,169 @@
+{
+  "run": "<workspace>\\artifacts\\v042\\media-pro\\desktop-1792149722952",
+  "passed": 16,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "real editor preview proxy, timeline thumbnails and synchronized millisecond ranges",
+      "passed": true,
+      "detail": {
+        "playable": true,
+        "thumbnailImages": 8,
+        "segmentStopsAt": 3,
+        "frameStep": 0.1
+      }
+    },
+    {
+      "name": "H264 and H265 compression with real CPU encoders",
+      "passed": true,
+      "detail": {
+        "h264": "\\\\?\\<workspace>\\artifacts\\v042\\media-pro\\desktop-1792149722952\\output\\HEVC 测试-compressed.mp4",
+        "h265": "\\\\?\\<workspace>\\artifacts\\v042\\media-pro\\desktop-1792149722952\\output\\HEVC 测试-compressed (1).mp4"
+      }
+    },
+    {
+      "name": "GPU detection and selected unavailable hardware fall back to CPU",
+      "passed": true,
+      "detail": {
+        "available": [],
+        "unavailable": "nvidia",
+        "fallback": "h264 CPU"
+      }
+    },
+    {
+      "name": "fast and accurate trims keep input intact",
+      "passed": true,
+      "detail": {
+        "modes": [
+          "fast",
+          "accurate"
+        ],
+        "sourceUnchanged": true
+      }
+    },
+    {
+      "name": "SRT to ASS and VTT conversions, preserving text",
+      "passed": true,
+      "detail": {
+        "formats": [
+          "srt",
+          "ass",
+          "vtt"
+        ]
+      }
+    },
+    {
+      "name": "soft subtitles and SRT/ASS burn with safe quoted Chinese path",
+      "passed": true,
+      "detail": {
+        "soft": "\\\\?\\<workspace>\\artifacts\\v042\\media-pro\\desktop-1792149722952\\output\\HEVC 测试-subtitled.mkv",
+        "burned": [
+          "srt",
+          "ass"
+        ]
+      }
+    },
+    {
+      "name": "batch folder processes two files with separate status and skips text",
+      "passed": true,
+      "detail": {
+        "batchId": "media-1792149731958-58",
+        "tasks": 2
+      }
+    },
+    {
+      "name": "frames interval/count/FPS modes publish nonempty numbered directories",
+      "passed": true,
+      "detail": [
+        {
+          "mode": "interval",
+          "count": 3,
+          "output": "\\\\?\\<workspace>\\artifacts\\v042\\media-pro\\desktop-1792149722952\\output\\HEVC 测试-frames"
+        },
+        {
+          "mode": "count",
+          "count": 20,
+          "output": "\\\\?\\<workspace>\\artifacts\\v042\\media-pro\\desktop-1792149722952\\output\\HEVC 测试-frames (1)"
+        },
+        {
+          "mode": "fps",
+          "count": 75,
+          "output": "\\\\?\\<workspace>\\artifacts\\v042\\media-pro\\desktop-1792149722952\\output\\HEVC 测试-frames (2)"
+        }
+      ]
+    },
+    {
+      "name": "contact sheet includes timecodes, Unicode filename and resolution",
+      "passed": true,
+      "detail": {
+        "output": "\\\\?\\<workspace>\\artifacts\\v042\\media-pro\\desktop-1792149722952\\output\\HEVC 测试-storyboard.jpg",
+        "width": 992,
+        "height": 448
+      }
+    },
+    {
+      "name": "extract and set video cover, extract attached picture",
+      "passed": true,
+      "detail": {
+        "cover": "\\\\?\\<workspace>\\artifacts\\v042\\media-pro\\desktop-1792149722952\\output\\HEVC 测试-cover.jpg",
+        "video": "\\\\?\\<workspace>\\artifacts\\v042\\media-pro\\desktop-1792149722952\\output\\HEVC 测试-with-cover.mp4",
+        "extracted": "\\\\?\\<workspace>\\artifacts\\v042\\media-pro\\desktop-1792149722952\\output\\HEVC 测试-with-cover-cover.png"
+      }
+    },
+    {
+      "name": "music cover and Artist/Album/Genre metadata survive decoding",
+      "passed": true,
+      "detail": {
+        "output": "\\\\?\\<workspace>\\artifacts\\v042\\media-pro\\desktop-1792149722952\\output\\HEVC 测试-audio-with-cover-metadata.mp3",
+        "tags": {
+          "genre": "Test",
+          "album": "测试专辑",
+          "artist": "映流艺术家",
+          "encoder": "Lavf63.8.100"
+        }
+      }
+    },
+    {
+      "name": "video metadata is literal and original/existing outputs never overwritten",
+      "passed": true,
+      "detail": {
+        "first": "\\\\?\\<workspace>\\artifacts\\v042\\media-pro\\desktop-1792149722952\\output\\HEVC 测试-metadata.mkv",
+        "next": "\\\\?\\<workspace>\\artifacts\\v042\\media-pro\\desktop-1792149722952\\output\\HEVC 测试-metadata (1).mkv"
+      }
+    },
+    {
+      "name": "AI preset produces independent thumbnail batch",
+      "passed": true,
+      "detail": {
+        "processed": "media-1792149742488-116",
+        "thumbnails": "media-1792149742936-120"
+      }
+    },
+    {
+      "name": "preview cancellation cannot authorize a late result and terminates helpers",
+      "passed": true,
+      "detail": {
+        "ok": false,
+        "error": "Error: page.evaluate: [vost#0:0/libx264 @ 000002160e73e3c0] Discarding stream metadata 'DURATION' because the stream is being re-encoded. Use '-keep_metadata DURATION' to keep it.\n[aost#0:1/aac @ 000002160e66fe00] Discarding stream metadata 'DURATION' because the stream is being re-encoded. Use '-keep_metadata DURATION' to keep it.\n[aac @ 000002160e654580] Too many bits 6826.666667 > 6144 per frame requested, clamping to max"
+      }
+    },
+    {
+      "name": "task cancellation kills FFmpeg tree and task can restart",
+      "passed": true,
+      "detail": {
+        "cancelled": "media-1792149743945-126",
+        "orphanProcesses": 0
+      }
+    },
+    {
+      "name": "automatic completion recovery queues once and leaves old history unchanged",
+      "passed": true,
+      "detail": {
+        "newDownloadMediaTasks": 1,
+        "oldDownloadMediaTasks": 0
+      }
+    }
+  ],
+  "originalHash": "9f7939549460dc9a57037da9033130be7a7b021f9de947e6df857fde84a93672",
+  "finalSourceHash": "9f7939549460dc9a57037da9033130be7a7b021f9de947e6df857fde84a93672"
+}

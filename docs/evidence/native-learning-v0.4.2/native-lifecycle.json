@@ -1,0 +1,25 @@
+{
+  "run": "<workspace>\\artifacts\\v042\\lifecycle-final\\run-1792151339550",
+  "passed": 2,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "hide and immediate exit pause and save actual native progress",
+      "passed": true,
+      "detail": {
+        "itemId": "learn-1792151341060-26",
+        "positionMs": 85000,
+        "durationMs": 156958,
+        "completed": false,
+        "playbackRate": 1.5,
+        "lastPlayedAt": 1792151342292
+      }
+    },
+    {
+      "name": "damaged registered media fails in bounded time without orphaned windows",
+      "passed": true
+    }
+  ],
+  "timings": [],
+  "errors": []
+}

@@ -1,0 +1,281 @@
+{
+  "run": "<workspace>\\artifacts\\v042\\final-native\\run-1792151118495",
+  "passed": 11,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "twelve codecs start within five seconds, seek to 80%, and never enqueue conversion",
+      "passed": true,
+      "detail": [
+        {
+          "name": "01-MP4-H264-AAC.mp4",
+          "ms": 791,
+          "subtitles": 0
+        },
+        {
+          "name": "02-MKV-H264-AAC.mkv",
+          "ms": 727,
+          "subtitles": 1
+        },
+        {
+          "name": "03-MKV-HEVC-AAC.mkv",
+          "ms": 764,
+          "subtitles": 0
+        },
+        {
+          "name": "04-MOV-H264.mov",
+          "ms": 718,
+          "subtitles": 0
+        },
+        {
+          "name": "05-AVI-MPEG4.avi",
+          "ms": 745,
+          "subtitles": 0
+        },
+        {
+          "name": "06-WMV-WMV3-WMA.wmv",
+          "ms": 723,
+          "subtitles": 0
+        },
+        {
+          "name": "07-WMV-VC1-WMA.wmv",
+          "ms": 792,
+          "subtitles": 0
+        },
+        {
+          "name": "08-MPEG-MPEG2.mpg",
+          "ms": 710,
+          "subtitles": 0
+        },
+        {
+          "name": "09-TS-H264.ts",
+          "ms": 728,
+          "subtitles": 0
+        },
+        {
+          "name": "10-M2TS-H264.m2ts",
+          "ms": 779,
+          "subtitles": 0
+        },
+        {
+          "name": "11-WebM-VP9-Opus.webm",
+          "ms": 743,
+          "subtitles": 0
+        },
+        {
+          "name": "12-FLV.flv",
+          "ms": 698,
+          "subtitles": 0
+        }
+      ]
+    },
+    {
+      "name": "157-second original WMV starts immediately and renders in an owned child window",
+      "passed": true,
+      "detail": {
+        "ms": 445,
+        "windows": {
+          "processes": [
+            {
+              "ProcessId": 25212,
+              "ParentProcessId": 8692,
+              "ExecutablePath": "\\\\?\\C:\\Users\\14582\\.codex\\worktrees\\content-updates\\��Ƶ��������\\src-tauri\\target\\release\\tools\\mpv.exe"
+            }
+          ],
+          "children": [
+            {
+              "hwnd": 19991182,
+              "pid": 8692,
+              "name": "Static",
+              "visible": true,
+              "left": 1370,
+              "top": 471,
+              "width": 500,
+              "height": 280,
+              "owned": true
+            },
+            {
+              "hwnd": 7080546,
+              "pid": 25212,
+              "name": "mpv",
+              "visible": true,
+              "left": 1370,
+              "top": 471,
+              "width": 500,
+              "height": 280,
+              "owned": false
+            },
+            {
+              "hwnd": 6621434,
+              "pid": 8692,
+              "name": "WRY_WEBVIEW",
+              "visible": true,
+              "left": 1120,
+              "top": 321,
+              "width": 1200,
+              "height": 780,
+              "owned": false
+            },
+            {
+              "hwnd": 2820838,
+              "pid": 8692,
+              "name": "Chrome_WidgetWin_0",
+              "visible": true,
+              "left": 1120,
+              "top": 321,
+              "width": 1200,
+              "height": 780,
+              "owned": false
+            },
+            {
+              "hwnd": 5573418,
+              "pid": 4160,
+              "name": "Chrome_WidgetWin_1",
+              "visible": true,
+              "left": 1120,
+              "top": 321,
+              "width": 1200,
+              "height": 780,
+              "owned": false
+            },
+            {
+              "hwnd": 7211678,
+              "pid": 4160,
+              "name": "Chrome_RenderWidgetHostHWND",
+              "visible": true,
+              "left": 1120,
+              "top": 321,
+              "width": 1200,
+              "height": 780,
+              "owned": false
+            },
+            {
+              "hwnd": 7473578,
+              "pid": 22928,
+              "name": "Intermediate D3D Window",
+              "visible": true,
+              "left": 1120,
+              "top": 321,
+              "width": 1200,
+              "height": 780,
+              "owned": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "embedded and local subtitles, notes, ordered pause and progress survive restart",
+      "passed": true,
+      "detail": {
+        "itemId": "learn-1792151119951-15",
+        "positionMs": 10000,
+        "durationMs": 20031,
+        "completed": false,
+        "playbackRate": 1.5,
+        "lastPlayedAt": 1792151131910
+      }
+    },
+    {
+      "name": "late cancellation cannot kill a newer native session",
+      "passed": true
+    },
+    {
+      "name": "actual UI uses native controls, hides under notes, and enters/exits fullscreen",
+      "passed": true,
+      "detail": {
+        "ms": 897
+      }
+    },
+    {
+      "name": "failed native playback retires its owned window without navigation",
+      "passed": true
+    },
+    {
+      "name": "unresponsive IPC times out and terminates only the owned process",
+      "passed": true,
+      "detail": {
+        "ms": 3011
+      }
+    },
+    {
+      "name": "missing and corrupt bundled engine fail without starting conversion",
+      "passed": true
+    },
+    {
+      "name": "manual compatibility conversion remains available and never overwrites the source",
+      "passed": true
+    },
+    {
+      "name": "all original fixtures remain byte-identical",
+      "passed": true
+    },
+    {
+      "name": "no JavaScript exceptions",
+      "passed": true
+    }
+  ],
+  "timings": [
+    {
+      "name": "01-MP4-H264-AAC.mp4",
+      "ms": 791,
+      "subtitles": 0
+    },
+    {
+      "name": "02-MKV-H264-AAC.mkv",
+      "ms": 727,
+      "subtitles": 1
+    },
+    {
+      "name": "03-MKV-HEVC-AAC.mkv",
+      "ms": 764,
+      "subtitles": 0
+    },
+    {
+      "name": "04-MOV-H264.mov",
+      "ms": 718,
+      "subtitles": 0
+    },
+    {
+      "name": "05-AVI-MPEG4.avi",
+      "ms": 745,
+      "subtitles": 0
+    },
+    {
+      "name": "06-WMV-WMV3-WMA.wmv",
+      "ms": 723,
+      "subtitles": 0
+    },
+    {
+      "name": "07-WMV-VC1-WMA.wmv",
+      "ms": 792,
+      "subtitles": 0
+    },
+    {
+      "name": "08-MPEG-MPEG2.mpg",
+      "ms": 710,
+      "subtitles": 0
+    },
+    {
+      "name": "09-TS-H264.ts",
+      "ms": 728,
+      "subtitles": 0
+    },
+    {
+      "name": "10-M2TS-H264.m2ts",
+      "ms": 779,
+      "subtitles": 0
+    },
+    {
+      "name": "11-WebM-VP9-Opus.webm",
+      "ms": 743,
+      "subtitles": 0
+    },
+    {
+      "name": "12-FLV.flv",
+      "ms": 698,
+      "subtitles": 0
+    }
+  ],
+  "errors": []
+}

@@ -31,9 +31,9 @@ Windows10/11 x64；版本0.4.2；DB v5不变；原媒体/进度/笔记保留；�
 - MPV固定可信输入配置只包含现有学习快捷键/客户端消息，默认脚本与外部配置关闭；硬件解码auto-safe，允许软件解码。prepare脚本支持固定7z提取、归档和binary SHA校验；runtime版本检查。
 - 进度仍走LearningService.live_progress/flush_progress，原生定期更新/5秒持久化；暂停、切课、隐藏、退出与结束前读实际状态，序列来自progress::sequence。原生前端不得再提交过时的HTML快照。
 - 固定组件：mpv-x86_64-20261015-git-492bae0768.7z；GitHub发行asset SHA256 f9becefe40e2a29d2ce5f3ab231ff094f9cf3e4038ff014cfe4a0c09ad90e79e；URL https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20261015/mpv-x86_64-20261015-git-492bae0768.7z。保留其原构建信息/许可和mpv源码commit，安装包包含所有必需运行文件。
-- [ ] RED：运行既有artifacts/v042/measure-startup.mjs失败基线（已观测433ms首帧、5秒未就绪）。新增Rust tests native_rejects_unsafe_controls、native_viewport_is_finite_and_bounded、native_ipc_matches_response_and_ignores_events；断言NaN/Inf/越界rate、非字幕/链接路径、不匹配request_id不被接受。运行cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --lib；预期新增边界未实现而失败。
-- [ ] GREEN：实现上述内核、API与组件准备。事件以playback-restart确认首帧，不用file-loaded冒充出画；用户选择的普通文件才可loadfile，保留手动缓存功能。原生初始恢复位置/默认倍速在加载前设置；原生媒体错误不自动触发整片转码。预期真实WMV原生API5秒内ready且媒体队列无新增learningPlayback任务。
-- [ ] Verify：npm test；cargo test --manifest-path src-tauri/Cargo.toml --locked --offline；npm run build；发布程序无bundle构建及真实API启动检查。预期全部通过，提交feat(learning): embed controlled mpv playback and preserve session progress。
+- [x] RED：运行既有artifacts/v042/measure-startup.mjs失败基线（已观测433ms首帧、5秒未就绪）。新增Rust tests native_rejects_unsafe_controls、native_viewport_is_finite_and_bounded、native_ipc_matches_response_and_ignores_events；断言NaN/Inf/越界rate、非字幕/链接路径、不匹配request_id不被接受。运行cargo test --manifest-path src-tauri/Cargo.toml --locked --offline --lib；预期新增边界未实现而失败。
+- [x] GREEN：实现上述内核、API与组件准备。事件以playback-restart确认首帧，不用file-loaded冒充出画；用户选择的普通文件才可loadfile，保留手动缓存功能。原生初始恢复位置/默认倍速在加载前设置；原生媒体错误不自动触发整片转码。预期真实WMV原生API5秒内ready且媒体队列无新增learningPlayback任务。
+- [x] Verify：npm test；cargo test --manifest-path src-tauri/Cargo.toml --locked --offline；npm run build；发布程序无bundle构建及真实API启动检查。预期全部通过，提交feat(learning): embed controlled mpv playback and preserve session progress。
 
 ### Task 2: Reuse Learning Controls with Native Surface
 **Files:** 新增src/features/learning/NativeLearningSurface.tsx、playbackHandle.ts；修改LearningPlayer.tsx,lib.ts/lib.test.ts,src/types/learning.ts,styles.css；scripts/qa原学习UI检查按需更新。
@@ -43,15 +43,15 @@ Windows10/11 x64；版本0.4.2；DB v5不变；原媒体/进度/笔记保留；�
 - Geometry用ResizeObserver/滚动/窗口resize/DPI与modal open状态同步，viewport命令独立于播放动作；可见画面严格限当前视频区域，弹窗时隐藏。原生全屏使用主窗口全屏+播放器固定布局；退出/离开恢复。
 - LearningPlayer默认调用native:true，native模式渲染surface，既有web fallback渲染video；复用同一控制条、笔记、上下课和倒计时。Native失败仅展示重试与“转换为兼容视频”手动操作，nextPlaybackFallback('native',0)==null。
 - 字幕原生选择使用track id，加载本地字幕直接调用loadSubtitle；web字幕路径不变。用户看见“直接播放原文件”，实现细节仅在技术详情出现。
-- [ ] RED：lib.test.ts新增native_failure_never_silently_starts_full_transcode；浏览器检查native_request_is_default、stale_native_events_are_ignored、native_pause_seek_rate_persist_in_order、modal_hides_native_surface。预期旧界面请求和fallback行为失败。
-- [ ] GREEN：接入共享句柄和事件；保留当前快捷键、音量、字幕、进度、笔记。预期原12类学习UI场景及新原生状态通过，不增加设置页控制。
-- [ ] Verify：npm test；npm run build；Rust全套；学习UI/生命周期/窄窗口/StrictMode检查。预期全绿，提交feat(learning): play original courses inside the existing learning interface。
+- [x] RED：lib.test.ts新增native_failure_never_silently_starts_full_transcode；浏览器检查native_request_is_default、stale_native_events_are_ignored、native_pause_seek_rate_persist_in_order、modal_hides_native_surface。预期旧界面请求和fallback行为失败。
+- [x] GREEN：接入共享句柄和事件；保留当前快捷键、音量、字幕、进度、笔记。预期原12类学习UI场景及新原生状态通过，不增加设置页控制。
+- [x] Verify：npm test；npm run build；Rust全套；学习UI/生命周期/窄窗口/StrictMode检查。预期全绿，提交feat(learning): play original courses inside the existing learning interface。
 
 ### Task 3: Real Startup Acceptance and Delivery
 **Files:** 新增scripts/qa/verify-learning-native-playback.mjs；复用旧fixture/desktop/MediaPro/UI harness；README、docs/native-learning-playback-v0.4.2.md、delivery/review/execution/evidence。
 **Interfaces:** 原生实际截图/首帧时间/进程和视频队列证据、12格式操作结果、安装器与源码摘要、新Draft PR based codex/learning-playback-thumbnail-v0.4.1。
-- [ ] RED→GREEN：同一157秒WMV3与VC1、12格式UI点击后真实首帧，5秒内ready且无整片转码；seek至80%立即继续、1.5倍速、字幕、笔记、暂停后立刻隐藏/退出恢复。保留旧基线结果对比。实际图像/原生窗口存在及视频尺寸证明出画，不能只断言进程存在。
-- [ ] 验证快速切课/StrictMode/连续取消、新会话不被旧取消杀死；移动/移除文件；弹窗/缩放/880宽/125%与150%模拟/全屏/键盘；组件缺失/损坏/IPC不响应/坏媒体均有限失败，无孤儿进程，原片SHA相同；手动兼容转换与下载/旧16MediaPro回归。预期全部通过，限制逐项记录。
-- [ ] 验证npm test、cargo test --manifest-path src-tauri/Cargo.toml --locked --offline、npm run build。执行一次独立整分支审查，集中一次Important/Critical RED→GREEN修复，不重新审查；Minors/Rulings全部记录。
+- [x] RED→GREEN：同一157秒WMV3与VC1、12格式UI点击后真实首帧，5秒内ready且无整片转码；seek至80%立即继续、1.5倍速、字幕、笔记、暂停后立刻隐藏/退出恢复。保留旧基线结果对比。实际图像/原生窗口存在及视频尺寸证明出画，不能只断言进程存在。
+- [x] 验证快速切课/StrictMode/连续取消、新会话不被旧取消杀死；移动/移除文件；弹窗/缩放/880宽/125%与150%模拟/全屏/键盘；组件缺失/损坏/IPC不响应/坏媒体均有限失败，无孤儿进程，原片SHA相同；手动兼容转换与下载/旧16MediaPro回归。预期全部通过，限制逐项记录。
+- [x] 验证npm test、cargo test --manifest-path src-tauri/Cargo.toml --locked --offline、npm run build。执行一次独立整分支审查，集中一次Important/Critical RED→GREEN修复，不重新审查；Minors/Rulings全部记录。
 - [ ] 构建npm run tauri -- build --bundles nsis并等退出0，再做任何同路径程序启动；核对0.4.2/中文/x64/WebView2/所有组件SHA与许可。新目录交付installer+git archive源码ZIP+SHA256，核对文档链接、源提交和只含文档的构建后变化。
 - [ ] 提交/推送独立分支，创建并附加新Draft PR（不改旧PR历史、不merge/Release）；归档ledger与证据，验证绝对路径后只清理本计划临时工作区，保留源工作树。预期用户得到可安装、可核验的具体文件与PR链接。

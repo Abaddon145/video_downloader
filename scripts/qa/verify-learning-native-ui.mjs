@@ -59,12 +59,13 @@ await context.addInitScript(()=>{
 await context.addInitScript(()=>{
  const invoke=window.__TAURI_INTERNALS__.invoke;
  window.__TAURI_INTERNALS__.invoke=async(command,args={})=>{
+  if(command==='learning_item'&&args.id==='i1')return {available:true};
   if(command==='learning_prepare_player'){const media=await invoke(command,args);return {...media,plan:{mode:args.proxy?'transcode':'native',reason:'直接播放原文件',cached:false,format:'mp4'}};}
   if(command.startsWith('learning_native_')){
    window.testCalls.push({command,args:structuredClone(args)});
    if(command==='learning_native_start'){window.native={session:args.session,itemId:args.itemId,ready:true,position:200,duration:900,rate:1,paused:!args.autoplay,volume:.8,muted:false,ended:false,subtitles:[],subtitleId:null,error:null};return structuredClone(window.native);}
    if(command==='learning_native_control'){await new Promise(r=>setTimeout(r,20));const a=args.action;if(a.type==='pause')window.native.paused=a.paused;if(a.type==='seek')window.native.position=a.position;if(a.type==='rate')window.native.rate=a.rate;if(a.type==='volume')window.native.volume=a.volume;if(a.type==='mute')window.native.muted=a.muted;return structuredClone(window.native);}
-   if(command==='learning_native_save_progress'){window.latestProgress={positionMs:window.native.position*1000,playbackRate:window.native.rate,itemId:args.itemId};return window.latestProgress;}
+   if(command==='learning_native_save_progress'){if(window.native.error)throw window.native.error;window.latestProgress={positionMs:window.native.position*1000,playbackRate:window.native.rate,itemId:args.itemId};return window.latestProgress;}
    return;
   }
   return invoke(command,args);
@@ -80,6 +81,24 @@ try{
  await check('native_pause_seek_rate_persist_in_order',async()=>{await page.getByRole('button',{name:'暂停课程',exact:true}).click({timeout:2000});await page.getByRole('slider',{name:'播放位置'}).fill('410');await page.getByRole('combobox',{name:'播放倍速'}).selectOption('1.5');await page.waitForFunction(()=>window.native?.rate===1.5,null,{timeout:2000});await page.evaluate(()=>window.testEmit('learning-player-hidden',{}));await page.waitForFunction(()=>window.latestProgress?.positionMs===410000&&window.latestProgress?.playbackRate===1.5,null,{timeout:2500});});
  await check('modal_hides_native_surface',async()=>{await page.evaluate(()=>{const d=document.createElement('dialog');d.id='qa-modal';document.body.append(d);d.showModal();});await page.waitForFunction(()=>window.testCalls.some(c=>c.command==='learning_native_viewport'&&!c.args.viewport.visible),null,{timeout:2000});await page.evaluate(()=>document.getElementById('qa-modal').remove());await page.waitForFunction(()=>window.testCalls.filter(c=>c.command==='learning_native_viewport').at(-1)?.args.viewport.visible===true,null,{timeout:2000});});
  await check('native_error_does_not_start_transcode',async()=>{const before=await page.evaluate(()=>window.testCalls.filter(c=>c.command==='learning_prepare_player').length);await page.evaluate(()=>window.testEmit('learning-native-updated',{...window.native,error:'原文件解码失败'}));await page.getByRole('alert').filter({hasText:'原文件解码失败'}).waitFor({timeout:2000});assert.equal(await page.evaluate(()=>window.testCalls.filter(c=>c.command==='learning_prepare_player').length),before);});
+ await check('native_transport_shortcuts_cancel_autoplay_countdown',async()=>{
+  await page.evaluate(()=>{window.native.error=null;window.native.ended=true;window.native.position=900;window.native.paused=true;window.testEmit('learning-native-updated',window.native);});
+  await page.getByRole('button',{name:'取消自动播放',exact:true}).waitFor({timeout:2000});
+  await page.evaluate(()=>window.testEmit('learning-native-shortcut',{session:window.native.session,itemId:window.native.itemId,action:'yingliu-seek-back'}));
+  await page.getByRole('button',{name:'取消自动播放',exact:true}).waitFor({state:'hidden',timeout:1000});
+ });
+ await check('native_fullscreen_escape_works_from_control_focus',async()=>{
+  await page.getByRole('button',{name:'全屏播放',exact:true}).click();
+  await page.locator('.learning-player-native-fullscreen').waitFor({timeout:1000});
+  await page.keyboard.press('Escape');
+  await page.locator('.learning-player-native-fullscreen').waitFor({state:'hidden',timeout:1000});
+ });
+ await check('manual_compatibility_remains_available_after_native_failure',async()=>{
+  await start();await page.waitForFunction(()=>window.native?.ready);
+  await page.evaluate(()=>{window.native.error='内核已退出';window.testEmit('learning-native-updated',window.native);});
+  await page.getByRole('button',{name:'转换为兼容视频',exact:true}).click();
+  await page.waitForFunction(()=>window.testCalls.some(c=>c.command==='learning_prepare_player'&&c.args.proxy),null,{timeout:2000});
+ });
  await page.screenshot({path:out+'/native-ui.png'});
  await check('no_browser_exceptions',async()=>assert.deepEqual(errors,[]));
  const failed=checks.filter(c=>!c.passed).length;writeFileSync(out+'/native-ui.json',JSON.stringify({passed:checks.length-failed,failed,checks,errors},null,2));process.exitCode=failed?1:0;

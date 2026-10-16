@@ -1,0 +1,14 @@
+{
+  "sample": "WMV3/WMAPro, 156.958 seconds",
+  "deadlineMs": 5000,
+  "firstDecodedFrameMs": 433,
+  "readyAtFiveSeconds": false,
+  "elapsedMs": 5005,
+  "tasks": [
+    {
+      "status": "processing",
+      "progress": 62.018820321359854,
+      "phase": "GPU 不可用，使用 CPU 编码"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-param([int]$ApplicationPid,[string]$Screenshot='', [switch]$Freeze)
+param([int]$ApplicationPid,[string]$Screenshot='', [switch]$Freeze, [switch]$StopEngine, [long]$WindowHandle=0)
 $ErrorActionPreference='Stop'
 Add-Type -AssemblyName System.Drawing
 Add-Type -TypeDefinition @'
@@ -21,16 +21,23 @@ public class NativeVideoCheck {
 }
 '@
 $app=Get-Process -Id $ApplicationPid
-$children=[NativeVideoCheck]::Children($app.MainWindowHandle)
+$handle=if($WindowHandle){[IntPtr]$WindowHandle}else{$app.MainWindowHandle}
+$ownerPid=0
+[void][NativeVideoCheck]::GetWindowThreadProcessId($handle,[ref]$ownerPid)
+if($ownerPid -ne $ApplicationPid){throw 'Window does not belong to this test application'}
+$children=[NativeVideoCheck]::Children($handle)
 if ($Freeze) {
  $owned = Get-CimInstance Win32_Process -Filter "Name='mpv.exe'" | Where-Object { $_.ParentProcessId -eq $ApplicationPid }
  foreach($p in $owned){$engine=Get-Process -Id $p.ProcessId;[void][NativeVideoCheck]::NtSuspendProcess($engine.Handle)}
 }
+if($StopEngine){
+ Get-CimInstance Win32_Process -Filter "Name='mpv.exe'" | Where-Object { $_.ParentProcessId -eq $ApplicationPid } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+}
 if($Screenshot){
- [void][NativeVideoCheck]::SetForegroundWindow($app.MainWindowHandle)
+ [void][NativeVideoCheck]::SetForegroundWindow($handle)
  Start-Sleep -Milliseconds 200
  $rect=New-Object NativeVideoCheck+Rect
- [void][NativeVideoCheck]::GetWindowRect($app.MainWindowHandle,[ref]$rect)
+ [void][NativeVideoCheck]::GetWindowRect($handle,[ref]$rect)
  $bitmap=New-Object System.Drawing.Bitmap(($rect.Right-$rect.Left),($rect.Bottom-$rect.Top))
  $graphics=[System.Drawing.Graphics]::FromImage($bitmap)
  try {$graphics.CopyFromScreen($rect.Left,$rect.Top,0,0,$bitmap.Size);$bitmap.Save($Screenshot)} finally{$graphics.Dispose();$bitmap.Dispose()}
