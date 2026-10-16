@@ -1,0 +1,39 @@
+{
+  "buildCommit": "667df6180e49c5bd09988b3d32507aee167c53aa",
+  "appArchitecture": "x86_64",
+  "version": "0.4.2",
+  "installerLanguages": [
+    "SimpChinese"
+  ],
+  "webview2": "embedBootstrapper",
+  "componentHashesVerified": {
+    "yt-dlp.exe": {
+      "sha256": "66674953fe251b89f4d08c5f0e35e0728679bd67ab3d7d05c0562af101dd3e7a",
+      "version": "2026.08.19",
+      "source": "https://github.com/yt-dlp/yt-dlp"
+    },
+    "deno.exe": {
+      "sha256": "e020f3e232bd16e33768dee528e5983349c962952051ced0a5d58ad42f5d9b33",
+      "version": "2.9.7",
+      "source": "https://github.com/denoland/deno"
+    },
+    "ffmpeg.exe": {
+      "sha256": "02b611a1ce617a68ca1742fb848fe41c728f092996ff2e4820d401554d2d2453",
+      "version": "N-127236-g17ec998942-20261007",
+      "source": "https://github.com/yt-dlp/FFmpeg-Builds"
+    },
+    "ffprobe.exe": {
+      "sha256": "8e92d4612c4199f26186819f49ebdd585c46c988da915296df9d18e8caeabc04",
+      "version": "N-127236-g17ec998942-20261007",
+      "source": "https://github.com/yt-dlp/FFmpeg-Builds"
+    },
+    "mpv.exe": {
+      "sha256": "9114ed8100da6b89c5053486392e6c69a8ef6917704a2837b2b81b1f4bd03000",
+      "version": "20261015-git-492bae0768",
+      "source": "https://github.com/mpv-player/mpv/tree/492bae0768"
+    }
+  },
+  "mpvInputAndFontsBundled": true,
+  "licenseResourcesBundled": true,
+  "existingUserInstallationModified": false
+}

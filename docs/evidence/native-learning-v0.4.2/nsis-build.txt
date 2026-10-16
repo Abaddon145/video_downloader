@@ -1,0 +1,33 @@
+
+> video-downloader@0.4.2 tauri
+> tauri build --bundles nsis
+
+        Info Looking up installed tauri packages to check mismatched versions...
+     Running beforeBuildCommand `npm run build`
+
+> video-downloader@0.4.2 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 1782 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.41 kB │ gzip:   0.31 kB
+dist/assets/index-QmAGBxkS.css   51.09 kB │ gzip:  11.18 kB
+dist/assets/index-GzS06l3m.js   412.29 kB │ gzip: 126.08 kB
+✓ built in 2.26s
+   Compiling video-downloader v0.4.2 (<worktree>\src-tauri)
+warning: linker stdout: 正在创建库 <worktree>/src-tauri/target\release\deps\video_downloader_lib.dll.lib 和对象 <worktree>/src-tauri/target\release\deps\video_downloader_lib.dll.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `video-downloader` (lib) generated 1 warning
+    Finished `release` profile [optimized] target(s) in 54.45s
+       Built application at: <worktree>\src-tauri\target\release\video-downloader.exe
+        Info Patching <worktree>\src-tauri\target\release\video-downloader.exe with bundle type information: nsis
+        Info Target: x64
+     Running makensis to produce <worktree>\src-tauri\target\release\bundle\nsis\视频下载器_0.4.2_x64-setup.exe
+    Finished 1 bundle at:
+        <worktree>\src-tauri\target\release\bundle\nsis\视频下载器_0.4.2_x64-setup.exe (176.28 MiB)
+
