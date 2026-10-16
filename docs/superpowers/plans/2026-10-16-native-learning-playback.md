@@ -53,5 +53,5 @@ Windows10/11 x64；版本0.4.2；DB v5不变；原媒体/进度/笔记保留；�
 - [x] RED→GREEN：同一157秒WMV3与VC1、12格式UI点击后真实首帧，5秒内ready且无整片转码；seek至80%立即继续、1.5倍速、字幕、笔记、暂停后立刻隐藏/退出恢复。保留旧基线结果对比。实际图像/原生窗口存在及视频尺寸证明出画，不能只断言进程存在。
 - [x] 验证快速切课/StrictMode/连续取消、新会话不被旧取消杀死；移动/移除文件；弹窗/缩放/880宽/125%与150%模拟/全屏/键盘；组件缺失/损坏/IPC不响应/坏媒体均有限失败，无孤儿进程，原片SHA相同；手动兼容转换与下载/旧16MediaPro回归。预期全部通过，限制逐项记录。
 - [x] 验证npm test、cargo test --manifest-path src-tauri/Cargo.toml --locked --offline、npm run build。执行一次独立整分支审查，集中一次Important/Critical RED→GREEN修复，不重新审查；Minors/Rulings全部记录。
-- [ ] 构建npm run tauri -- build --bundles nsis并等退出0，再做任何同路径程序启动；核对0.4.2/中文/x64/WebView2/所有组件SHA与许可。新目录交付installer+git archive源码ZIP+SHA256，核对文档链接、源提交和只含文档的构建后变化。
-- [ ] 提交/推送独立分支，创建并附加新Draft PR（不改旧PR历史、不merge/Release）；归档ledger与证据，验证绝对路径后只清理本计划临时工作区，保留源工作树。预期用户得到可安装、可核验的具体文件与PR链接。
+- [x] 构建npm run tauri -- build --bundles nsis并等退出0，再做任何同路径程序启动；核对0.4.2/中文/x64/WebView2/所有组件SHA与许可。新目录交付installer+git archive源码ZIP+SHA256，核对文档链接、源提交和只含文档的构建后变化。
+- [x] 提交/推送独立分支，创建并附加新Draft PR（不改旧PR历史、不merge/Release）；归档ledger与证据，验证绝对路径后只清理本计划临时工作区，保留源工作树。预期用户得到可安装、可核验的具体文件与PR链接。

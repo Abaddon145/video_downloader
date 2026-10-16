@@ -3,7 +3,7 @@
 # SDD ledger — plan: docs/superpowers/plans/2026-10-16-native-learning-playback.md
 Baseline: fc1fa80 app, docs cdd2fb2/912dd21; linked managed worktree reused on codex/native-learning-playback-v0.4.2. User approved written spec and plan, inline execution.
 Pre-flight: backend NativeSnapshot/Action/Viewport feed UI; old prepare API native defaultsfalse; existing progress and manual compatibility retained. Native locks must not span main-thread window creation. No new production dependency crates.
-Todo: Task1 complete; Task2 complete; Task3 delivery_in_progress.
+Todo: Task1 complete; Task2 complete; Task3 complete.
 Initial real RED: 157s WMV first-frame decode433ms, existing prepare not ready after5005ms while full transcode62%; deterministic five-second startup assertion failed.
 Task 1: complete (commits 912dd21..eabc94b, tests: C:/Users/14582/.cargo/bin/cargo.exe test --manifest-path src-tauri/Cargo.toml --locked --offline → test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s)
 Task 2: complete (commits eabc94b..5774288, tests: npm test → ℹ duration_ms 104.9814)
@@ -21,3 +21,6 @@ Task 3: fixed inherited moving FFmpeg latest archive using same-commit immutable
 Task 3: NSIS build exited0, 184843083 bytes, sha256 97ceda526e38b57ee516565730c1ad2423de1bbc6742c7228deafab3477eeba8; PE x64 and both versions0.4.2, all five tools+mpv input/fonts/licenses present in NSIS file entries.
 Task 3: post-bundle release smoke ready660ms, no conversion jobs, seek100s/rate1.5/pause persist passed.
 Task 3: pushed independent branch and created/attached Draft PR7, base fc1fa80; no merge/Release.
+Task 3: complete (commits 5774288..aed4b25, tests: C:/Users/14582/.cargo/bin/cargo.exe test --manifest-path src-tauri/Cargo.toml --locked --offline → test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s)
+
+Final: all three tasks complete. Installer, initial source ZIP and checksum manifest verified before task-done; final documentation archival changes no application code. Worktree retained for PR feedback.
