@@ -1,0 +1,43 @@
+{
+  "prepareMs": 35,
+  "snapshot": {
+    "session": "native-smoke",
+    "itemId": "learn-1792152129456-2",
+    "ready": true,
+    "position": 0,
+    "duration": 156.958,
+    "rate": 1,
+    "paused": false,
+    "volume": 0.8,
+    "muted": false,
+    "ended": false,
+    "subtitles": [],
+    "subtitleId": null,
+    "error": null
+  },
+  "readyMs": 660,
+  "tasks": [],
+  "paused": {
+    "session": "native-smoke",
+    "itemId": "learn-1792152129456-2",
+    "ready": true,
+    "position": 100.468,
+    "duration": 156.958,
+    "rate": 1.5,
+    "paused": true,
+    "volume": 0.8,
+    "muted": false,
+    "ended": false,
+    "subtitles": [],
+    "subtitleId": null,
+    "error": null
+  },
+  "progress": {
+    "itemId": "learn-1792152129456-2",
+    "positionMs": 100468,
+    "durationMs": 156958,
+    "completed": false,
+    "playbackRate": 1.5,
+    "lastPlayedAt": 1792152130453
+  }
+}

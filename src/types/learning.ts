@@ -26,6 +26,6 @@ export interface LearningEnqueueResult{tasks:DownloadTask[];seriesIds:string[];a
 import type {PlaylistEntry} from '../types';
 export interface SeriesUpdate{series:LearningSeries;preview:MediaPreview;newEntries:PlaylistEntry[];template:DownloadRequest}
 
-export interface PlaybackPlan{mode:'direct'|'remux'|'transcode';format:string;reason:string;cached:boolean}
+export interface PlaybackPlan{mode:'native'|'direct'|'remux'|'transcode';format:string;reason:string;cached:boolean}
 export interface PlaybackPreparation{session:string;itemId:string;mode:PlaybackPlan['mode']|null;state:string;percent:number|null;eta:number|null}
 export interface CacheInfo{playbackBytes:number;thumbnailBytes:number;subtitleBytes:number;removedBytes:number}

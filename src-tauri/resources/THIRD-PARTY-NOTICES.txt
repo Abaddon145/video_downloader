@@ -16,3 +16,5 @@ Exact versions, official release URLs and SHA256 digests are in components.json 
 Desktop interface source is provided with this personal-use build. The bundled executables remain under their respective upstream licenses.
 
 Learning Library v0.4.0: rusqlite 0.32.1 (MIT), libsqlite3-sys 0.30.1 (MIT), bundled SQLite 3.46.0 (public domain). Exact added Rust dependency versions, source/archive digests and license copies: learning-components.json and licenses/learning-rust/.
+
+Native learning playback v0.4.2: mpv build20261015, source commit492bae0768, Windows x86_64 build from https://github.com/shinchiro/mpv-winbuild-cmake/releases/tag/20261015 (listed by https://mpv.io/installation/). Upstream copyright/license: licenses/mpv-Copyright.txt, mpv-GPL-2.txt, mpv-LGPL-2.1.txt. FFmpeg static dependencies retain their upstream licenses; GPL-3.txt remains included. Exact release archive SHA256 and source/build URLs are in components.json; executable SHA256 in tools/binaries.json. The executable runs as a separate controlled process.

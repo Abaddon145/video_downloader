@@ -107,6 +107,8 @@ async fn update_engine(service: AppService<'_>) -> AppResult<EngineInfo> {
 #[tauri::command]
 fn exit_app(app: tauri::AppHandle, service: AppService<'_>, media: AppMedia<'_>) -> AppResult<()> {
     app.state::<Arc<learning::service::LearningService>>()
+        .native_shutdown();
+    app.state::<Arc<learning::service::LearningService>>()
         .flush_progress()?;
     media.shutdown()?;
     service.shutdown();
@@ -237,6 +239,10 @@ pub fn run() {
             learning_live_progress,
             learning_save_progress,
             learning_flush_progress,
+            learning_native_start,
+            learning_native_control,
+            learning_native_viewport,
+            learning_native_save_progress,
             learning_prepare_player,
             learning_cancel_player,
             learning_cache_info,
@@ -309,17 +315,22 @@ pub fn run() {
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => show_main(app),
-                    "exit" => match app
-                        .state::<Arc<learning::service::LearningService>>()
-                        .flush_progress()
-                        .and_then(|_| app.state::<Arc<ffmpeg::runner::MediaService>>().shutdown())
-                    {
-                        Ok(()) => {
-                            app.state::<Arc<Service>>().shutdown();
-                            app.exit(0);
+                    "exit" => {
+                        app.state::<Arc<learning::service::LearningService>>()
+                            .native_shutdown();
+                        match app
+                            .state::<Arc<learning::service::LearningService>>()
+                            .flush_progress()
+                            .and_then(|_| {
+                                app.state::<Arc<ffmpeg::runner::MediaService>>().shutdown()
+                            }) {
+                            Ok(()) => {
+                                app.state::<Arc<Service>>().shutdown();
+                                app.exit(0);
+                            }
+                            Err(error) => native::message(&error),
                         }
-                        Err(error) => native::message(&error),
-                    },
+                    }
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
@@ -344,6 +355,10 @@ pub fn run() {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
                 use tauri::Emitter;
+                window
+                    .app_handle()
+                    .state::<Arc<learning::service::LearningService>>()
+                    .native_pause();
                 let _ = window.emit("learning-player-hidden", ());
                 let _ = window
                     .app_handle()
@@ -359,6 +374,8 @@ pub fn run() {
                 event,
                 tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit
             ) {
+                app.state::<Arc<learning::service::LearningService>>()
+                    .native_shutdown();
                 let _ = app
                     .state::<Arc<learning::service::LearningService>>()
                     .flush_progress();

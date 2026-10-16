@@ -76,6 +76,7 @@ pub async fn learning_prepare_player(
     support: Option<super::compatibility::BrowserPlaybackSupport>,
     fallback: Option<u8>,
     force: Option<bool>,
+    native: Option<bool>,
 ) -> AppResult<PlayerMedia> {
     let l = learning.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -86,6 +87,7 @@ pub async fn learning_prepare_player(
             support.unwrap_or_default(),
             fallback.unwrap_or(0),
             force.unwrap_or(false),
+            native.unwrap_or(false),
         )
     })
     .await
@@ -214,4 +216,51 @@ pub async fn learning_regenerate_thumbnail(
     tauri::async_runtime::spawn_blocking(move || l.regenerate_thumbnail(&id, confirmed))
         .await
         .map_err(|_| "图片生成线程异常")?
+}
+
+use super::native_player::{NativeAction, NativeSnapshot, NativeViewport};
+#[tauri::command]
+pub async fn learning_native_start(
+    learning: Learning<'_>,
+    item_id: String,
+    session: String,
+    viewport: NativeViewport,
+    autoplay: bool,
+) -> AppResult<NativeSnapshot> {
+    let l = learning.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        l.native_start(&item_id, &session, viewport, autoplay)
+    })
+    .await
+    .map_err(|_| "播放线程异常")?
+}
+#[tauri::command]
+pub async fn learning_native_control(
+    learning: Learning<'_>,
+    session: String,
+    action: NativeAction,
+) -> AppResult<NativeSnapshot> {
+    let l = learning.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || l.native_control(&session, action))
+        .await
+        .map_err(|_| "播放控制线程异常")?
+}
+#[tauri::command]
+pub fn learning_native_viewport(
+    learning: Learning<'_>,
+    session: String,
+    viewport: NativeViewport,
+) -> AppResult<()> {
+    learning.native_viewport(&session, viewport)
+}
+#[tauri::command]
+pub async fn learning_native_save_progress(
+    learning: Learning<'_>,
+    session: String,
+    ended: Option<bool>,
+) -> AppResult<PlaybackProgress> {
+    let l = learning.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || l.native_save(&session, ended.unwrap_or(false)))
+        .await
+        .map_err(|_| "播放保存线程异常")?
 }

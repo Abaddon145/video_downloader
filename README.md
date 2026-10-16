@@ -2,6 +2,8 @@
 
 基于官方 **yt-dlp** 的中文桌面下载器。Windows 10/11 x64，Tauri 2 + React + TypeScript。
 
+**v0.4.2 学习播放**：内置 mpv，在映流内直接打开原视频，支持 WMV/MKV/AVI 等格式；保留倍速、字幕、笔记和学习进度。需要时可手动转换兼容视频。[使用与验收记录](docs/native-learning-playback-v0.4.2.md)。
+
 ## 日常使用
 
 1. 安装后，从桌面或开始菜单打开「视频下载器」。
@@ -57,7 +59,7 @@ npm run prepare:tools
 npm run tauri -- dev
 ```
 
-组件准备脚本从官方发行地址下载 yt-dlp、FFmpeg/ffprobe、Deno，**校验固定 SHA256 后才允许打包**。下载使用本机静态系统代理（若存在）；软件内的代理仍默认关闭。FFmpeg 上游 `latest` 发行文件可能变更，校验不匹配时必须重新核对官方摘要，不应跳过校验。
+组件准备脚本从固定上游发行地址下载 yt-dlp、FFmpeg/ffprobe、Deno 和 mpv，**校验固定 SHA256 后才允许打包**。下载使用本机静态系统代理（若存在）；软件内的代理仍默认关闭。所有组件均固定发行地址和 SHA256；mpv 使用来源清单标明的 Windows 构建。校验不匹配时应停止并核对上游摘要。
 
 ```powershell
 npm test

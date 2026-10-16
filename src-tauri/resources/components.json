@@ -14,10 +14,23 @@
     "license": "MIT"
   },
   "ffmpeg": {
-    "version": "master-latest-2026-10-08",
-    "url": "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip",
-    "sha256": "0e95afd64d3a5426c94d1acb73d3b1b3fb5f7e72893c3133c03e25b5ad990b00",
+    "version": "N-127236-g17ec998942-20261007",
+    "url": "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/autobuild-2026-10-07-19-53/ffmpeg-N-127236-g17ec998942-win64-gpl.zip",
+    "sha256": "afedb6a5b90b4b05bbd72d51684e99e1c1fde494bf18d0e9041f4ece5c54bba1",
     "source": "https://github.com/yt-dlp/FFmpeg-Builds",
     "license": "GPL-3.0-or-later (GPL build)"
+  },
+  "mpv": {
+    "version": "20261015-git-492bae0768",
+    "url": "https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20261015/mpv-x86_64-20261015-git-492bae0768.7z",
+    "sha256": "f9becefe40e2a29d2ce5f3ab231ff094f9cf3e4038ff014cfe4a0c09ad90e79e",
+    "source": "https://github.com/mpv-player/mpv/tree/492bae0768",
+    "buildSource": "https://github.com/shinchiro/mpv-winbuild-cmake",
+    "releaseAssetMetadata": "https://api.github.com/repos/shinchiro/mpv-winbuild-cmake/releases/assets/642194013",
+    "archive": "7z",
+    "license": "mpv GPL-2.0-or-later; bundled static dependencies retain their upstream licenses",
+    "extraFiles": [
+      "mpv/fonts.conf"
+    ]
   }
 }

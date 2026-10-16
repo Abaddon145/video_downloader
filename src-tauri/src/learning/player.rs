@@ -154,6 +154,7 @@ impl LearningService {
                 format!("{}-cache", shared.task)
             });
         drop(state);
+        self.native_stop(session);
         if let Some(verification) = verification {
             self.media.cancel_editor(&verification)?;
         }
@@ -167,6 +168,7 @@ impl LearningService {
         support: BrowserPlaybackSupport,
         fallback: u8,
         force: bool,
+        native_requested: bool,
     ) -> AppResult<PlayerMedia> {
         crate::media::trim::timeline::validate_session(session)?;
         self.playback
@@ -199,7 +201,17 @@ impl LearningService {
             settings.playback_preference
         };
         let mut plan = compatibility::plan(&info, support, preference, fallback)?;
-        let path = if plan.mode == PlaybackMode::Direct {
+        if native_requested
+            && !proxy
+            && preference != PlaybackPreference::Compatible
+            && fallback == 0
+        {
+            plan.mode = PlaybackMode::Native;
+            plan.reason = "直接播放原文件".into();
+        }
+        let path = if plan.mode == PlaybackMode::Native {
+            source.to_string_lossy().into_owned()
+        } else if plan.mode == PlaybackMode::Direct {
             self.media.authorize_asset(session, &source)?;
             source.to_string_lossy().into_owned()
         } else {
@@ -207,7 +219,7 @@ impl LearningService {
         };
         let mut subtitles = vec![];
         let mut warnings = vec![];
-        if settings.auto_subtitles {
+        if settings.auto_subtitles && plan.mode != PlaybackMode::Native {
             let stem = source
                 .file_stem()
                 .unwrap_or_default()

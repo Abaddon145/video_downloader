@@ -11,3 +11,5 @@ test('playlist learning opt-in preserves full preview and independent frozen dow
 test('playback fallback is bounded and source preferences never loop',()=>{
  assert.equal(nextPlaybackFallback('direct',0),1);assert.equal(nextPlaybackFallback('remux',1),2);assert.equal(nextPlaybackFallback('transcode',2),null);
 });
+
+test('native_failure_never_silently_starts_full_transcode',()=>{assert.equal(nextPlaybackFallback('native',0),null);});
