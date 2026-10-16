@@ -10,6 +10,7 @@ pub struct BrowserPlaybackSupport {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PlaybackMode {
+    Native,
     Direct,
     Remux,
     Transcode,
@@ -100,6 +101,7 @@ pub fn plan(
         },
         cached: false,
         reason: match mode {
+            PlaybackMode::Native => "直接播放原文件",
             PlaybackMode::Direct => "当前浏览器支持原始视频",
             PlaybackMode::Remux => "保留视频和音频编码，仅调整容器",
             PlaybackMode::Transcode => "转换为 H.264 / AAC 兼容视频",
