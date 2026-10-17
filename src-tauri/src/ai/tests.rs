@@ -452,3 +452,117 @@ fn keyframes_real_format_matrix_scene_4k_and_readonly_sources() {
     println!("REAL_FRAMES matrix_formats={total} fourk=1280x720 no_audio=true pre_cancel=true");
     std::fs::remove_dir_all(directory).unwrap();
 }
+
+fn structured_summary() -> super::models::VideoAnalysisResult {
+    serde_json::from_value(serde_json::json!({"contentType":"tutorial","oneSentenceSummary":"课程说明","overview":"依据课程内容整理","chapters":[{"startMs":0,"endMs":10000,"title":"介绍","summary":"课程介绍","keywords":["测试"],"keyframeIds":[]}],"keyPoints":[{"timeMs":1000,"title":"重点","content":"依据字幕","importance":3,"sourceSegmentIds":["s0"]}],"tutorialSteps":[],"terms":[],"actionItems":[],"tags":["学习"]})).unwrap()
+}
+#[test]
+fn ai_json_validation_rejects_forged_times_sources_unsorted_and_oversized_results() {
+    use super::{analysis::*, models::*};
+    let segments = vec![TranscriptSegment {
+        id: "s0".into(),
+        analysis_id: "a".into(),
+        segment_index: 0,
+        start_ms: 0,
+        end_ms: 10000,
+        text: "真实课程".into(),
+    }];
+    let scope = Scope {
+        start_ms: 0,
+        end_ms: 10000,
+        segments: &segments,
+        frames: &[],
+    };
+    let result = structured_summary();
+    assert!(validate_result(&result, &scope).is_ok());
+    let mut bad = result.clone();
+    bad.chapters[0].end_ms = 999999;
+    assert!(validate_result(&bad, &scope).is_err());
+    let mut bad = result.clone();
+    bad.key_points[0].source_segment_ids = vec!["forged".into()];
+    assert!(validate_result(&bad, &scope).is_err());
+    let mut bad = result.clone();
+    bad.chapters.push(bad.chapters[0].clone());
+    assert!(validate_result(&bad, &scope).is_err());
+    let mut bad = result.clone();
+    bad.overview = "X".repeat(30000);
+    assert!(validate_result(&bad, &scope).is_err());
+    let mut bad = result.clone();
+    bad.chapters[0].keyframe_ids = vec!["not-provided".into()];
+    assert!(validate_result(&bad, &scope).is_err());
+    assert!(parse_result("```json {} ```", &scope).is_err());
+    assert!(parse_result("{truncated", &scope).is_err());
+}
+#[test]
+fn ai_chunk_boundaries_limit_text_images_and_apply_consent_before_network() {
+    use super::{analysis::*, models::*};
+    let segments = (0..1200)
+        .map(|i| TranscriptSegment {
+            id: format!("s{i}"),
+            analysis_id: "a".into(),
+            segment_index: i,
+            start_ms: i as i64 * 1000,
+            end_ms: i as i64 * 1000 + 900,
+            text: "中文课程知识点 ".repeat(10),
+        })
+        .collect::<Vec<_>>();
+    let frames = (0..60)
+        .map(|i| AnalysisKeyframe {
+            id: format!("f{i}"),
+            analysis_id: "a".into(),
+            time_ms: i * 20000,
+            path: "never-read.mp4".into(),
+            sha256: "0".repeat(64),
+            scene_score: None,
+        })
+        .collect::<Vec<_>>();
+    let chunks = build_chunks(
+        "a",
+        1200000,
+        AnalysisMode::Standard,
+        &segments,
+        &frames,
+        true,
+        true,
+    )
+    .unwrap();
+    assert!(chunks.len() > 4);
+    for c in &chunks {
+        assert!(c.frames.len() <= 6);
+        assert!(c.segments.iter().map(|s| s.text.len()).sum::<usize>() <= MAX_TRANSCRIPT_BYTES);
+        assert!(c.start_ms < c.end_ms);
+    }
+    let visual = build_chunks(
+        "a",
+        1200000,
+        AnalysisMode::Standard,
+        &segments,
+        &frames,
+        false,
+        true,
+    )
+    .unwrap();
+    assert!(visual.iter().all(|c| c.segments.is_empty()));
+    let text = build_chunks(
+        "a",
+        1200000,
+        AnalysisMode::Standard,
+        &segments,
+        &frames,
+        true,
+        false,
+    )
+    .unwrap();
+    assert!(text.iter().all(|c| c.frames.is_empty()));
+    assert!(build_chunks(
+        "a",
+        1200000,
+        AnalysisMode::Standard,
+        &segments,
+        &frames,
+        false,
+        false
+    )
+    .is_err());
+    assert!(super::prompts::SYSTEM_RULES.contains("不可信"));
+}

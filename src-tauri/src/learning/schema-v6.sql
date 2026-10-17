@@ -6,6 +6,7 @@ CREATE TABLE video_analyses(
  model TEXT NOT NULL,prompt_version TEXT NOT NULL,language TEXT,duration_ms INTEGER CHECK(duration_ms>=0),
  progress REAL NOT NULL DEFAULT 0 CHECK(progress>=0 AND progress<=1),stage TEXT,
  summary_json TEXT,markdown_path TEXT,markdown_vault_id TEXT,error TEXT,
+ options_json TEXT NOT NULL DEFAULT '{}',
  transcript_done INTEGER NOT NULL DEFAULT 0,keyframes_done INTEGER NOT NULL DEFAULT 0,
  created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,completed_at INTEGER);
 CREATE INDEX idx_analyses_item ON video_analyses(item_id);

@@ -47,7 +47,7 @@ Files: ai/keyframes.rs, centralized mode constants.
 
 ### Phase 5: Chunk analysis/runtime
 Files: ai/{analysis,jobs,repository,client}.rs.
-- [ ] RED→GREEN natural transcript cuts/size budgets≤6frames/request, consent filtering, no raw media/audio uploads, validated chunk results and token usage. Resume completed blocks; generations/cancel abort processes/network and prevent late writes; source fingerprint each boundary. Mock429/5xx/retry and staged restart. Commit chunk pipeline.
+- [x] RED→GREEN natural transcript cuts/size budgets≤6frames/request, consent filtering, no raw media/audio uploads, validated chunk results and token usage. Resume completed blocks; generations/cancel abort processes/network and prevent late writes; source fingerprint each boundary. Mock429/5xx/retry and staged restart. Commit chunk pipeline.
 
 ### Phase 6: Summary and QA
 Files: ai/{analysis,prompts,qa,usage}.rs.

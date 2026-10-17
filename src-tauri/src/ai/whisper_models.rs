@@ -6,7 +6,7 @@ use crate::{domain::AppResult, native};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::{fs, io::Write, path::PathBuf, sync::Arc, time::Duration};
-use tauri::Emitter;
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelView {
@@ -72,7 +72,7 @@ impl AiService {
         snapshot.status = status.into();
         snapshot.received = received;
         snapshot.error = error;
-        let _ = self.app.emit("ai-model-download-updated", snapshot.clone());
+        self.emit("ai-model-download-updated", snapshot.clone());
         Ok(())
     }
     pub fn download_model(self: &Arc<Self>, model_id: &str) -> AppResult<ModelDownload> {
@@ -176,7 +176,7 @@ impl AiService {
         native::replace_file(&temp.0, &dir.join(&spec.filename))
             .map_err(|_| "无法启用已验证模型，请检查文件权限")?;
         snapshot.status = "completed".into();
-        let _ = self.app.emit("ai-model-download-updated", snapshot.clone());
+        self.emit("ai-model-download-updated", snapshot.clone());
         Ok(())
     }
     pub fn cancel_model_download(&self, id: &str) -> AppResult<()> {
@@ -190,7 +190,7 @@ impl AiService {
             return Ok(());
         }
         snapshot.status = "cancelled".into();
-        let _ = self.app.emit("ai-model-download-updated", snapshot.clone());
+        self.emit("ai-model-download-updated", snapshot.clone());
         if let Some(task) = state.task.take() {
             task.abort();
         }

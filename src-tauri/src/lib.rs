@@ -415,3 +415,8 @@ pub fn run() {
         Err(error) => native::message(&format!("软件启动失败：{error}")),
     }
 }
+
+// Link Tauri's existing Common Controls v6 manifest into the library test harness too.
+#[cfg(all(test, target_os = "windows"))]
+#[link(name = "resource", kind = "static")]
+extern "C" {}

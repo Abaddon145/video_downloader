@@ -53,6 +53,22 @@ pub fn open(path: &Path) -> AppResult<Connection> {
         tx.execute_batch(include_str!("schema-v6.sql"))
             .map_err(error)?;
     }
+    // Preserve databases written by the early v0.5 development builds.
+    let has_options = tx
+        .prepare("PRAGMA table_info(video_analyses)")
+        .map_err(error)?
+        .query_map([], |r| r.get::<_, String>(1))
+        .map_err(error)?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(error)?
+        .iter()
+        .any(|name| name == "options_json");
+    if !has_options {
+        tx.execute_batch(
+            "ALTER TABLE video_analyses ADD COLUMN options_json TEXT NOT NULL DEFAULT '{}';",
+        )
+        .map_err(error)?;
+    }
     tx.execute_batch("PRAGMA user_version=6;").map_err(error)?;
     tx.commit().map_err(error)?;
     enable_search(&c);

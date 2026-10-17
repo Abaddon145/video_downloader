@@ -5,7 +5,7 @@ use std::path::Path;
 pub struct Repository {
     pub(crate) conn: Connection,
 }
-const COLUMNS:&str="id,item_id,source_path,source_fingerprint,status,analysis_mode,model,prompt_version,language,duration_ms,progress,stage,summary_json,markdown_path,markdown_vault_id,error,created_at,updated_at,completed_at";
+const COLUMNS:&str="id,item_id,source_path,source_fingerprint,status,analysis_mode,model,prompt_version,language,duration_ms,progress,stage,summary_json,markdown_path,markdown_vault_id,error,created_at,updated_at,completed_at,options_json,transcript_done,keyframes_done";
 fn row(r: &rusqlite::Row<'_>) -> rusqlite::Result<VideoAnalysis> {
     let mode: String = r.get(5)?;
     let json: Option<String> = r.get(12)?;
@@ -20,7 +20,17 @@ fn row(r: &rusqlite::Row<'_>) -> rusqlite::Result<VideoAnalysis> {
             })
         })
         .transpose()?;
+    let raw: String = r.get(19)?;
+    if raw.len() > 4096 {
+        return Err(rusqlite::Error::InvalidQuery);
+    }
+    let options: AnalysisOptions = serde_json::from_str(&raw).map_err(|e| {
+        rusqlite::Error::FromSqlConversionFailure(19, rusqlite::types::Type::Text, Box::new(e))
+    })?;
     Ok(VideoAnalysis {
+        options,
+        transcript_done: r.get(20)?,
+        keyframes_done: r.get(21)?,
         id: r.get(0)?,
         item_id: r.get(1)?,
         source_path: r.get(2)?,
@@ -194,5 +204,97 @@ impl Repository {
             .collect::<Result<Vec<_>, _>>()
             .map_err(db::error)?;
         Ok(rows)
+    }
+}
+
+impl Repository {
+    pub fn all_transcript(&self, id: &str) -> AppResult<Vec<TranscriptSegment>> {
+        let mut statement=self.conn.prepare("SELECT id,analysis_id,segment_index,start_ms,end_ms,text FROM transcript_segments WHERE analysis_id=?1 ORDER BY segment_index LIMIT 200001").map_err(db::error)?;
+        let rows = statement
+            .query_map([id], |r| {
+                Ok(TranscriptSegment {
+                    id: r.get(0)?,
+                    analysis_id: r.get(1)?,
+                    segment_index: r.get(2)?,
+                    start_ms: r.get(3)?,
+                    end_ms: r.get(4)?,
+                    text: r.get(5)?,
+                })
+            })
+            .map_err(db::error)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(db::error)?;
+        if rows.len() > 200000 {
+            return Err("转录段落过多，请先分割视频".into());
+        }
+        Ok(rows)
+    }
+    pub fn prepare_chunks(
+        &mut self,
+        id: &str,
+        chunks: &[super::analysis::AnalysisChunkInput],
+    ) -> AppResult<()> {
+        self.get(id)?;
+        let tx = self.conn.transaction().map_err(db::error)?;
+        let existing=tx.prepare("SELECT id,chunk_index FROM analysis_chunks WHERE analysis_id=?1 ORDER BY chunk_index").map_err(db::error)?.query_map([id],|r|Ok((r.get::<_,String>(0)?,r.get::<_,usize>(1)?))).map_err(db::error)?.collect::<Result<Vec<_>,_>>().map_err(db::error)?;
+        if !existing.is_empty()
+            && (existing.len() != chunks.len()
+                || existing.iter().any(|(saved, index)| {
+                    chunks.get(*index).is_none_or(|input| input.id != *saved)
+                }))
+        {
+            return Err("本地素材或上传权限已变化，请重新分析或重新生成总结".into());
+        }
+        for c in chunks {
+            tx.execute("INSERT OR IGNORE INTO analysis_chunks(id,analysis_id,chunk_index,start_ms,end_ms,status) VALUES(?1,?2,?3,?4,?5,'queued')",rusqlite::params![c.id,id,c.chunk_index,c.start_ms,c.end_ms]).map_err(db::error)?;
+        }
+        tx.execute("UPDATE analysis_chunks SET status='queued' WHERE analysis_id=?1 AND status IN ('running','failed')",[id]).map_err(db::error)?;
+        tx.commit().map_err(db::error)
+    }
+    pub fn cached_chunk(
+        &self,
+        chunk: &super::analysis::AnalysisChunkInput,
+    ) -> AppResult<Option<VideoAnalysisResult>> {
+        let value: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT result_json FROM analysis_chunks WHERE id=?1 AND status='completed'",
+                [&chunk.id],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(db::error)?
+            .flatten();
+        value
+            .map(|json| super::analysis::parse_result(&json, &chunk.scope()))
+            .transpose()
+    }
+    pub fn chunk_status(
+        &self,
+        id: &str,
+        status: &str,
+        result: Option<&VideoAnalysisResult>,
+    ) -> AppResult<()> {
+        if !["running", "completed", "failed"].contains(&status) {
+            return Err("分段分析状态无效".into());
+        }
+        let json = result
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(|_| "无法保存分段分析")?;
+        let changed=self.conn.execute("UPDATE analysis_chunks SET status=?2,result_json=COALESCE(?3,result_json) WHERE id=?1 AND status<>'completed' AND EXISTS(SELECT 1 FROM video_analyses a WHERE a.id=analysis_chunks.analysis_id AND a.status='analyzing_chunks')",rusqlite::params![id,status,json]).map_err(db::error)?;
+        if changed != 1 {
+            return Err("分段分析已取消或状态已变化".into());
+        }
+        Ok(())
+    }
+    pub fn completed_chunks(&self, id: &str) -> AppResult<u64> {
+        self.conn
+            .query_row(
+                "SELECT count(*) FROM analysis_chunks WHERE analysis_id=?1 AND status='completed'",
+                [id],
+                |r| r.get(0),
+            )
+            .map_err(db::error)
     }
 }

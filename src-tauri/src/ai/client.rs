@@ -11,9 +11,12 @@ pub struct TokenUsage {
     pub input_tokens: Option<u64>,
     pub output_tokens: Option<u64>,
     pub cached_tokens: Option<u64>,
+    pub cache_miss_tokens: Option<u64>,
+    pub reasoning_tokens: Option<u64>,
 }
 #[derive(Debug)]
 pub struct ChatReply {
+    pub error: Option<String>,
     pub content: String,
     pub model: String,
     pub usage: TokenUsage,
@@ -65,7 +68,7 @@ impl DeepSeekClient {
             reqwest::header::HeaderValue::from_bytes(&[b"Bearer ".as_slice(), key].concat())
                 .map_err(|_| "API密钥格式无效")?;
         auth.set_sensitive(true);
-        if body.is_some_and(|b| serde_json::to_vec(b).map_or(true, |v| v.len() > 12 * 1024 * 1024))
+        if body.is_some_and(|b| serde_json::to_vec(b).map_or(true, |v| v.len() > 18 * 1024 * 1024))
         {
             return Err("AI请求内容过大，请减少本次内容".into());
         }
@@ -130,19 +133,32 @@ impl DeepSeekClient {
         messages: Vec<Value>,
     ) -> AppResult<ChatReply> {
         let v=self.request(key,"/chat/completions",Some(&json!({"model":model,"messages":messages,"response_format":{"type":"json_object"},"max_tokens":8192,"stream":false,"thinking":{"type":"disabled"}}))).await?;
-        let content = v
+        let text = v
             .pointer("/choices/0/message/content")
+            .and_then(Value::as_str);
+        let truncated = v
+            .pointer("/choices/0/finish_reason")
             .and_then(Value::as_str)
-            .filter(|s| !s.is_empty() && s.len() <= 1024 * 1024)
-            .ok_or("DeepSeek未返回完整分析内容，请重试")?
-            .to_owned();
-        if v.pointer("/choices/0/finish_reason")
-            .and_then(Value::as_str)
-            == Some("length")
-        {
-            return Err("DeepSeek输出被截断，请缩小分析内容后重试".into());
-        }
+            == Some("length");
+        let error = if truncated {
+            Some("DeepSeek输出被截断，请缩小分析内容后重试".into())
+        } else if text.is_none_or(|s| s.is_empty() || s.len() > 1024 * 1024) {
+            Some("DeepSeek未返回完整分析内容，请重试".into())
+        } else {
+            None
+        };
+        let content = if error.is_none() {
+            text.unwrap().to_owned()
+        } else {
+            String::new()
+        };
         let usage = TokenUsage {
+            cache_miss_tokens: v
+                .pointer("/usage/prompt_cache_miss_tokens")
+                .and_then(Value::as_u64),
+            reasoning_tokens: v
+                .pointer("/usage/completion_tokens_details/reasoning_tokens")
+                .and_then(Value::as_u64),
             input_tokens: v.pointer("/usage/prompt_tokens").and_then(Value::as_u64),
             output_tokens: v
                 .pointer("/usage/completion_tokens")
@@ -151,19 +167,31 @@ impl DeepSeekClient {
                 .pointer("/usage/prompt_cache_hit_tokens")
                 .and_then(Value::as_u64),
         };
-        if [usage.input_tokens, usage.output_tokens, usage.cached_tokens]
-            .into_iter()
-            .flatten()
-            .any(|n| n > i64::MAX as u64)
+        if [
+            usage.input_tokens,
+            usage.output_tokens,
+            usage.cached_tokens,
+            usage.cache_miss_tokens,
+            usage.reasoning_tokens,
+        ]
+        .into_iter()
+        .flatten()
+        .any(|n| n > i64::MAX as u64)
         {
             return Err("DeepSeek用量数据无效".into());
         }
         Ok(ChatReply {
+            error,
             content,
             model: v
                 .get("model")
                 .and_then(Value::as_str)
-                .filter(|s| s.len() <= 128)
+                .filter(|s| {
+                    s.len() <= 128
+                        && s.starts_with("deepseek-")
+                        && s.bytes()
+                            .all(|b| b.is_ascii_alphanumeric() || b"-_.".contains(&b))
+                })
                 .unwrap_or(model)
                 .into(),
             usage,
@@ -294,6 +322,71 @@ mod tests {
                 .await
                 .unwrap_err()
                 .contains("连接"));
+        });
+    }
+}
+
+impl ChatReply {
+    pub fn checked_content(&self) -> AppResult<&str> {
+        if let Some(error) = &self.error {
+            Err(error.clone())
+        } else {
+            Ok(&self.content)
+        }
+    }
+}
+#[cfg(test)]
+impl DeepSeekClient {
+    pub(crate) fn fixture(base: String) -> Self {
+        assert!(base.starts_with("http://127.0.0.1:"));
+        Self {
+            http: Self::builder(Duration::from_secs(5))
+                .no_proxy()
+                .build()
+                .unwrap(),
+            base,
+            delays: [Duration::ZERO; 2],
+        }
+    }
+}
+
+#[cfg(test)]
+mod response_limit_tests {
+    use super::*;
+    use std::{
+        io::{Read, Write},
+        net::TcpListener,
+    };
+    #[test]
+    fn truncated_outputs_preserve_usage_and_oversized_responses_are_rejected() {
+        tauri::async_runtime::block_on(async {
+            for oversized in [false, true] {
+                let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+                let client =
+                    DeepSeekClient::fixture(format!("http://{}", listener.local_addr().unwrap()));
+                let thread = std::thread::spawn(move || {
+                    let (mut stream, _) = listener.accept().unwrap();
+                    let mut buffer = [0; 65536];
+                    let _ = stream.read(&mut buffer);
+                    let payload = if oversized {
+                        "X".repeat(MAX_RESPONSE + 1)
+                    } else {
+                        json!({"model":"deepseek-flash","choices":[{"message":{"content":"{partial"},"finish_reason":"length"}],"usage":{"prompt_tokens":88,"completion_tokens":20}}).to_string()
+                    };
+                    let _=stream.write_all(format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{payload}",payload.len()).as_bytes());
+                });
+                let result = client
+                    .chat(b"sk-fake-private-value", "deepseek-flash", vec![])
+                    .await;
+                if oversized {
+                    assert!(result.unwrap_err().contains("超过"));
+                } else {
+                    let reply = result.unwrap();
+                    assert_eq!(reply.usage.input_tokens, Some(88));
+                    assert!(reply.checked_content().unwrap_err().contains("截断"));
+                }
+                thread.join().unwrap();
+            }
         });
     }
 }

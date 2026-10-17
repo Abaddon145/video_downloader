@@ -10,12 +10,31 @@ use std::{
     },
     time::Duration,
 };
-#[derive(Default)]
 pub struct Control {
     cancelled: AtomicBool,
+    signal: tokio::sync::watch::Sender<bool>,
     job: Mutex<Option<Arc<Job>>>,
 }
+impl Default for Control {
+    fn default() -> Self {
+        let (signal, _) = tokio::sync::watch::channel(false);
+        Self {
+            cancelled: AtomicBool::new(false),
+            signal,
+            job: Mutex::new(None),
+        }
+    }
+}
 impl Control {
+    pub async fn reply(
+        &self,
+        future: impl std::future::Future<Output = AppResult<super::client::ChatReply>>,
+    ) -> AppResult<super::client::ChatReply> {
+        self.check()?;
+        let mut receiver = self.signal.subscribe();
+        tokio::select! {biased;result=future=>result,_=receiver.wait_for(|cancelled|*cancelled)=>Err("分析已取消".into())}
+    }
+
     #[cfg(test)]
     pub(crate) fn has_job(&self) -> bool {
         self.job.lock().unwrap().is_some()
@@ -29,6 +48,7 @@ impl Control {
     }
     pub fn cancel(&self) {
         self.cancelled.store(true, Ordering::SeqCst);
+        self.signal.send_replace(true);
         if let Ok(job) = self.job.lock() {
             if let Some(job) = job.as_ref() {
                 let _ = job.terminate();

@@ -1,3 +1,6 @@
+pub mod analysis;
+#[cfg(test)]
+mod analysis_tests;
 pub mod client;
 pub mod commands;
 pub mod jobs;
@@ -10,4 +13,5 @@ pub mod settings;
 #[cfg(test)]
 mod tests;
 pub mod transcription;
+pub mod usage;
 pub mod whisper_models;

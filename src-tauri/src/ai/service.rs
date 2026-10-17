@@ -9,13 +9,20 @@ pub struct AiService {
     pub(crate) data: PathBuf,
     pub(crate) settings: Mutex<AppResult<super::settings::AiSettings>>,
     pub(crate) key_guard: Mutex<()>,
-    pub(crate) app: tauri::AppHandle,
+    pub(crate) app: Option<tauri::AppHandle>,
     pub(crate) resources: PathBuf,
     pub(crate) runtime: Mutex<super::jobs::AiRuntime>,
     pub(crate) models: Mutex<super::whisper_models::ModelRuntime>,
 }
 impl AiService {
     pub fn new(app: tauri::AppHandle, data: &Path, resources: &Path) -> Arc<Self> {
+        Self::create(Some(app), data, resources)
+    }
+    pub(crate) fn create(
+        app: Option<tauri::AppHandle>,
+        data: &Path,
+        resources: &Path,
+    ) -> Arc<Self> {
         let db = Repository::open(&data.join("learning.db")).and_then(|r| {
             r.recover()?;
             Ok(r)
@@ -51,6 +58,12 @@ impl AiService {
 }
 
 impl AiService {
+    pub(crate) fn emit<T: serde::Serialize + Clone>(&self, event: &str, payload: T) {
+        use tauri::Emitter;
+        if let Some(app) = &self.app {
+            let _ = app.emit(event, payload);
+        }
+    }
     pub fn settings(&self) -> AppResult<super::settings::AiSettingsView> {
         let settings = self
             .settings
@@ -146,7 +159,7 @@ impl AiService {
         }
         self.analysis(&id)
     }
-    fn owned(
+    pub(crate) fn owned(
         &self,
         id: &str,
         control: &Arc<super::jobs::Control>,
@@ -177,12 +190,11 @@ impl AiService {
         Ok(())
     }
     pub(crate) fn emit_analysis(&self, id: &str, event: &str) {
-        use tauri::Emitter;
         if let Ok(analysis) = self.analysis(id) {
-            let _ = self.app.emit(event, analysis);
+            self.emit(event, analysis);
         }
     }
-    fn check_source(source: &Path, expected: &str) -> AppResult<()> {
+    pub(crate) fn check_source(source: &Path, expected: &str) -> AppResult<()> {
         if super::transcription::fingerprint(source)? != expected {
             Err("源视频在分析过程中发生变化，请重新开始分析".into())
         } else {

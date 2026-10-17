@@ -18,6 +18,9 @@ impl AnalysisMode {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VideoAnalysis {
+    pub options: AnalysisOptions,
+    pub transcript_done: bool,
+    pub keyframes_done: bool,
     pub id: String,
     pub item_id: Option<String>,
     pub source_path: String,
@@ -121,4 +124,27 @@ pub struct AnalysisKeyframe {
     pub path: String,
     pub sha256: String,
     pub scene_score: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default, deny_unknown_fields)]
+pub struct AnalysisOptions {
+    pub local_only: bool,
+    pub transcribe_audio: bool,
+    pub allow_transcript: bool,
+    pub allow_images: bool,
+    pub whisper_model: String,
+    pub auto_generate_note: bool,
+}
+impl Default for AnalysisOptions {
+    fn default() -> Self {
+        Self {
+            local_only: true,
+            transcribe_audio: true,
+            allow_transcript: true,
+            allow_images: true,
+            whisper_model: "base".into(),
+            auto_generate_note: true,
+        }
+    }
 }
