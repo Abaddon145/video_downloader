@@ -50,7 +50,8 @@
       "resources/THIRD-PARTY-NOTICES.txt": "THIRD-PARTY-NOTICES.txt",
       "resources/licenses/": "licenses/",
       "resources/learning-components.json": "learning-components.json",
-      "resources/mpv-input.conf": "mpv-input.conf"
+      "resources/mpv-input.conf": "mpv-input.conf",
+      "resources/ai-components.json": "ai-components.json"
     },
     "windows": {
       "webviewInstallMode": {

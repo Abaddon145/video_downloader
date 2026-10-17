@@ -103,3 +103,11 @@ pub struct AnalysisPage {
     pub total: u64,
     pub page: u32,
 }
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TranscriptPage {
+    pub items: Vec<TranscriptSegment>,
+    pub total: u64,
+    pub page: u32,
+}

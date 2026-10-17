@@ -115,6 +115,7 @@ fn exit_app(app: tauri::AppHandle, service: AppService<'_>, media: AppMedia<'_>)
     app.state::<Arc<learning::service::LearningService>>()
         .flush_progress()?;
     media.shutdown()?;
+    app.state::<Arc<ai::service::AiService>>().shutdown();
     service.shutdown();
     app.exit(0);
     Ok(())
@@ -282,6 +283,14 @@ pub fn run() {
             batch_task_action,
             preview_sources,
             cancel_preview,
+            ai_whisper_models,
+            ai_model_download,
+            ai_download_whisper_model,
+            ai_cancel_model_download,
+            ai_import_whisper_model,
+            ai_start_transcription,
+            ai_cancel_analysis,
+            ai_transcript,
             ai_get_settings,
             ai_save_settings,
             ai_set_deepseek_key,
@@ -316,7 +325,11 @@ pub fn run() {
                 &service.data,
                 media.clone(),
             ));
-            app.manage(ai::service::AiService::new(&service.data));
+            app.manage(ai::service::AiService::new(
+                app.handle().clone(),
+                &service.data,
+                &service.resources,
+            ));
             app.manage(knowledge::service::KnowledgeService::new(&service.data));
             media.start();
             let show = MenuItem::with_id(app, "show", "打开视频下载器", true, None::<&str>)?;
@@ -339,6 +352,7 @@ pub fn run() {
                                 app.state::<Arc<ffmpeg::runner::MediaService>>().shutdown()
                             }) {
                             Ok(()) => {
+                                app.state::<Arc<ai::service::AiService>>().shutdown();
                                 app.state::<Arc<Service>>().shutdown();
                                 app.exit(0);
                             }
@@ -393,6 +407,7 @@ pub fn run() {
                 let _ = app
                     .state::<Arc<learning::service::LearningService>>()
                     .flush_progress();
+                app.state::<Arc<ai::service::AiService>>().shutdown();
                 let _ = app.state::<Arc<ffmpeg::runner::MediaService>>().shutdown();
                 app.state::<Arc<Service>>().shutdown();
             }

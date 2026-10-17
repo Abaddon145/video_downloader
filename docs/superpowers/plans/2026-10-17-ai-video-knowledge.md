@@ -38,8 +38,8 @@ Files: ai/{settings,client,prompts,usage}.rs, native credential entry, ai models
 
 ### Phase 3: Local Whisper
 Files: prepare-tools/components/licenses, ai/transcription.rs and model management, repository transcript commands.
-- [ ] Pin verified CPUx64 archive+DLLs; Base/Small immutable model URL/SHA/bytes from primary metadata, actual verification; no model inNSIS. Download/import progress/temporary/rename/cancel/retry.
-- [ ] RED→GREEN real local WAV pipeline16kHz/mono, timestamp JSON, no-audio skip/audio-only; missing/corrupt CLI/model, Unicode, interruption and process-tree cancellation; source hash unchanged. Commit local transcription after suites.
+- [x] Pin verified CPUx64 archive+DLLs; Base/Small immutable model URL/SHA/bytes from primary metadata, actual verification; no model inNSIS. Download/import progress/temporary/rename/cancel/retry.
+- [x] RED→GREEN real local WAV pipeline16kHz/mono, timestamp JSON, no-audio skip/audio-only; missing/corrupt CLI/model, Unicode, interruption and process-tree cancellation; source hash unchanged. Commit local transcription after suites.
 
 ### Phase 4: Keyframes
 Files: ai/keyframes.rs, centralized mode constants.

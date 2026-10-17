@@ -391,7 +391,16 @@ pub fn capture_bytes_with(
     limit: usize,
     on_start: impl FnOnce(Arc<Job>),
 ) -> AppResult<Vec<u8>> {
-    let (process, stdout, stderr) = spawn(exe, args)?;
+    capture_bytes_in(exe, args, limit, None, on_start)
+}
+pub fn capture_bytes_in(
+    exe: &Path,
+    args: &[String],
+    limit: usize,
+    directory: Option<&Path>,
+    on_start: impl FnOnce(Arc<Job>),
+) -> AppResult<Vec<u8>> {
+    let (process, stdout, stderr) = spawn_in(exe, args, directory)?;
     on_start(process.job.clone());
     let errors = std::thread::spawn(move || read_bounded(stderr, 64 * 1024));
     let mut output = Vec::new();

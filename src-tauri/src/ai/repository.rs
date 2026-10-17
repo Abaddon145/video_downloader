@@ -92,3 +92,71 @@ impl Repository {
             .ok_or_else(|| "找不到分析记录".into())
     }
 }
+
+impl Repository {
+    pub fn save_transcript(
+        &mut self,
+        id: &str,
+        language: Option<&str>,
+        segments: &[TranscriptSegment],
+    ) -> AppResult<()> {
+        let tx = self.conn.transaction().map_err(db::error)?;
+        let fts = tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='transcript_fts')",
+                [],
+                |r| r.get::<_, bool>(0),
+            )
+            .unwrap_or(false);
+        if fts {
+            tx.execute("DELETE FROM transcript_fts WHERE analysis_id=?1", [id])
+                .map_err(db::error)?;
+        }
+        tx.execute("DELETE FROM transcript_segments WHERE analysis_id=?1", [id])
+            .map_err(db::error)?;
+        for segment in segments {
+            tx.execute("INSERT INTO transcript_segments(id,analysis_id,segment_index,start_ms,end_ms,text) VALUES(?1,?2,?3,?4,?5,?6)",rusqlite::params![segment.id,id,segment.segment_index,segment.start_ms,segment.end_ms,segment.text]).map_err(db::error)?;
+            if fts {
+                tx.execute(
+                    "INSERT INTO transcript_fts(id,analysis_id,text) VALUES(?1,?2,?3)",
+                    rusqlite::params![segment.id, id, segment.text],
+                )
+                .map_err(db::error)?;
+            }
+        }
+        tx.execute(
+            "UPDATE video_analyses SET language=?2,transcript_done=1,updated_at=?3 WHERE id=?1",
+            rusqlite::params![id, language, crate::service::now()],
+        )
+        .map_err(db::error)?;
+        tx.commit().map_err(db::error)
+    }
+    pub fn transcript(&self, id: &str, page: u32) -> AppResult<TranscriptPage> {
+        self.get(id)?;
+        let total: u64 = self
+            .conn
+            .query_row(
+                "SELECT count(*) FROM transcript_segments WHERE analysis_id=?1",
+                [id],
+                |r| r.get(0),
+            )
+            .map_err(db::error)?;
+        let page = page.max(1).min(((total + 49) / 50).max(1) as u32);
+        let mut stmt=self.conn.prepare("SELECT id,analysis_id,segment_index,start_ms,end_ms,text FROM transcript_segments WHERE analysis_id=?1 ORDER BY segment_index LIMIT 50 OFFSET ?2").map_err(db::error)?;
+        let items = stmt
+            .query_map(rusqlite::params![id, (page - 1) * 50], |r| {
+                Ok(TranscriptSegment {
+                    id: r.get(0)?,
+                    analysis_id: r.get(1)?,
+                    segment_index: r.get(2)?,
+                    start_ms: r.get(3)?,
+                    end_ms: r.get(4)?,
+                    text: r.get(5)?,
+                })
+            })
+            .map_err(db::error)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(db::error)?;
+        Ok(TranscriptPage { items, total, page })
+    }
+}
