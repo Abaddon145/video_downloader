@@ -29,3 +29,33 @@ impl Repository {
         Ok(())
     }
 }
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UsageModel {
+    pub model: String,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub cached_tokens: u64,
+    pub unknown_requests: u64,
+}
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UsageView {
+    pub analyses: u64,
+    pub questions: u64,
+    pub models: Vec<UsageModel>,
+}
+impl super::service::AiService {
+    pub fn usage(&self, from_ms: i64, to_ms: i64) -> AppResult<UsageView> {
+        if from_ms < 0 || to_ms <= from_ms || to_ms > crate::service::now() as i64 + 86400000 {
+            return Err("用量统计时间范围无效".into());
+        }
+        self.with(|r|{
+   let (analyses,questions)=r.conn.query_row("SELECT count(DISTINCT CASE WHEN operation IN ('chunk','summary') THEN analysis_id END),COALESCE(sum(CASE WHEN operation IN ('question','explain') THEN 1 ELSE 0 END),0) FROM ai_usage WHERE created_at>=?1 AND created_at<?2",rusqlite::params![from_ms,to_ms],|r|Ok((r.get(0)?,r.get(1)?))).map_err(db::error)?;
+   let mut statement=r.conn.prepare("SELECT model,COALESCE(sum(input_tokens),0),COALESCE(sum(output_tokens),0),COALESCE(sum(cached_tokens),0),sum(CASE WHEN input_tokens IS NULL OR output_tokens IS NULL OR cached_tokens IS NULL THEN 1 ELSE 0 END) FROM ai_usage WHERE created_at>=?1 AND created_at<?2 GROUP BY model ORDER BY model").map_err(db::error)?;
+   let models=statement.query_map(rusqlite::params![from_ms,to_ms],|r|Ok(UsageModel{model:r.get(0)?,input_tokens:r.get(1)?,output_tokens:r.get(2)?,cached_tokens:r.get(3)?,unknown_requests:r.get(4)?})).map_err(db::error)?.collect::<Result<Vec<_>,_>>().map_err(db::error)?;
+   Ok(UsageView{analyses,questions,models})
+  })
+    }
+}

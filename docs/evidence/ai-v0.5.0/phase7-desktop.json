@@ -1,0 +1,50 @@
+{
+  "mocked": false,
+  "run": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v050\\workspace-1792203724411",
+  "passed": 5,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "real UI navigation and missing API key never queues paid analysis",
+      "passed": true,
+      "detail": {
+        "keyConfigured": false,
+        "paidRequests": 0
+      }
+    },
+    {
+      "name": "two durable tasks stay serial and queued cancellation preserves the active job",
+      "passed": true,
+      "detail": {
+        "first": "ai-1792203729495-1",
+        "queued": "ai-1792203729502-2",
+        "firstStatus": "completed",
+        "sourceSha256": "59dfb9a4acb36fe2a2affc14bacbee2920ff435cb13cc314a08c13f66ba7860e"
+      }
+    },
+    {
+      "name": "real desktop workspace displays persisted timestamped transcript",
+      "passed": true,
+      "detail": {
+        "renderedSegments": 1
+      }
+    },
+    {
+      "name": "active local cancellation and UI responsiveness",
+      "passed": true,
+      "detail": {
+        "status": "cancelled",
+        "uiRoundTripMs": 1
+      }
+    },
+    {
+      "name": "exit preserves queued and active records for manual recovery",
+      "passed": true,
+      "detail": {
+        "active": "interrupted",
+        "pending": "interrupted",
+        "automaticRestart": false
+      }
+    }
+  ]
+}

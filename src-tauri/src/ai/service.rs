@@ -159,3 +159,17 @@ impl AiService {
         }
     }
 }
+
+impl AiService {
+    pub fn library_videos(&self, query: &str, page: u32) -> AppResult<LibraryVideoPage> {
+        let query = crate::learning::repository::text(query, 200, false)?;
+        self.with(|r|{
+   let filter="(?1='' OR instr(lower(i.title||' '||s.title),lower(?1))>0)";
+   let total:u64=r.conn.query_row(&format!("SELECT count(*) FROM series_items i JOIN series s ON s.id=i.series_id WHERE {filter}"),[&query],|r|r.get(0)).map_err(crate::learning::db::error)?;
+   let page=page.max(1).min(((total+49)/50).max(1) as u32);
+   let mut stmt=r.conn.prepare(&format!("SELECT i.id,i.title,s.title,i.file_path,i.duration_ms FROM series_items i JOIN series s ON s.id=i.series_id WHERE {filter} ORDER BY s.sort_order,s.created_at DESC,s.id,i.sort_order,i.id LIMIT 50 OFFSET ?2")).map_err(crate::learning::db::error)?;
+   let items=stmt.query_map(rusqlite::params![query,(page-1)*50],|row|{let path:Option<String>=row.get(3)?;let available=path.as_deref().is_some_and(|path|crate::learning::importer::regular_file(path).is_ok());Ok(LibraryVideo{item_id:row.get(0)?,title:row.get(1)?,series_title:row.get(2)?,path,duration_ms:row.get(4)?,available})}).map_err(crate::learning::db::error)?.collect::<Result<Vec<_>,_>>().map_err(crate::learning::db::error)?;
+   Ok(LibraryVideoPage{items,total,page})
+  })
+    }
+}

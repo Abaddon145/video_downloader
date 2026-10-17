@@ -18,6 +18,7 @@ impl AnalysisMode {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VideoAnalysis {
+    pub title: Option<String>,
     pub options: AnalysisOptions,
     pub transcript_done: bool,
     pub keyframes_done: bool,
@@ -160,4 +161,22 @@ pub struct AnalysisRequest {
     pub transcribe_audio: bool,
     pub allow_transcript: bool,
     pub allow_images: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryVideo {
+    pub item_id: String,
+    pub title: String,
+    pub series_title: String,
+    pub path: Option<String>,
+    pub duration_ms: Option<i64>,
+    pub available: bool,
+}
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryVideoPage {
+    pub items: Vec<LibraryVideo>,
+    pub total: u64,
+    pub page: u32,
 }

@@ -15,6 +15,10 @@ await context.addInitScript(()=>{
  window.calls.push({command,args});
  if(command==='get_snapshot')return {settings:{downloadDir:'C:/downloads',concurrency:2,cookieMode:'none',browser:'edge',browserProfile:'',hasCookieFile:false,proxyEnabled:false,proxyUrl:'',autoCheckCoreUpdate:true,lastCoreUpdateCheck:null,cookieSummary:null,downloadPresets:[]},tasks:[],engine:{ready:true,version:'test',ffmpegVersion:'test',denoVersion:'test',error:null},notice:null,updating:false,previewing:false,coreUpdate:null};
  if(command==='get_media_settings')return null;
+ if(command==='ai_whisper_models')return [];
+ if(command==='ai_model_download')return null;
+ if(command==='ai_usage')return {analyses:0,questions:0,models:[]};
+ if(command==='ai_cache_info')return {bytes:0,clearableBytes:0};
  if(command==='ai_get_settings')return {settings,hasApiKey:key};
  if(command==='ai_set_deepseek_key'){key=true;return true;}
  if(command==='ai_clear_deepseek_key'){key=false;return;}

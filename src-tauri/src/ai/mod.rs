@@ -1,6 +1,7 @@
 pub mod analysis;
 #[cfg(test)]
 mod analysis_tests;
+pub mod cache;
 pub mod client;
 pub mod commands;
 pub mod jobs;

@@ -151,3 +151,44 @@ pub async fn ai_explain_segment(
         .ask_video(&id, "请解释当前片段的内容、要点及操作依据", Some(time_ms))
         .await
 }
+
+#[tauri::command]
+pub async fn ai_usage(ai: Ai<'_>, from_ms: i64, to_ms: i64) -> AppResult<super::usage::UsageView> {
+    let ai = ai.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || ai.usage(from_ms, to_ms))
+        .await
+        .map_err(|_| "读取用量统计失败")?
+}
+#[tauri::command]
+pub async fn ai_cache_info(ai: Ai<'_>) -> AppResult<super::cache::CacheInfo> {
+    let ai = ai.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || ai.cache_info())
+        .await
+        .map_err(|_| "读取AI缓存失败")?
+}
+#[tauri::command]
+pub async fn ai_clear_cache(ai: Ai<'_>) -> AppResult<super::cache::CacheInfo> {
+    let ai = ai.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || ai.clear_cache())
+        .await
+        .map_err(|_| "清理AI缓存失败")?
+}
+#[tauri::command]
+pub async fn ai_delete_analysis(ai: Ai<'_>, id: String) -> AppResult<Option<String>> {
+    let ai = ai.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || ai.delete_analysis(&id))
+        .await
+        .map_err(|_| "删除分析记录失败")?
+}
+
+#[tauri::command]
+pub async fn ai_library_videos(
+    ai: Ai<'_>,
+    query: String,
+    page: u32,
+) -> AppResult<LibraryVideoPage> {
+    let ai = ai.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || ai.library_videos(&query, page))
+        .await
+        .map_err(|_| "读取学习库视频失败")?
+}

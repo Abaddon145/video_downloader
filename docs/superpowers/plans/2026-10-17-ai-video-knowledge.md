@@ -55,7 +55,7 @@ Files: ai/{analysis,prompts,qa,usage}.rs.
 
 ### Phase 7: AI workspace
 Files: features/ai/{AiAnalysisPage,AnalysisQueue,AnalysisCard,AnalysisProgress,AnalysisResult,VideoSummary,VideoChapters,VideoAsk,AiUsage,AiSettings}.tsx, types/ai.ts, App routing, pricing config.
-- [ ] RED→GREEN media-centered queue/history/filter/details, consent modal, mode/model/local transcript/model install, cancel/retry/resume/delete, summary/chapters/usage/errors. Typed snapshots ignore oldIDs, transcript paging, controls accessible880wide; no technical jargon outside details. Commit AI UI.
+- [x] RED→GREEN media-centered queue/history/filter/details, consent modal, mode/model/local transcript/model install, cancel/retry/resume/delete, summary/chapters/usage/errors. Typed snapshots ignore oldIDs, transcript paging, controls accessible880wide; no technical jargon outside details. Commit AI UI.
 
 ### Phase 8: Vault backend
 Files: knowledge/{vault,markdown,index,links,search,obsidian,service,commands,models}.rs.

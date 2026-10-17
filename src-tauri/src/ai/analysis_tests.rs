@@ -536,3 +536,106 @@ fn ai_real_local_pipeline_mocked_summary_failure_resume_and_regenerate_without_w
     drop(s);
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn ai_usage_cache_and_record_deletion_keep_source_notes_and_referenced_frames() {
+    let (s, _, dir) = service();
+    let cache = dir.join("ai/cache/a/keyframes");
+    std::fs::create_dir_all(&cache).unwrap();
+    let kept = cache.join("kept.jpg");
+    std::fs::write(&kept, b"JPEG test bytes").unwrap();
+    let unused = cache.join("unused.jpg");
+    std::fs::write(&unused, b"unused").unwrap();
+    let audio = dir.join("ai/cache/a/audio.wav");
+    std::fs::write(&audio, b"temporary audio").unwrap();
+    let note = dir.join("knowledge-note.md");
+    std::fs::write(&note, "# Preserve my ordinary note").unwrap();
+    s.with(|r| {
+        r.save_keyframes(
+            "a",
+            &[AnalysisKeyframe {
+                id: "f1".into(),
+                analysis_id: "a".into(),
+                time_ms: 0,
+                path: kept.to_string_lossy().into_owned(),
+                sha256: "0".repeat(64),
+                scene_score: None,
+            }],
+        )?;
+        r.record_usage(
+            Some("a"),
+            "question",
+            "deepseek-flash",
+            &super::client::TokenUsage {
+                input_tokens: Some(100),
+                output_tokens: Some(20),
+                cached_tokens: Some(10),
+                ..Default::default()
+            },
+        )
+    })
+    .unwrap();
+    assert!(s.clear_cache().is_err());
+    s.runtime.lock().unwrap().active = None;
+    let stats = s.usage(0, crate::service::now() as i64 + 1000).unwrap();
+    assert_eq!(stats.questions, 1);
+    assert_eq!(stats.models[0].input_tokens, 100);
+    let info = s.cache_info().unwrap();
+    assert!(info.bytes > info.clearable_bytes && info.clearable_bytes > 0);
+    s.clear_cache().unwrap();
+    assert!(kept.exists());
+    assert!(!unused.exists());
+    assert!(!audio.exists());
+    assert!(note.exists());
+    s.delete_analysis("a").unwrap();
+    assert!(s.analysis("a").is_err());
+    assert!(note.exists());
+    assert!(dir.join("not-uploaded.mp4").exists());
+    assert_eq!(
+        s.usage(0, crate::service::now() as i64 + 1000)
+            .unwrap()
+            .questions,
+        1
+    );
+    drop(s);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn ai_learning_picker_searches_lesson_and_series_and_keeps_course_association() {
+    let (s, _, dir) = service();
+    let source = dir.join("not-uploaded.mp4").to_string_lossy().into_owned();
+    s.with(|r|{
+        r.conn.execute("INSERT INTO series(id,title,created_at,updated_at) VALUES('series-ai','UE5 系列',1,1)",[]).unwrap();
+        for i in 0..60 {r.conn.execute("INSERT INTO series_items(id,series_id,title,file_path,available,created_at,updated_at) VALUES(?1,'series-ai',?2,?3,1,1,1)",rusqlite::params![format!("lesson-{i}"),format!("第{i}课 Niagara"),source]).unwrap();}
+        r.conn.execute("INSERT INTO series_items(id,series_id,title,created_at,updated_at) VALUES('not-downloaded','series-ai','尚未下载的课程',1,1)",[]).unwrap();Ok(())
+    }).unwrap();
+    let first = s.library_videos("UE5", 1).unwrap();
+    assert_eq!(first.total, 61);
+    assert_eq!(first.items.len(), 50);
+    let second = s.library_videos("UE5", 2).unwrap();
+    assert_eq!(second.items.len(), 11);
+    let found = s.library_videos("第37课", 1).unwrap();
+    assert_eq!(found.items.len(), 1);
+    assert_eq!(found.items[0].item_id, "lesson-37");
+    assert!(found.items[0].available);
+    let pending = s.library_videos("尚未下载", 1).unwrap();
+    assert!(!pending.items[0].available);
+    assert_eq!(s.library_videos("' OR 1=1 --", 1).unwrap().total, 0);
+    let a = s
+        .start_analysis(AnalysisRequest {
+            force: false,
+            path: source,
+            item_id: Some(found.items[0].item_id.clone()),
+            mode: AnalysisMode::Standard,
+            transcribe_audio: true,
+            allow_transcript: true,
+            allow_images: false,
+        })
+        .unwrap();
+    assert_eq!(a.item_id.as_deref(), Some("lesson-37"));
+    assert_eq!(a.title.as_deref(), Some("第37课 Niagara"));
+    s.shutdown();
+    drop(s);
+    std::fs::remove_dir_all(dir).unwrap();
+}

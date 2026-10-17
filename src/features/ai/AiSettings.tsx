@@ -1,3 +1,5 @@
+import {WhisperModels} from './WhisperModels';
+import {AiUsage} from './AiUsage';
 import {useEffect,useState} from 'react';
 import {invoke} from '@tauri-apps/api/core';
 import {Sparkles,ShieldCheck} from 'lucide-react';
@@ -18,5 +20,5 @@ export function AiSettings({notify}:{notify:(message:string)=>void}) {
  {([{key:'allowTranscript',text:'允许发送字幕文本给DeepSeek'},{key:'allowImages',text:'允许发送精选关键帧给DeepSeek'},{key:'cleanTemporaryFiles',text:'分析完成自动清理临时音频'},{key:'autoGenerateNotes',text:'分析完成自动生成知识笔记'},{key:'autoAnalyzeDownloads',text:'下载完成后自动分析（可能产生API费用）'}] as const).map(({key,text})=><div className="setting-line" key={key}><label htmlFor={`ai-${key}`}>{text}</label><label className="switch"><input id={`ai-${key}`} type="checkbox" checked={form[key]} disabled={busy} onChange={e=>change(key,e.target.checked)}/><span/></label></div>)}
  {!form.allowTranscript&&!form.allowImages&&<p className="help">已禁止上传内容，仍可本地转录。AI分析至少需要允许字幕或关键帧中的一种。</p>}
  <button className="primary" disabled={busy} onClick={()=>void action(async()=>{const saved=await invoke<AiSettingsView>('ai_save_settings',{settings:form});setView(saved);setForm(saved.settings);notify('AI设置已保存');})}>保存AI设置</button></>}
- </div></section>;
+ <details className="ai-tools"><summary>语音模型、用量与缓存</summary><WhisperModels/><AiUsage/></details></div></section>;
 }
