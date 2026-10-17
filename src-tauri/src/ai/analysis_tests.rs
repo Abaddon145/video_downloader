@@ -650,7 +650,7 @@ fn ai_player_association_ignores_relinked_sources_and_bounds_lesson_status_reque
         s.item_statuses(&["lesson".into()])
             .unwrap()
             .get("lesson")
-            .map(String::as_str),
+            .map(|v| v.status.as_str()),
         Some("completed")
     );
     assert!(s.item_statuses(&vec!["lesson".into(); 51]).is_err());
@@ -668,6 +668,34 @@ fn ai_player_association_ignores_relinked_sources_and_bounds_lesson_status_reque
     .unwrap();
     assert!(s.for_item("lesson").unwrap().is_none());
     assert!(s.item_statuses(&["lesson".into()]).unwrap().is_empty());
+    drop(s);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn course_analysis_history_is_paginated_source_bound_and_never_crosses_lessons() {
+    let (s, _, dir) = service();
+    let path = dir.join("not-uploaded.mp4");
+    s.with(|r| {
+  r.conn.execute("INSERT INTO series(id,title,created_at,updated_at) VALUES('c','课程',1,1)",[]).unwrap();
+  for id in ["lesson","other"] {r.conn.execute("INSERT INTO series_items(id,series_id,title,file_path,available,created_at,updated_at) VALUES(?1,'c',?1,?2,1,1,1)",rusqlite::params![id,path.to_string_lossy()]).unwrap();}
+  r.conn.execute("UPDATE video_analyses SET item_id='lesson' WHERE id='a'",[]).unwrap();
+  for i in 0..51 {r.conn.execute("INSERT INTO video_analyses(id,item_id,source_path,source_fingerprint,status,analysis_mode,model,prompt_version,created_at,updated_at) SELECT ?1,'lesson',source_path,source_fingerprint,'completed',analysis_mode,model,prompt_version,?2,?2 FROM video_analyses WHERE id='a'",rusqlite::params![format!("history-{i:03}"),i+2]).unwrap();}
+  Ok(())
+ }).unwrap();
+    let first = s.item_analyses("lesson", 1).unwrap();
+    assert_eq!(first.total, 52);
+    assert_eq!(first.items.len(), 50);
+    assert!(first
+        .items
+        .iter()
+        .all(|a| a.item_id.as_deref() == Some("lesson")));
+    assert_eq!(s.item_analyses("lesson", 2).unwrap().items.len(), 2);
+    assert_eq!(s.item_analyses("other", 1).unwrap().total, 0);
+    std::fs::write(&path, b"REPLACED ORIGINAL").unwrap();
+    assert_eq!(s.item_analyses("lesson", 1).unwrap().total, 0);
+    assert!(s.item_statuses(&["lesson".into()]).unwrap().is_empty());
+    assert!(s.for_item("lesson").unwrap().is_none());
     drop(s);
     std::fs::remove_dir_all(dir).unwrap();
 }

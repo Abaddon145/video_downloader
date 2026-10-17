@@ -32,3 +32,5 @@ export interface AnalysisSource {title?:string;path:string;itemId?:string|null;f
 
 export interface LibraryVideo {itemId:string;title:string;seriesTitle:string;path:string|null;durationMs:number|null;available:boolean}
 export interface LibraryVideoPage {items:LibraryVideo[];total:number;page:number}
+
+export interface CourseAiState{id:string;status:string;progress:number;hasSummary:boolean;createdAt:number;updatedAt:number}

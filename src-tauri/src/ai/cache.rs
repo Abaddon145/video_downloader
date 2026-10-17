@@ -122,6 +122,7 @@ impl AiService {
         {
             return Err("分析记录标识无效".into());
         }
+        let item_id = self.analysis(id)?.item_id;
         self.with(|r| {
             r.get(id)?;
             let tx = r.conn.transaction().map_err(db::error)?;
@@ -152,6 +153,12 @@ impl AiService {
         } else {
             None
         };
+        if let Some(item_id) = item_id {
+            self.emit(
+                "learning-library-updated",
+                serde_json::json!({"kind":"analysis","id":item_id}),
+            );
+        }
         Ok(warning)
     }
 }

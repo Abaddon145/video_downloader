@@ -53,8 +53,8 @@ Files: ai/{analysis,jobs,repository,client}.rs.
 Files: ai/{analysis,prompts,qa,usage}.rs.
 - [x] RED→GREEN final summary from chunk results, validated times/IDs/order/length, regenerate reuses transcript/frames. TopK search+neighbors QA, current±30s explanation/near frame, inadequate context says unknown; no full-transcript per ask. Real API smoke only if configured; otherwise explicit not-run. Commit summary/QA.
 
-### Phase 7: AI workspace
-Files: features/ai/{AiAnalysisPage,AnalysisQueue,AnalysisCard,AnalysisProgress,AnalysisResult,VideoSummary,VideoChapters,VideoAsk,AiUsage,AiSettings}.tsx, types/ai.ts, App routing, pricing config.
+### Phase 7: Course-integrated AI learning panel (updated by user)
+Files: features/ai/{PlayerAiSidebar,AnalysisProgress,VideoSummary,VideoChapters,VideoAsk,AiUsage,AiSettings}.tsx, types/ai.ts, LearningLibraryPage/LessonRow/LearningPlayer, pricing config. Standalone AI navigation/page removed per updated document.
 - [x] RED→GREEN media-centered queue/history/filter/details, consent modal, mode/model/local transcript/model install, cancel/retry/resume/delete, summary/chapters/usage/errors. Typed snapshots ignore oldIDs, transcript paging, controls accessible880wide; no technical jargon outside details. Commit AI UI.
 
 ### Phase 8: Vault backend
@@ -67,7 +67,7 @@ Files: features/knowledge/{KnowledgePage,FileTree,MarkdownEditor,MarkdownPreview
 
 ### Phase 10: Player integration
 Files: learning player/sidebar/lesson rows, existing playbackHandle, media page/download-complete entry.
-- [ ] RED→GREEN summary/transcript/notes/knowledge65/35 tabs, seek existing handle for chapters/search/QA/internal links, segment explanation, AI actions from all requested surfaces; download autoAI defaultOFF and explicit consent. Preserve mpv modal geometry/fullscreen/keybindings/cancel/progress. Commit integration.
+- [ ] RED→GREEN summary/subtitles/questions/notes65/35 tabs plus Knowledge actions, seek existing handle for chapters/search/QA/internal links, segment explanation, AI actions from all requested surfaces; download autoAI defaultOFF and explicit consent. Preserve mpv modal geometry/fullscreen/keybindings/cancel/progress. Commit integration.
 
 ### Phase 11: Generated notes and screenshot notes
 Files: knowledge note generation, ai completed workflow, screenshot helper and UI.

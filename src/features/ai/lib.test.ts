@@ -31,3 +31,13 @@ test('player AI events cannot leak a previous course or overwrite a newer analys
  assert.equal(acceptCourseAnalysis(current,{...current,id:'local',createdAt:50,options:{localOnly:true}},'lesson'),current);
  assert.equal(acceptCourseAnalysis(current,{...current,id:'next',createdAt:40},'lesson')?.id,'next');
 });
+
+test('course badges distinguish queued, active, failed and interrupted analyses',async()=>{
+ const {courseAnalysisLabel}=await import('./lib.ts');
+ assert.equal(courseAnalysisLabel(), '未分析');
+ assert.equal(courseAnalysisLabel({status:'queued',progress:0}), '排队中');
+ assert.equal(courseAnalysisLabel({status:'analyzing_chunks',progress:.678}), '分析中 68%');
+ assert.equal(courseAnalysisLabel({status:'completed',progress:1}), '已分析');
+ assert.equal(courseAnalysisLabel({status:'failed',progress:.5}), '分析失败');
+ assert.equal(courseAnalysisLabel({status:'interrupted',progress:.5}), '分析中断');
+});

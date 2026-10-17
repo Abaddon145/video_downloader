@@ -204,9 +204,17 @@ pub async fn ai_for_item(ai: Ai<'_>, item_id: String) -> AppResult<Option<VideoA
 pub async fn ai_item_statuses(
     ai: Ai<'_>,
     ids: Vec<String>,
-) -> AppResult<std::collections::HashMap<String, String>> {
+) -> AppResult<std::collections::HashMap<String, CourseAiState>> {
     let ai = ai.inner().clone();
     tauri::async_runtime::spawn_blocking(move || ai.item_statuses(&ids))
         .await
         .map_err(|_| "读取课程AI状态失败")?
+}
+
+#[tauri::command]
+pub async fn ai_item_analyses(ai: Ai<'_>, item_id: String, page: u32) -> AppResult<AnalysisPage> {
+    let ai = ai.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || ai.item_analyses(&item_id, page))
+        .await
+        .map_err(|_| "读取课程分析记录失败")?
 }

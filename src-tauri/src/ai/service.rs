@@ -178,27 +178,69 @@ impl AiService {
     pub fn for_item(&self, item_id: &str) -> AppResult<Option<VideoAnalysis>> {
         use rusqlite::OptionalExtension;
         self.with(|r|{
-   let path:Option<String>=r.conn.query_row("SELECT file_path FROM series_items WHERE id=?1",[item_id],|r|r.get(0)).optional().map_err(crate::learning::db::error)?.flatten();
-   let Some(path)=path.and_then(|p|crate::learning::importer::regular_file(&p).ok()) else{return Ok(None);};
-   let fingerprint=super::transcription::fingerprint(&path)?;
-   let mut stmt=r.conn.prepare("SELECT id FROM video_analyses WHERE item_id=?1 ORDER BY CASE WHEN json_extract(options_json,'$.localOnly')=0 THEN 0 ELSE 1 END,created_at DESC,id DESC LIMIT 100").map_err(crate::learning::db::error)?;
-   let ids=stmt.query_map([item_id],|r|r.get::<_,String>(0)).map_err(crate::learning::db::error)?.collect::<Result<Vec<_>,_>>().map_err(crate::learning::db::error)?;
-   for id in ids {let a=r.get(&id)?;if a.source_fingerprint==fingerprint{return Ok(Some(a));}}
-   Ok(None)
-  })
+      let path:Option<String>=r.conn.query_row("SELECT file_path FROM series_items WHERE id=?1",[item_id],|row|row.get(0)).optional().map_err(crate::learning::db::error)?.flatten();
+      let Some(path)=path.and_then(|p|crate::learning::importer::regular_file(&p).ok()) else{return Ok(None);};
+      let fingerprint=super::transcription::fingerprint(&path)?;
+      let id:Option<String>=r.conn.query_row("SELECT id FROM video_analyses WHERE item_id=?1 AND source_fingerprint=?2 ORDER BY CASE WHEN json_extract(options_json,'$.localOnly')=0 THEN 0 ELSE 1 END,created_at DESC,id DESC LIMIT 1",rusqlite::params![item_id,fingerprint],|row|row.get(0)).optional().map_err(crate::learning::db::error)?;
+      id.map(|id|r.get(&id)).transpose()
+     })
     }
     pub fn item_statuses(
         &self,
         ids: &[String],
-    ) -> AppResult<std::collections::HashMap<String, String>> {
-        use rusqlite::OptionalExtension;
+    ) -> AppResult<std::collections::HashMap<String, CourseAiState>> {
         if ids.len() > 50 || ids.iter().any(|id| id.len() > 128) {
             return Err("每次最多读取50个课程状态".into());
         }
-        self.with(|r|{
-   let mut statuses=std::collections::HashMap::new();
-   for id in ids{let status:Option<String>=r.conn.query_row("SELECT a.status FROM video_analyses a JOIN series_items i ON i.id=a.item_id WHERE a.item_id=?1 AND lower(a.source_path)=lower(i.file_path) AND json_extract(a.options_json,'$.localOnly')=0 ORDER BY a.created_at DESC,a.id DESC LIMIT 1",[id],|r|r.get(0)).optional().map_err(crate::learning::db::error)?;if let Some(status)=status{statuses.insert(id.clone(),status);}}
-   Ok(statuses)
-  })
+        let mut states = std::collections::HashMap::new();
+        // At most 50 quick fingerprints (first/last64KiB), always on the command's blocking worker.
+        for id in ids {
+            if let Some(a) = self.for_item(id)? {
+                if !a.options.local_only {
+                    states.insert(
+                        id.clone(),
+                        CourseAiState {
+                            id: a.id,
+                            status: a.status,
+                            progress: a.progress,
+                            has_summary: a.summary.is_some(),
+                            created_at: a.created_at,
+                            updated_at: a.updated_at,
+                        },
+                    );
+                }
+            }
+        }
+        Ok(states)
+    }
+}
+
+impl AiService {
+    pub fn item_analyses(&self, item_id: &str, page: u32) -> AppResult<AnalysisPage> {
+        use rusqlite::OptionalExtension;
+        if item_id.len() > 128 {
+            return Err("课程标识无效".into());
+        }
+        self.with(|r| {
+            let path: Option<String> = r
+                .conn
+                .query_row(
+                    "SELECT file_path FROM series_items WHERE id=?1",
+                    [item_id],
+                    |row| row.get(0),
+                )
+                .optional()
+                .map_err(crate::learning::db::error)?
+                .flatten();
+            let Some(path) = path.and_then(|v| crate::learning::importer::regular_file(&v).ok())
+            else {
+                return Ok(AnalysisPage {
+                    items: vec![],
+                    total: 0,
+                    page: 1,
+                });
+            };
+            r.item_analyses(item_id, &super::transcription::fingerprint(&path)?, page)
+        })
     }
 }

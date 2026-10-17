@@ -180,3 +180,14 @@ pub struct LibraryVideoPage {
     pub total: u64,
     pub page: u32,
 }
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CourseAiState {
+    pub id: String,
+    pub status: String,
+    pub progress: f64,
+    pub has_summary: bool,
+    pub created_at: i64,
+    pub updated_at: i64,
+}

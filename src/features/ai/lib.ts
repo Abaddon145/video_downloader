@@ -16,3 +16,10 @@ export function acceptCourseAnalysis<T extends {id:string;itemId:string|null;cre
  if(current.id===incoming.id)return acceptAnalysis(current,incoming);
  return incoming.createdAt>=current.createdAt?incoming:current;
 }
+
+export function courseAnalysisLabel(value?:{status:string;progress:number}){
+ if(!value||value.status==='cancelled')return '未分析';
+ if(value.status==='queued')return '排队中';
+ if(activeStatuses.includes(value.status))return `分析中 ${Math.round(Math.min(1,Math.max(0,value.progress||0))*100)}%`;
+ return ({completed:'已分析',failed:'分析失败',interrupted:'分析中断'} as Record<string,string>)[value.status]??'未分析';
+}

@@ -299,3 +299,33 @@ impl Repository {
             .map_err(db::error)
     }
 }
+
+impl Repository {
+    pub fn item_analyses(
+        &self,
+        item_id: &str,
+        fingerprint: &str,
+        page: u32,
+    ) -> AppResult<AnalysisPage> {
+        let filter = "item_id=?1 AND source_fingerprint=?2";
+        let total: u64 = self
+            .conn
+            .query_row(
+                &format!("SELECT count(*) FROM video_analyses WHERE {filter}"),
+                rusqlite::params![item_id, fingerprint],
+                |r| r.get(0),
+            )
+            .map_err(db::error)?;
+        let page = page.max(1).min(((total + 49) / 50).max(1) as u32);
+        let mut stmt=self.conn.prepare(&format!("SELECT {COLUMNS} FROM video_analyses WHERE {filter} ORDER BY created_at DESC,id LIMIT 50 OFFSET ?3")).map_err(db::error)?;
+        let items = stmt
+            .query_map(
+                rusqlite::params![item_id, fingerprint, (page - 1) * 50],
+                row,
+            )
+            .map_err(db::error)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(db::error)?;
+        Ok(AnalysisPage { items, total, page })
+    }
+}

@@ -289,6 +289,7 @@ pub fn run() {
             ai_cancel_model_download,
             ai_import_whisper_model,
             ai_for_item,
+            ai_item_analyses,
             ai_item_statuses,
             ai_library_videos,
             ai_usage,
