@@ -63,7 +63,7 @@ Files: knowledge/{vault,markdown,index,links,search,obsidian,service,commands,mo
 
 ### Phase 9: Vault UI
 Files: features/knowledge/{KnowledgePage,FileTree,MarkdownEditor,MarkdownPreview,KnowledgeSearch,Backlinks,TagPanel,KnowledgeToolbar}.tsx, types/knowledge.ts.
-- [ ] RED→GREEN CodeMirror edit/preview/split, safe Markdown noHTML, local images/wiki links, filetree/sidebar toggles/search/outline/tags/backlinks, external reload/compare/conditional overwrite, focus changes trigger bounded scan. Views lazy/paged,880wide+scales. Commit knowledge UI.
+- [x] RED→GREEN CodeMirror edit/preview/split, safe Markdown noHTML, local images/wiki links, filetree/sidebar toggles/search/outline/tags/backlinks, external reload/compare/conditional overwrite, focus changes trigger bounded scan. Views lazy/paged,880wide+scales. Commit knowledge UI.
 
 ### Phase 10: Player integration
 Files: learning player/sidebar/lesson rows, existing playbackHandle, media page/download-complete entry.
