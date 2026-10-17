@@ -148,3 +148,16 @@ impl Default for AnalysisOptions {
         }
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AnalysisRequest {
+    #[serde(default)]
+    pub force: bool,
+    pub path: String,
+    pub item_id: Option<String>,
+    pub mode: AnalysisMode,
+    pub transcribe_audio: bool,
+    pub allow_transcript: bool,
+    pub allow_images: bool,
+}

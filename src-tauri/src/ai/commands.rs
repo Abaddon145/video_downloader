@@ -113,3 +113,41 @@ pub async fn ai_transcript(ai: Ai<'_>, id: String, page: u32) -> AppResult<Trans
         .await
         .map_err(|_| "读取转录失败")?
 }
+
+#[tauri::command]
+pub async fn ai_start_analysis(ai: Ai<'_>, request: AnalysisRequest) -> AppResult<VideoAnalysis> {
+    let ai = ai.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || ai.start_analysis(request))
+        .await
+        .map_err(|_| "无法加入分析队列")?
+}
+#[tauri::command]
+pub async fn ai_retry_analysis(
+    ai: Ai<'_>,
+    id: String,
+    regenerate: bool,
+) -> AppResult<VideoAnalysis> {
+    let ai = ai.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || ai.retry_analysis(&id, regenerate))
+        .await
+        .map_err(|_| "无法继续分析")?
+}
+#[tauri::command]
+pub async fn ai_ask_video(
+    ai: Ai<'_>,
+    id: String,
+    question: String,
+) -> AppResult<super::qa::QuestionReply> {
+    ai.inner().clone().ask_video(&id, &question, None).await
+}
+#[tauri::command]
+pub async fn ai_explain_segment(
+    ai: Ai<'_>,
+    id: String,
+    time_ms: i64,
+) -> AppResult<super::qa::QuestionReply> {
+    ai.inner()
+        .clone()
+        .ask_video(&id, "请解释当前片段的内容、要点及操作依据", Some(time_ms))
+        .await
+}

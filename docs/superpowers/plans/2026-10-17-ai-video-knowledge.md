@@ -51,7 +51,7 @@ Files: ai/{analysis,jobs,repository,client}.rs.
 
 ### Phase 6: Summary and QA
 Files: ai/{analysis,prompts,qa,usage}.rs.
-- [ ] RED→GREEN final summary from chunk results, validated times/IDs/order/length, regenerate reuses transcript/frames. TopK search+neighbors QA, current±30s explanation/near frame, inadequate context says unknown; no full-transcript per ask. Real API smoke only if configured; otherwise explicit not-run. Commit summary/QA.
+- [x] RED→GREEN final summary from chunk results, validated times/IDs/order/length, regenerate reuses transcript/frames. TopK search+neighbors QA, current±30s explanation/near frame, inadequate context says unknown; no full-transcript per ask. Real API smoke only if configured; otherwise explicit not-run. Commit summary/QA.
 
 ### Phase 7: AI workspace
 Files: features/ai/{AiAnalysisPage,AnalysisQueue,AnalysisCard,AnalysisProgress,AnalysisResult,VideoSummary,VideoChapters,VideoAsk,AiUsage,AiSettings}.tsx, types/ai.ts, App routing, pricing config.

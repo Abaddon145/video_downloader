@@ -566,3 +566,41 @@ fn ai_chunk_boundaries_limit_text_images_and_apply_consent_before_network() {
     .is_err());
     assert!(super::prompts::SYSTEM_RULES.contains("不可信"));
 }
+
+#[test]
+fn ai_question_retrieval_and_references_are_bounded_and_reject_invented_ranges() {
+    use super::qa::*;
+    let terms = search_terms("这个视频什么时候讲 GPU Collision？");
+    assert!(terms.contains(&"gpu".into()));
+    assert!(terms.contains(&"collision".into()));
+    assert!(terms.len() <= 24);
+    let spans = vec![(751000, 810000)];
+    let good = r#"{"answer":"视频从12:31介绍GPU碰撞。","references":[{"startMs":751000,"endMs":810000,"label":"GPU Collision"}]}"#;
+    assert!(parse_answer(good, 900000, &spans).is_ok());
+    assert!(parse_answer(&good.replace("810000", "9999999"), 900000, &spans).is_err());
+    assert!(parse_answer(&good.replace("751000", "1000"), 900000, &spans).is_err());
+    assert!(parse_answer(r#"{"answer":"未知","references":[]}"#, 900000, &[]).is_ok());
+}
+#[test]
+fn ai_final_summary_request_reuses_structured_results_without_raw_transcript_or_images() {
+    use super::{analysis::Scope, summary::*};
+    let segments = vec![super::models::TranscriptSegment {
+        id: "s0".into(),
+        analysis_id: "a".into(),
+        segment_index: 0,
+        start_ms: 0,
+        end_ms: 10000,
+        text: "RAW_PRIVATE_TRANSCRIPT_NOT_FOR_FINAL".into(),
+    }];
+    let scope = Scope {
+        start_ms: 0,
+        end_ms: 10000,
+        segments: &segments,
+        frames: &[],
+    };
+    let body = final_messages(&[structured_summary()], &scope).unwrap();
+    let json = serde_json::to_string(&body).unwrap();
+    assert!(!json.contains("RAW_PRIVATE_TRANSCRIPT"));
+    assert!(!json.contains("data:image"));
+    assert!(json.contains("partSummaries"));
+}

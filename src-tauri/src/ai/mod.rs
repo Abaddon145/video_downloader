@@ -7,9 +7,11 @@ pub mod jobs;
 pub mod keyframes;
 pub mod models;
 pub mod prompts;
+pub mod qa;
 pub mod repository;
 pub mod service;
 pub mod settings;
+pub mod summary;
 #[cfg(test)]
 mod tests;
 pub mod transcription;

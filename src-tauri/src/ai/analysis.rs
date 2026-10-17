@@ -336,7 +336,7 @@ pub fn messages(chunk: &AnalysisChunkInput, cache: &Path) -> AppResult<Vec<Value
 }
 
 impl super::service::AiService {
-    fn check_consent(&self, options: &AnalysisOptions) -> AppResult<()> {
+    pub(crate) fn check_consent(&self, options: &AnalysisOptions) -> AppResult<()> {
         let current = self.settings()?.settings;
         if (options.allow_transcript && !current.allow_transcript)
             || (options.allow_images && !current.allow_images)

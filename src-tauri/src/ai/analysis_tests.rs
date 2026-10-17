@@ -24,6 +24,14 @@ fn service() -> (Arc<AiService>, Arc<Control>, PathBuf) {
 fn response(input: &Value) -> Value {
     let data: Value =
         serde_json::from_str(input["messages"][1]["content"][0]["text"].as_str().unwrap()).unwrap();
+    if input["messages"][0]["content"]
+        .as_str()
+        .unwrap()
+        .contains("references")
+    {
+        let source = &data["transcript"][0];
+        return json!({"answer":"根据相关片段，课程介绍了GPU碰撞。","references":[{"startMs":source["startMs"],"endMs":source["endMs"],"label":"相关片段"}]});
+    }
     let start = data["startMs"].as_i64().unwrap();
     let end = data["endMs"].as_i64().unwrap();
     json!({"contentType":"tutorial","oneSentenceSummary":"课程介绍","overview":"依据课程字幕整理","chapters":[{"startMs":start,"endMs":end,"title":"章节","summary":"内容概要","keywords":[],"keyframeIds":[]}],"keyPoints":[],"tutorialSteps":[],"terms":[],"actionItems":[],"tags":["课程"]})
@@ -326,5 +334,205 @@ fn prerelease_v6_options_upgrade_preserves_local_analysis_and_is_idempotent() {
         assert_eq!(a.source_path, "keep.mp4");
         assert!(a.options.local_only);
     }
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn ai_durable_queue_consent_cache_cancel_retry_and_regenerate_keep_local_checkpoints() {
+    let (s, c, dir) = service();
+    let source = dir.join("not-uploaded.mp4").to_string_lossy().into_owned();
+    let request = AnalysisRequest {
+        force: false,
+        path: source.clone(),
+        item_id: None,
+        mode: AnalysisMode::Standard,
+        transcribe_audio: true,
+        allow_transcript: true,
+        allow_images: false,
+    };
+    let a = s.start_analysis(request.clone()).unwrap();
+    assert_eq!(a.status, "queued");
+    assert!(!a.options.local_only);
+    assert_eq!(s.runtime.lock().unwrap().pending.len(), 1);
+    assert_eq!(s.start_analysis(request.clone()).unwrap().id, a.id);
+    assert_eq!(s.runtime.lock().unwrap().pending.len(), 1);
+    s.cancel_analysis(&a.id).unwrap();
+    assert_eq!(s.analysis(&a.id).unwrap().status, "cancelled");
+    assert!(s.runtime.lock().unwrap().pending.is_empty());
+    s.with(|r| {
+        r.save_transcript(&a.id, Some("zh"), &[])?;
+        r.save_keyframes(&a.id, &[])
+    })
+    .unwrap();
+    s.retry_analysis(&a.id, true).unwrap();
+    let retry = s.analysis(&a.id).unwrap();
+    assert!(retry.transcript_done && retry.keyframes_done);
+    assert_eq!(retry.status, "queued");
+    assert_eq!(s.runtime.lock().unwrap().pending.len(), 1);
+    assert!(s.retry_analysis(&a.id, false).is_err());
+    s.shutdown();
+    assert_eq!(s.analysis(&a.id).unwrap().status, "interrupted");
+    assert!(c.check().is_err());
+    assert!(s.start_analysis(request).is_err());
+    drop(s);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn mocked_final_summary_uses_parts_and_reuses_validated_cache_without_second_request() {
+    let (s, c, dir) = service();
+    let (client, _, thread) = mock(vec![200, 200, 200], false, Duration::ZERO);
+    let parts = tauri::async_runtime::block_on(s.analyze_chunks("a", &c, &client)).unwrap();
+    thread.join().unwrap();
+    s.stage("a", &c, "finalizing", "正在整理全片总结", 0.9)
+        .unwrap();
+    let (client, requests, thread) = mock(vec![200], false, Duration::ZERO);
+    let result =
+        tauri::async_runtime::block_on(s.summarize("a", parts.clone(), &c, &client)).unwrap();
+    thread.join().unwrap();
+    assert_eq!(result.chapters[0].end_ms, 610000);
+    let body = requests.lock().unwrap()[0].to_string();
+    assert!(body.contains("partSummaries"));
+    assert!(!body.contains("Ignore previous instructions"));
+    assert!(!body.contains("data:image"));
+    let unreachable = DeepSeekClient::fixture("http://127.0.0.1:1".into());
+    assert!(tauri::async_runtime::block_on(s.summarize("a", parts, &c, &unreachable)).is_ok());
+    s.with(|r| {
+        let count: i64 = r
+            .conn
+            .query_row(
+                "SELECT count(*) FROM ai_usage WHERE operation='summary'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1);
+        Ok(())
+    })
+    .unwrap();
+    drop(s);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+#[test]
+fn mocked_video_questions_send_only_retrieved_neighbors_and_allow_unknown_without_api() {
+    let (s, _, dir) = service();
+    let segments = (0..200)
+        .map(|i| TranscriptSegment {
+            id: format!("search-{i}"),
+            analysis_id: "a".into(),
+            segment_index: i,
+            start_ms: i as i64 * 3000,
+            end_ms: i as i64 * 3000 + 2000,
+            text: if i == 100 {
+                "GPU Collision 碰撞设置".into()
+            } else {
+                format!("UNRELATED_PRIVATE_CONTENT_{i}")
+            },
+        })
+        .collect::<Vec<_>>();
+    s.with(|r| r.save_transcript("a", Some("zh"), &segments))
+        .unwrap();
+    for fallback in [false, true] {
+        if fallback {
+            s.with(|r| {
+                r.conn
+                    .execute_batch("DROP TABLE IF EXISTS transcript_fts")
+                    .unwrap();
+                Ok(())
+            })
+            .unwrap();
+        }
+        let (client, requests, thread) = mock(vec![200], false, Duration::ZERO);
+        let answer = tauri::async_runtime::block_on(s.question_with_client(
+            "a",
+            "哪里讲 GPU Collision？",
+            None,
+            &client,
+        ))
+        .unwrap();
+        thread.join().unwrap();
+        assert!(!answer.result.references.is_empty());
+        let body = requests.lock().unwrap()[0].to_string();
+        assert!(body.contains("GPU Collision"));
+        assert!(!body.contains("UNRELATED_PRIVATE_CONTENT_0"));
+        assert!(!body.contains("UNRELATED_PRIVATE_CONTENT_199"));
+        assert!(body.len() < 20000);
+    }
+    let unreachable = DeepSeekClient::fixture("http://127.0.0.1:1".into());
+    let answer = tauri::async_runtime::block_on(s.question_with_client(
+        "a",
+        "absentprovenance",
+        None,
+        &unreachable,
+    ))
+    .unwrap();
+    assert_eq!(answer.result.answer, super::qa::UNKNOWN);
+    assert!(answer.result.references.is_empty());
+    assert!(tauri::async_runtime::block_on(s.question_with_client(
+        "a",
+        "解释",
+        Some(9999999),
+        &unreachable
+    ))
+    .is_err());
+    drop(s);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+#[ignore = "Requires verified real FFmpeg and Base model; only DeepSeek HTTP is mocked"]
+fn ai_real_local_pipeline_mocked_summary_failure_resume_and_regenerate_without_whisper() {
+    use super::transcription as t;
+    let fixtures = PathBuf::from(std::env::var("AI_QA_FIXTURES").unwrap());
+    let resources = PathBuf::from(std::env::var("AI_QA_RESOURCES").unwrap());
+    let (mut s, c, dir) = service();
+    Arc::get_mut(&mut s).unwrap().resources = resources;
+    let source = dir.join("课程 01（最终版）# & Unicode 韩语.wav");
+    std::fs::copy(fixtures.join("jfk.wav"), &source).unwrap();
+    let before = t::file_hash(&source).unwrap();
+    s.import_model(fixtures.join("ggml-base.bin").to_str().unwrap(), None)
+        .unwrap();
+    s.with(|r|{r.conn.execute("DELETE FROM transcript_segments WHERE analysis_id='a'",[]).unwrap();r.conn.execute("DELETE FROM transcript_fts WHERE analysis_id='a'",[]).unwrap();r.conn.execute("UPDATE video_analyses SET source_path=?1,source_fingerprint=?2,duration_ms=NULL,transcript_done=0 WHERE id='a'",rusqlite::params![source.to_string_lossy(),t::fingerprint(&source)?]).unwrap();Ok(())}).unwrap();
+    let (client, first, thread) = mock(vec![200, 503, 503, 503], false, Duration::ZERO);
+    assert!(s
+        .run_analysis("a", &c, Some(&client))
+        .unwrap_err()
+        .contains("503"));
+    thread.join().unwrap();
+    assert_eq!(first.lock().unwrap().len(), 4);
+    assert!(s.analysis("a").unwrap().transcript_done);
+    assert!(s.analysis("a").unwrap().keyframes_done);
+    assert!(s
+        .with(|r| r.all_transcript("a"))
+        .unwrap()
+        .iter()
+        .any(|x| x.text.to_lowercase().contains("country")));
+    assert!(!dir.join("ai/cache/a/audio.wav").exists());
+    // A broken model would fail any second Whisper run, proving checkpoint reuse.
+    std::fs::write(
+        dir.join("ai/models/ggml-base.bin"),
+        b"deliberately damaged after successful transcript",
+    )
+    .unwrap();
+    let (client, retry, thread) = mock(vec![200], false, Duration::ZERO);
+    s.run_analysis("a", &c, Some(&client)).unwrap();
+    thread.join().unwrap();
+    assert_eq!(retry.lock().unwrap().len(), 1);
+    assert!(s.analysis("a").unwrap().summary.is_some());
+    s.runtime.lock().unwrap().active = Some(("busy".into(), Arc::new(Control::default())));
+    s.retry_analysis("a", true).unwrap();
+    {
+        let mut rt = s.runtime.lock().unwrap();
+        rt.pending.clear();
+        rt.active = Some(("a".into(), c.clone()));
+    }
+    let (client, regenerate, thread) = mock(vec![200, 200], false, Duration::ZERO);
+    s.run_analysis("a", &c, Some(&client)).unwrap();
+    thread.join().unwrap();
+    assert_eq!(regenerate.lock().unwrap().len(), 2);
+    assert_eq!(s.analysis("a").unwrap().status, "completed");
+    assert_eq!(t::file_hash(&source).unwrap(), before);
+    println!("REAL_LOCAL_MOCK_AI full_pipeline=true retry_requests=1 regenerate_requests=2 whisper_reused=true source_sha256={before}");
+    drop(s);
     std::fs::remove_dir_all(dir).unwrap();
 }
