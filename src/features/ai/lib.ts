@@ -8,3 +8,11 @@ export function mediaTitle(path:string){return path.split(/[\\/]/).at(-1)?.repla
 export function aiError(error:unknown){return typeof error==='string'?error:error instanceof Error?error.message:'操作未完成，请重试';}
 export function fileSize(bytes:number){return bytes>=1024**3?`${(bytes/1024**3).toFixed(1)} GB`:bytes>=1024**2?`${(bytes/1024**2).toFixed(1)} MB`:`${Math.ceil(bytes/1024)} KB`;}
 export function timeLabel(ms:number){const s=Math.floor(Math.max(0,ms)/1000);return s>=3600?`${Math.floor(s/3600)}:${String(Math.floor(s/60)%60).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`:`${Math.floor(s/60).toString().padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;}
+
+export function acceptCourseAnalysis<T extends {id:string;itemId:string|null;createdAt:number;updatedAt:number;options:{localOnly:boolean}}>(current:T|null,incoming:T,itemId:string):T|null{
+ if(incoming.itemId!==itemId)return current;
+ if(!current)return incoming;
+ if(!current.options.localOnly&&incoming.options.localOnly)return current;
+ if(current.id===incoming.id)return acceptAnalysis(current,incoming);
+ return incoming.createdAt>=current.createdAt?incoming:current;
+}

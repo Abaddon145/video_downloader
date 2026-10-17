@@ -22,3 +22,12 @@ test('AI price estimates are ranges and never hide unknown usage',()=>{
  assert.equal(estimateCost({...usage,model:'unknown'}),null);
  assert.equal(estimateCost({...usage,unknownRequests:1}),null);
 });
+
+test('player AI events cannot leak a previous course or overwrite a newer analysis',async()=>{
+ const {acceptCourseAnalysis}=await import('./lib.ts');
+ const current={id:'new',itemId:'lesson',createdAt:20,updatedAt:30,options:{localOnly:false}};
+ assert.equal(acceptCourseAnalysis(current,{...current,itemId:'old-lesson',updatedAt:100},'lesson'),current);
+ assert.equal(acceptCourseAnalysis(current,{...current,id:'older',createdAt:10,updatedAt:100},'lesson'),current);
+ assert.equal(acceptCourseAnalysis(current,{...current,id:'local',createdAt:50,options:{localOnly:true}},'lesson'),current);
+ assert.equal(acceptCourseAnalysis(current,{...current,id:'next',createdAt:40},'lesson')?.id,'next');
+});

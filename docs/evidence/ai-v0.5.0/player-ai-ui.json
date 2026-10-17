@@ -1,0 +1,14 @@
+{
+  "mocked": true,
+  "passed": true,
+  "checks": [
+    "per-lesson AI button opens the linked course confirmation without starting playback",
+    "AI summary appears beside the video on a wide window",
+    "AI chapter timestamp seeks through the existing native playback handle",
+    "video question references offer direct playback jumps",
+    "existing timestamp notes remain usable across sidebar tabs",
+    "native fullscreen preserves a large video surface with the AI layout",
+    "880px window stacks the side panel without horizontal overflow"
+  ],
+  "consoleErrors": []
+}

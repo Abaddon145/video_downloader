@@ -173,3 +173,32 @@ impl AiService {
   })
     }
 }
+
+impl AiService {
+    pub fn for_item(&self, item_id: &str) -> AppResult<Option<VideoAnalysis>> {
+        use rusqlite::OptionalExtension;
+        self.with(|r|{
+   let path:Option<String>=r.conn.query_row("SELECT file_path FROM series_items WHERE id=?1",[item_id],|r|r.get(0)).optional().map_err(crate::learning::db::error)?.flatten();
+   let Some(path)=path.and_then(|p|crate::learning::importer::regular_file(&p).ok()) else{return Ok(None);};
+   let fingerprint=super::transcription::fingerprint(&path)?;
+   let mut stmt=r.conn.prepare("SELECT id FROM video_analyses WHERE item_id=?1 ORDER BY CASE WHEN json_extract(options_json,'$.localOnly')=0 THEN 0 ELSE 1 END,created_at DESC,id DESC LIMIT 100").map_err(crate::learning::db::error)?;
+   let ids=stmt.query_map([item_id],|r|r.get::<_,String>(0)).map_err(crate::learning::db::error)?.collect::<Result<Vec<_>,_>>().map_err(crate::learning::db::error)?;
+   for id in ids {let a=r.get(&id)?;if a.source_fingerprint==fingerprint{return Ok(Some(a));}}
+   Ok(None)
+  })
+    }
+    pub fn item_statuses(
+        &self,
+        ids: &[String],
+    ) -> AppResult<std::collections::HashMap<String, String>> {
+        use rusqlite::OptionalExtension;
+        if ids.len() > 50 || ids.iter().any(|id| id.len() > 128) {
+            return Err("每次最多读取50个课程状态".into());
+        }
+        self.with(|r|{
+   let mut statuses=std::collections::HashMap::new();
+   for id in ids{let status:Option<String>=r.conn.query_row("SELECT a.status FROM video_analyses a JOIN series_items i ON i.id=a.item_id WHERE a.item_id=?1 AND lower(a.source_path)=lower(i.file_path) AND json_extract(a.options_json,'$.localOnly')=0 ORDER BY a.created_at DESC,a.id DESC LIMIT 1",[id],|r|r.get(0)).optional().map_err(crate::learning::db::error)?;if let Some(status)=status{statuses.insert(id.clone(),status);}}
+   Ok(statuses)
+  })
+    }
+}

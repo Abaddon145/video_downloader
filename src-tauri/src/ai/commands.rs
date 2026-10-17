@@ -192,3 +192,21 @@ pub async fn ai_library_videos(
         .await
         .map_err(|_| "读取学习库视频失败")?
 }
+
+#[tauri::command]
+pub async fn ai_for_item(ai: Ai<'_>, item_id: String) -> AppResult<Option<VideoAnalysis>> {
+    let ai = ai.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || ai.for_item(&item_id))
+        .await
+        .map_err(|_| "读取课程分析失败")?
+}
+#[tauri::command]
+pub async fn ai_item_statuses(
+    ai: Ai<'_>,
+    ids: Vec<String>,
+) -> AppResult<std::collections::HashMap<String, String>> {
+    let ai = ai.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || ai.item_statuses(&ids))
+        .await
+        .map_err(|_| "读取课程AI状态失败")?
+}

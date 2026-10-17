@@ -639,3 +639,35 @@ fn ai_learning_picker_searches_lesson_and_series_and_keeps_course_association() 
     drop(s);
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn ai_player_association_ignores_relinked_sources_and_bounds_lesson_status_requests() {
+    let (s, _, dir) = service();
+    let path = dir.join("not-uploaded.mp4").to_string_lossy().into_owned();
+    s.with(|r|{r.conn.execute("INSERT INTO series(id,title,created_at,updated_at) VALUES('course','教程',1,1)",[]).unwrap();r.conn.execute("INSERT INTO series_items(id,series_id,title,file_path,available,created_at,updated_at) VALUES('lesson','course','碰撞课程',?1,1,1,1)",[&path]).unwrap();r.conn.execute("UPDATE video_analyses SET item_id='lesson',status='completed' WHERE id='a'",[]).unwrap();Ok(())}).unwrap();
+    assert_eq!(s.for_item("lesson").unwrap().unwrap().id, "a");
+    assert_eq!(
+        s.item_statuses(&["lesson".into()])
+            .unwrap()
+            .get("lesson")
+            .map(String::as_str),
+        Some("completed")
+    );
+    assert!(s.item_statuses(&vec!["lesson".into(); 51]).is_err());
+    let other = dir.join("other.mp4");
+    std::fs::write(&other, b"DIFFERENT ORIGINAL CONTENT").unwrap();
+    s.with(|r| {
+        r.conn
+            .execute(
+                "UPDATE series_items SET file_path=?1 WHERE id='lesson'",
+                [other.to_string_lossy()],
+            )
+            .unwrap();
+        Ok(())
+    })
+    .unwrap();
+    assert!(s.for_item("lesson").unwrap().is_none());
+    assert!(s.item_statuses(&["lesson".into()]).unwrap().is_empty());
+    drop(s);
+    std::fs::remove_dir_all(dir).unwrap();
+}
