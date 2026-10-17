@@ -200,15 +200,25 @@ impl LearningService {
         } else {
             settings.playback_preference
         };
-        let mut plan = compatibility::plan(&info, support, preference, fallback)?;
-        if native_requested
+        let audio_only =
+            !info.videos.iter().any(|v| !v.attached_picture) && !info.audios.is_empty();
+        let mut plan = if native_requested
             && !proxy
-            && preference != PlaybackPreference::Compatible
             && fallback == 0
+            && (preference != PlaybackPreference::Compatible || audio_only)
         {
-            plan.mode = PlaybackMode::Native;
-            plan.reason = "直接播放原文件".into();
-        }
+            if !info.videos.iter().any(|v| !v.attached_picture) && info.audios.is_empty() {
+                return Err("文件没有可播放的音视频流".into());
+            }
+            PlaybackPlan {
+                mode: PlaybackMode::Native,
+                format: OutputFormat::Mp4,
+                reason: "直接播放原文件".into(),
+                cached: false,
+            }
+        } else {
+            compatibility::plan(&info, support, preference, fallback)?
+        };
         let path = if plan.mode == PlaybackMode::Native {
             source.to_string_lossy().into_owned()
         } else if plan.mode == PlaybackMode::Direct {
@@ -282,6 +292,7 @@ impl LearningService {
         }
         self.playback_event(session, id, Some(&plan), "准备完成", Some(100.), None);
         Ok(PlayerMedia {
+            audio_only,
             item,
             series,
             settings,
@@ -462,7 +473,9 @@ impl LearningService {
         session: &str,
         index: Option<u32>,
     ) -> AppResult<String> {
-        let _single = self.subtitle_guard.lock().map_err(|_| "字幕缓存暂不可用")?;
+        let _single = cache::SUBTITLE_GUARD
+            .lock()
+            .map_err(|_| "字幕缓存暂不可用")?;
         let before = cache::stamp(input)?;
         let key = cache::key(&before, &format!("subtitle:{index:?}"), "webvtt-v1");
         let dir = cache::directory(&self.data, "subtitles", &key)?;

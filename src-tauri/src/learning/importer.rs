@@ -21,7 +21,8 @@ pub(crate) fn video_path(p: &str) -> bool {
     Path::new(p).extension().is_some_and(|e| {
         [
             "mp4", "m4v", "mov", "mkv", "avi", "wmv", "asf", "webm", "flv", "mpg", "mpeg", "ts",
-            "m2ts", "mts", "3gp", "3g2", "ogv",
+            "m2ts", "mts", "3gp", "3g2", "ogv", "mp3", "aac", "flac", "wav", "m4a", "opus", "ogg",
+            "wma",
         ]
         .contains(&e.to_string_lossy().to_lowercase().as_str())
     })
@@ -97,8 +98,8 @@ pub(crate) fn regular_file(p: &str) -> AppResult<PathBuf> {
 }
 pub(crate) fn prepare(path: &str, info: &MediaInfo) -> AppResult<PreparedLocal> {
     let path = regular_file(path)?;
-    if !info.videos.iter().any(|v| !v.attached_picture) {
-        return Err("文件没有可播放的视频流".into());
+    if !info.videos.iter().any(|v| !v.attached_picture) && info.audios.is_empty() {
+        return Err("文件没有可播放的音视频流".into());
     }
     let title = path
         .file_stem()
@@ -118,6 +119,18 @@ pub(crate) fn prepare(path: &str, info: &MediaInfo) -> AppResult<PreparedLocal> 
     })
 }
 impl Repository {
+    pub fn course_for_file(&self, key: &str) -> AppResult<Option<LearningItem>> {
+        let id: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT id FROM series_items WHERE file_key=?1 LIMIT 1",
+                [key.to_lowercase()],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(db::error)?;
+        id.map(|id| self.item(&id)).transpose()
+    }
     pub fn local_duplicates(&self, paths: &[String]) -> AppResult<(usize, Option<String>)> {
         let mut count = 0;
         let mut series = None;
@@ -445,5 +458,32 @@ impl LearningService {
     }
     pub(crate) fn try_cover(&self, series: &str) {
         self.schedule_series_thumbnails(series);
+    }
+}
+
+impl LearningService {
+    pub fn import_for_analysis(&self, path: &str) -> AppResult<LearningItem> {
+        let path = regular_file(path)?;
+        let key = path.to_string_lossy().to_lowercase();
+        let title = path
+            .file_stem()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .chars()
+            .take(240)
+            .collect();
+        let result = self.import_files(LocalImportInput {
+            paths: vec![path.to_string_lossy().into_owned()],
+            title,
+            category_id: None,
+            series_id: None,
+        })?;
+        if let Some(error) = result.errors.first() {
+            return Err(error.error.clone());
+        }
+        self.with(|r| {
+            r.course_for_file(&key)?
+                .ok_or_else(|| "未能打开对应课程，请重新导入".into())
+        })
     }
 }

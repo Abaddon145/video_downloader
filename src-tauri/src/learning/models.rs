@@ -255,6 +255,7 @@ pub struct PlayerSubtitle {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerMedia {
+    pub audio_only: bool,
     pub item: LearningItem,
     pub series: LearningSeries,
     pub settings: LearningSettings,

@@ -218,3 +218,16 @@ pub async fn ai_item_analyses(ai: Ai<'_>, item_id: String, page: u32) -> AppResu
         .await
         .map_err(|_| "读取课程分析记录失败")?
 }
+
+#[tauri::command]
+pub async fn ai_course_transcript(
+    ai: Ai<'_>,
+    item_id: String,
+    page: u32,
+    current_ms: Option<i64>,
+) -> AppResult<super::subtitles::CourseTranscriptPage> {
+    let ai = ai.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || ai.course_transcript(&item_id, page, current_ms))
+        .await
+        .map_err(|_| "读取课程字幕失败")?
+}

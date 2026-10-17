@@ -41,3 +41,14 @@ test('course badges distinguish queued, active, failed and interrupted analyses'
  assert.equal(courseAnalysisLabel({status:'failed',progress:.5}), '分析失败');
  assert.equal(courseAnalysisLabel({status:'interrupted',progress:.5}), '分析中断');
 });
+
+test('subtitle follow requests a new page only across actual cue page boundaries',async()=>{
+ const {transcriptPageNeedsFollow}=await import('./lib.ts');
+ const data={page:2,items:[{startMs:500000,endMs:509000}],nextStartMs:1000000};
+ assert.equal(transcriptPageNeedsFollow(data,510000),false);
+ assert.equal(transcriptPageNeedsFollow(data,499999),true);
+ assert.equal(transcriptPageNeedsFollow(data,1000000),true);
+ assert.equal(transcriptPageNeedsFollow({...data,page:1},0),false);
+ assert.equal(transcriptPageNeedsFollow({...data,nextStartMs:null},2000000),false);
+ assert.equal(transcriptPageNeedsFollow({...data,items:[]},0),false);
+});

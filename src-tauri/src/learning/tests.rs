@@ -1189,3 +1189,45 @@ fn ai_v6_empty_database_and_reopening_are_idempotent() {
         )
         .is_err());
 }
+
+#[test]
+fn learning_audio_course_import_and_exact_analysis_lookup_preserve_source() {
+    use crate::ffmpeg::models::{AudioStreamInfo, MediaInfo};
+    let mut r = repository();
+    let dir = std::env::temp_dir().join(format!(
+        "learning-audio-{}",
+        crate::ffmpeg::runner::new_id()
+    ));
+    std::fs::create_dir(&dir).unwrap();
+    let path = dir.join("音频课程 #&.wav");
+    std::fs::write(&path, b"read-only-source").unwrap();
+    let info = MediaInfo {
+        audios: vec![AudioStreamInfo {
+            codec: "pcm_s16le".into(),
+            ..Default::default()
+        }],
+        duration: Some(10.),
+        ..Default::default()
+    };
+    let prepared = super::importer::prepare(&path.to_string_lossy(), &info).unwrap();
+    let input = LocalImportInput {
+        paths: vec![prepared.path.clone()],
+        title: "音频课程".into(),
+        category_id: None,
+        series_id: None,
+    };
+    let result = r.import_local(&input, &[prepared.clone()]).unwrap();
+    let item = r.course_for_file(&prepared.key).unwrap().unwrap();
+    assert_eq!(item.series_id, result.series_id);
+    assert_eq!(
+        r.course_for_file(&prepared.key.to_uppercase())
+            .unwrap()
+            .unwrap()
+            .id,
+        item.id
+    );
+    assert!(r.course_for_file("missing").unwrap().is_none());
+    assert!(super::importer::prepare(&path.to_string_lossy(), &MediaInfo::default()).is_err());
+    assert_eq!(std::fs::read(&path).unwrap(), b"read-only-source");
+    std::fs::remove_dir_all(dir).unwrap();
+}

@@ -317,26 +317,60 @@ impl AiService {
         })?;
         let cache = self.data.join("ai/cache").join(id);
         if !analysis.transcript_done {
-            let (language, segments) =
-                if !analysis.options.transcribe_audio || info.audios.is_empty() {
-                    (None, vec![])
-                } else {
-                    t::verify_model(&self.data, &analysis.options.whisper_model)?;
-                    t::whisper_binary(&self.resources)?;
-                    self.stage(id, control, "extracting_audio", "正在提取临时音频", 0.08)?;
-                    t::extract_audio(&self.resources, source, &cache, &info, control)?;
-                    Self::check_source(source, &analysis.source_fingerprint)?;
-                    self.stage(id, control, "transcribing", "正在本地识别语音", 0.2)?;
-                    t::transcribe(
+            let (existing, warning) =
+                if analysis.options.local_only || analysis.options.allow_transcript {
+                    super::subtitles::existing(
                         &self.resources,
                         &self.data,
-                        &cache,
-                        &analysis.options.whisper_model,
+                        source,
+                        &info,
                         id,
                         duration_ms,
                         control,
                     )?
+                } else {
+                    (vec![], None)
                 };
+            let subtitle = !existing.is_empty();
+            let (language, segments) = if subtitle {
+                self.stage(id, control, "transcribing", "正在读取已有字幕", 0.2)?;
+                (None, existing)
+            } else if !analysis.options.transcribe_audio || info.audios.is_empty() {
+                (None, vec![])
+            } else {
+                t::verify_model(&self.data, &analysis.options.whisper_model).map_err(|error| {
+                    format!(
+                        "{}；{error}",
+                        warning.as_deref().unwrap_or("未找到可用字幕")
+                    )
+                })?;
+                t::whisper_binary(&self.resources)?;
+                self.stage(
+                    id,
+                    control,
+                    "extracting_audio",
+                    "未找到可用字幕，正在提取音频",
+                    0.08,
+                )?;
+                t::extract_audio(&self.resources, source, &cache, &info, control)?;
+                Self::check_source(source, &analysis.source_fingerprint)?;
+                self.stage(id, control, "transcribing", "正在本地识别语音", 0.2)?;
+                t::transcribe(
+                    &self.resources,
+                    &self.data,
+                    &cache,
+                    &analysis.options.whisper_model,
+                    id,
+                    duration_ms,
+                    control,
+                )?
+            };
+            control.check()?;
+            std::fs::create_dir_all(&cache).map_err(|_| "无法保存字幕来源")?;
+            crate::native::save_atomic(
+                &cache.join("transcript-source.txt"),
+                if subtitle { b"subtitle" } else { b"whisper" },
+            )?;
             Self::check_source(source, &analysis.source_fingerprint)?;
             self.owned(id, control, |r| {
                 r.save_transcript(id, language.as_deref(), &segments)

@@ -67,7 +67,7 @@ Files: features/knowledge/{KnowledgePage,FileTree,MarkdownEditor,MarkdownPreview
 
 ### Phase 10: Player integration
 Files: learning player/sidebar/lesson rows, existing playbackHandle, media page/download-complete entry.
-- [ ] RED→GREEN summary/subtitles/questions/notes65/35 tabs plus Knowledge actions, seek existing handle for chapters/search/QA/internal links, segment explanation, AI actions from all requested surfaces; download autoAI defaultOFF and explicit consent. Preserve mpv modal geometry/fullscreen/keybindings/cancel/progress. Commit integration.
+- [x] RED→GREEN summary/subtitles/questions/notes65/35 tabs plus Knowledge actions, seek existing handle for chapters/search/QA/internal links, segment explanation, AI actions from all requested surfaces; download autoAI defaultOFF and explicit consent. Preserve mpv modal geometry/fullscreen/keybindings/cancel/progress. Commit integration.
 
 ### Phase 11: Generated notes and screenshot notes
 Files: knowledge note generation, ai completed workflow, screenshot helper and UI.

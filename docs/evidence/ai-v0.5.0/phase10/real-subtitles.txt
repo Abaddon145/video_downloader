@@ -1,0 +1,23 @@
+warning: linker stdout: 正在创建库 C:/Users/14582/Documents/ChatGPT/视频下载软件/src-tauri/target\debug\deps\video_downloader_lib.dll.lib 和对象 C:/Users/14582/Documents/ChatGPT/视频下载软件/src-tauri/target\debug\deps\video_downloader_lib.dll.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `video-downloader` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.31s
+     Running unittests src\lib.rs (C:/Users/14582/Documents/ChatGPT/视频下载软件/src-tauri/target\debug\deps\video_downloader_lib-1171c85c6bcfd429.exe)
+
+running 5 tests
+test ai::subtitles::tests::subtitle_cues_reject_invalid_encoding_timestamps_and_empty_files ... ok
+test ai::subtitles::tests::subtitle_paging_locates_seek_on_later_pages ... ok
+test ai::subtitles::tests::subtitle_cues_preserve_millisecond_times_and_multiline_utf8 ... ok
+test ai::subtitles::tests::local_subtitle_priority_and_invalid_sibling_fallback_are_read_only ... ok
+test ai::subtitles::tests::real_embedded_subtitles_pipeline_without_whisper_and_persistent_probe_cache ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 157 filtered out; finished in 10.42s
+
+     Running unittests src\main.rs (C:/Users/14582/Documents/ChatGPT/视频下载软件/src-tauri/target\debug\deps\video_downloader-64125c5ebd35c85e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

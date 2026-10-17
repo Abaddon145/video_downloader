@@ -18,3 +18,7 @@ mod tests;
 pub mod transcription;
 pub mod usage;
 pub mod whisper_models;
+
+pub mod subtitles;
+
+pub mod downloads;

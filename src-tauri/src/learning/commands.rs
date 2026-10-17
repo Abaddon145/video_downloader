@@ -264,3 +264,14 @@ pub async fn learning_native_save_progress(
         .await
         .map_err(|_| "播放保存线程异常")?
 }
+
+#[tauri::command]
+pub async fn learning_import_for_analysis(
+    learning: Learning<'_>,
+    path: String,
+) -> AppResult<LearningItem> {
+    let l = learning.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || l.import_for_analysis(&path))
+        .await
+        .map_err(|_| "课程导入未完成，请重试")?
+}

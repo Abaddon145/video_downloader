@@ -177,15 +177,28 @@ pub fn activate_checked(
     Ok(())
 }
 fn write_atomic(path: &Path, bytes: &[u8]) -> AppResult<()> {
-    let temporary = path.with_extension("new");
-    let mut file = File::create(&temporary).map_err(|e| e.to_string())?;
-    file.write_all(bytes)
-        .and_then(|_| file.sync_all())
+    // Each writer owns its temporary file, including concurrent cache readers
+    // publishing the same probe and the JSON backup sharing its extension.
+    let temporary = path.with_extension(format!("{}.new", crate::ffmpeg::runner::new_id()));
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary)
         .map_err(|e| e.to_string())?;
+    let written = file.write_all(bytes).and_then(|_| file.sync_all());
     drop(file);
-    replace_file(&temporary, path)
+    let result = written
+        .map_err(|e| e.to_string())
+        .and_then(|_| replace_file(&temporary, path));
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
 }
 pub fn save_atomic(path: &Path, bytes: &[u8]) -> AppResult<()> {
+    // ponytail: serialize short state/cache publications; use per-path locks only if contention is measured.
+    static SAVES: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _save = SAVES.lock().map_err(|_| "文件保存暂不可用")?;
     if let Ok(previous) = fs::read(path) {
         if serde_json::from_slice::<serde_json::Value>(&previous).is_ok() {
             write_atomic(&path.with_extension("bak"), &previous)?;
@@ -459,6 +472,44 @@ mod tests {
         std::fs::remove_dir(&dir).unwrap();
     }
 
+    #[test]
+    fn concurrent_atomic_saves_do_not_share_temporary_files() {
+        let dir = std::env::temp_dir().join(crate::ffmpeg::runner::new_id());
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("probe.json");
+        save_atomic(&path, br#"{"initial":true}"#).unwrap();
+        let gate = std::sync::Arc::new(std::sync::Barrier::new(8));
+        let results = std::thread::scope(|scope| {
+            let workers: Vec<_> = (0..8)
+                .map(|n| {
+                    let (path, gate) = (path.clone(), gate.clone());
+                    scope.spawn(move || {
+                        let bytes = serde_json::to_vec(
+                            &serde_json::json!({"writer":n,"text":"x".repeat(32768)}),
+                        )
+                        .unwrap();
+                        gate.wait();
+                        for _ in 0..8 {
+                            save_atomic(&path, &bytes)?;
+                        }
+                        AppResult::Ok(())
+                    })
+                })
+                .collect();
+            workers
+                .into_iter()
+                .map(|w| w.join().unwrap())
+                .collect::<Vec<_>>()
+        });
+        assert!(results.iter().all(Result::is_ok), "{results:?}");
+        assert!(serde_json::from_slice::<serde_json::Value>(&fs::read(&path).unwrap()).is_ok());
+        assert!(serde_json::from_slice::<serde_json::Value>(
+            &fs::read(path.with_extension("bak")).unwrap()
+        )
+        .is_ok());
+        assert_eq!(fs::read_dir(&dir).unwrap().count(), 2);
+        fs::remove_dir_all(dir).unwrap();
+    }
     #[test]
     fn captures_utf8_stdout_without_mixing_stderr() {
         let exe = Path::new("C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe");

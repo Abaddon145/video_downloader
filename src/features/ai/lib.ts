@@ -23,3 +23,7 @@ export function courseAnalysisLabel(value?:{status:string;progress:number}){
  if(activeStatuses.includes(value.status))return `分析中 ${Math.round(Math.min(1,Math.max(0,value.progress||0))*100)}%`;
  return ({completed:'已分析',failed:'分析失败',interrupted:'分析中断'} as Record<string,string>)[value.status]??'未分析';
 }
+
+export function transcriptPageNeedsFollow(data:{page:number;items:{startMs:number}[];nextStartMs:number|null},currentMs:number){
+ return !!data.items.length&&Number.isFinite(currentMs)&&((data.page>1&&currentMs<data.items[0].startMs)||(data.nextStartMs!==null&&currentMs>=data.nextStartMs));
+}

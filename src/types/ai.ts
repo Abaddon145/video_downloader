@@ -34,3 +34,5 @@ export interface LibraryVideo {itemId:string;title:string;seriesTitle:string;pat
 export interface LibraryVideoPage {items:LibraryVideo[];total:number;page:number}
 
 export interface CourseAiState{id:string;status:string;progress:number;hasSummary:boolean;createdAt:number;updatedAt:number}
+
+export interface CourseTranscriptPage extends TranscriptPage{source:"subtitle"|"whisper"|"none";analysisId:string|null;warning:string|null;nextStartMs:number|null}
