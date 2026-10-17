@@ -1,7 +1,9 @@
+pub mod ai;
 pub mod batch;
 pub mod domain;
 pub mod engine;
 pub mod ffmpeg;
+pub mod knowledge;
 pub mod learning;
 pub mod media;
 pub mod models;
@@ -9,7 +11,9 @@ pub mod naming;
 pub mod native;
 pub mod service;
 
+use ai::commands::*;
 use domain::AppResult;
+use knowledge::commands::*;
 use learning::commands::*;
 use models::*;
 use service::Service;
@@ -278,6 +282,9 @@ pub fn run() {
             batch_task_action,
             preview_sources,
             cancel_preview,
+            ai_list_analyses,
+            ai_analysis,
+            knowledge_get_settings,
             enqueue_downloads,
             control_task,
             remove_task,
@@ -304,6 +311,8 @@ pub fn run() {
                 &service.data,
                 media.clone(),
             ));
+            app.manage(ai::service::AiService::new(&service.data));
+            app.manage(knowledge::service::KnowledgeService::new(&service.data));
             media.start();
             let show = MenuItem::with_id(app, "show", "打开视频下载器", true, None::<&str>)?;
             let exit = MenuItem::with_id(app, "exit", "保存任务并退出", true, None::<&str>)?;

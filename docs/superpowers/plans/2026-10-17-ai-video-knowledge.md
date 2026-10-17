@@ -27,9 +27,9 @@ AnalysisMode quick/standard/deep; AiStatus as spec. VideoAnalysisResult contains
 ### Phase 1: Schema and service boundaries
 Files: learning/schema-v6.sql, learning/db.rs, learning/tests.rs; ai/{mod,models,service,commands,repository}.rs; knowledge/{mod,models,service,commands}.rs; lib.rs.
 Interfaces: open existing DB via learning::db::open. AiService/KnowledgeService separate Arc state; analysis/usage/vault data tables and constraints. FTS optional; existing settings API remains compatible.
-- [ ] RED: add v5→v6 preservation/emptyDB/future-version/foreign-key tests; extend old expected version rather than remove tests. Expected new schema assertions fail.
-- [ ] GREEN: transaction v6, optional FTS, functional list/read empty data commands, no fake analysis success; recovery active→interrupted. Expected records/notes/progress preserved and startup no-FTS safe.
-- [ ] Verify: cargo test --locked, npm test/build; commit feat(ai): add v6 analysis database schema.
+- [x] RED: add v5→v6 preservation/emptyDB/future-version/foreign-key tests; extend old expected version rather than remove tests. Expected new schema assertions fail.
+- [x] GREEN: transaction v6, optional FTS, functional list/read empty data commands, no fake analysis success; recovery active→interrupted. Expected records/notes/progress preserved and startup no-FTS safe.
+- [x] Verify: cargo test --locked, npm test/build; commit feat(ai): add v6 analysis database schema.
 
 ### Phase 2: Key/settings/client
 Files: ai/{settings,client,prompts,usage}.rs, native credential entry, ai models/commands, AI Settings component/types.

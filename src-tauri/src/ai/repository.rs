@@ -1,0 +1,94 @@
+use super::models::*;
+use crate::{domain::AppResult, learning::db};
+use rusqlite::{Connection, OptionalExtension};
+use std::path::Path;
+pub struct Repository {
+    pub(crate) conn: Connection,
+}
+const COLUMNS:&str="id,item_id,source_path,source_fingerprint,status,analysis_mode,model,prompt_version,language,duration_ms,progress,stage,summary_json,markdown_path,markdown_vault_id,error,created_at,updated_at,completed_at";
+fn row(r: &rusqlite::Row<'_>) -> rusqlite::Result<VideoAnalysis> {
+    let mode: String = r.get(5)?;
+    let json: Option<String> = r.get(12)?;
+    let summary = json
+        .map(|s| {
+            serde_json::from_str(&s).map_err(|e| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    12,
+                    rusqlite::types::Type::Text,
+                    Box::new(e),
+                )
+            })
+        })
+        .transpose()?;
+    Ok(VideoAnalysis {
+        id: r.get(0)?,
+        item_id: r.get(1)?,
+        source_path: r.get(2)?,
+        source_fingerprint: r.get(3)?,
+        status: r.get(4)?,
+        analysis_mode: match mode.as_str() {
+            "quick" => AnalysisMode::Quick,
+            "deep" => AnalysisMode::Deep,
+            _ => AnalysisMode::Standard,
+        },
+        model: r.get(6)?,
+        prompt_version: r.get(7)?,
+        language: r.get(8)?,
+        duration_ms: r.get(9)?,
+        progress: r.get(10)?,
+        stage: r.get(11)?,
+        summary,
+        markdown_path: r.get(13)?,
+        markdown_vault_id: r.get(14)?,
+        error: r.get(15)?,
+        created_at: r.get(16)?,
+        updated_at: r.get(17)?,
+        completed_at: r.get(18)?,
+    })
+}
+impl Repository {
+    pub fn open(path: &Path) -> AppResult<Self> {
+        Ok(Self {
+            conn: db::open(path)?,
+        })
+    }
+    pub fn recover(&self) -> AppResult<usize> {
+        self.conn.execute("UPDATE video_analyses SET status='interrupted',stage='分析被中断，可继续分析',updated_at=?1 WHERE status IN ('queued','extracting_audio','transcribing','extracting_keyframes','analyzing_chunks','finalizing','writing_note')",[crate::service::now()]).map_err(db::error)
+    }
+    pub fn list(&self, status: Option<&str>, page: u32) -> AppResult<AnalysisPage> {
+        let status = status.filter(|s| !s.is_empty());
+        if status.is_some_and(|s| {
+            !["active", "completed", "failed", "cancelled", "interrupted"].contains(&s)
+        }) {
+            return Err("分析筛选条件无效".into());
+        }
+        let filter="(?1 IS NULL OR status=?1 OR (?1='active' AND status IN ('queued','extracting_audio','transcribing','extracting_keyframes','analyzing_chunks','finalizing','writing_note')))";
+        let total: u64 = self
+            .conn
+            .query_row(
+                &format!("SELECT count(*) FROM video_analyses WHERE {filter}"),
+                [status],
+                |r| r.get(0),
+            )
+            .map_err(db::error)?;
+        let page = page.max(1).min(((total + 49) / 50).max(1) as u32);
+        let mut stmt=self.conn.prepare(&format!("SELECT {COLUMNS} FROM video_analyses WHERE {filter} ORDER BY created_at DESC,id LIMIT 50 OFFSET ?2")).map_err(db::error)?;
+        let items = stmt
+            .query_map(rusqlite::params![status, (page - 1) * 50], row)
+            .map_err(db::error)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(db::error)?;
+        Ok(AnalysisPage { items, total, page })
+    }
+    pub fn get(&self, id: &str) -> AppResult<VideoAnalysis> {
+        self.conn
+            .query_row(
+                &format!("SELECT {COLUMNS} FROM video_analyses WHERE id=?1"),
+                [id],
+                row,
+            )
+            .optional()
+            .map_err(db::error)?
+            .ok_or_else(|| "找不到分析记录".into())
+    }
+}

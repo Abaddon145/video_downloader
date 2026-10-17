@@ -7,7 +7,7 @@ fn learning_database_creates_versioned_tables_and_enforces_relations() {
     let version: i64 = c
         .query_row("SELECT version FROM schema_version", [], |r| r.get(0))
         .expect("schema must exist");
-    assert_eq!(version, 5);
+    assert_eq!(version, 6);
     for table in [
         "categories",
         "series",
@@ -674,7 +674,12 @@ fn learning_v4_upgrade_preserves_progress_notes_and_source_thumbnail() {
     std::fs::create_dir(&dir).unwrap();
     let path = dir.join("learning.db");
     {
-        let r = Repository::open(&path).unwrap();
+        let r = Repository {
+            conn: Connection::open(&path).unwrap(),
+        };
+        r.conn
+            .execute_batch(include_str!("fixtures/schema-v5.sql"))
+            .unwrap();
         r.conn.execute_batch("INSERT INTO categories(id,name,sort_order,created_at,updated_at) VALUES('c','分类',3,1,1);
         INSERT INTO series(id,category_id,title,favorite,sort_order,created_at,updated_at) VALUES('s','c','保留系列',1,9,1,1);
         INSERT INTO series_items(id,series_id,title,source_url,source_video_id,source_playlist_index,duration_ms,thumbnail_path,download_task_id,download_request,request_key,sort_order,created_at,updated_at) VALUES('i','s','保留课程','https://example.com/video','v7',7,900000,'https://example.com/thumb.jpg','existing-task','{}','frozen',17,1,1);
@@ -687,7 +692,7 @@ fn learning_v4_upgrade_preserves_progress_notes_and_source_thumbnail() {
                 [old],
             )
             .unwrap();
-        // Construct a genuine v4 layout even after the test is run on v5 code.
+        // Build v4 from the frozen legacy fixture, independent of the current schema.
         let columns = r
             .rows(
                 "SELECT name FROM pragma_table_info('series_items')",
@@ -711,7 +716,7 @@ fn learning_v4_upgrade_preserves_progress_notes_and_source_thumbnail() {
         r.conn
             .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
             .unwrap(),
-        5
+        6
     );
     let item = r.item("i").unwrap();
     assert_eq!(item.progress.position_ms, 450000);
@@ -1080,4 +1085,107 @@ fn learning_thumbnail_retry_uses_accurate_output_seek_preserving_literal_paths()
         a,
         ["-i", "C:/a b.ts", "-ss", "2.4", "-map", "0:0", "out.jpg"]
     );
+}
+
+#[test]
+fn ai_v6_migrates_actual_v5_and_preserves_learning_data() {
+    let dir = std::env::temp_dir().join(crate::ffmpeg::runner::new_id());
+    std::fs::create_dir(&dir).unwrap();
+    let path = dir.join("learning.db");
+    {
+        let c = Connection::open(&path).unwrap();
+        c.execute_batch(include_str!("fixtures/schema-v5.sql"))
+            .unwrap();
+        c.execute_batch("INSERT INTO series(id,title,created_at,updated_at) VALUES('s','中文课程',1,1);
+          INSERT INTO series_items(id,series_id,title,file_path,created_at,updated_at) VALUES('i','s','课一','C:/课程/源片.wmv',1,1);
+          INSERT INTO playback_progress(item_id,position_ms,duration_ms,updated_at) VALUES('i',123000,300000,1);
+          INSERT INTO video_notes(id,item_id,time_ms,content,created_at,updated_at) VALUES('n','i',123000,'不能丢失',1,1);
+          INSERT INTO learning_settings(key,value) VALUES('test','preserved');").unwrap();
+    }
+    {
+        let c = db::open(&path).unwrap();
+        assert_eq!(
+            c.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            6
+        );
+        assert_eq!(
+            c.query_row("SELECT position_ms FROM playback_progress", [], |r| r
+                .get::<_, i64>(0))
+                .unwrap(),
+            123000
+        );
+        assert_eq!(
+            c.query_row("SELECT content FROM video_notes", [], |r| r
+                .get::<_, String>(0))
+                .unwrap(),
+            "不能丢失"
+        );
+        assert_eq!(
+            c.query_row(
+                "SELECT value FROM learning_settings WHERE key='test'",
+                [],
+                |r| r.get::<_, String>(0)
+            )
+            .unwrap(),
+            "preserved"
+        );
+        c.execute("INSERT INTO video_analyses(id,item_id,source_path,source_fingerprint,status,analysis_mode,model,prompt_version,created_at,updated_at) VALUES('a','i','C:/课程/源片.wmv','fp','queued','standard','deepseek-flash','v0.5.0-1',1,1)",[]).unwrap();
+        c.execute("INSERT INTO transcript_segments(id,analysis_id,segment_index,start_ms,end_ms,text) VALUES('t','a',0,0,1000,'原始字幕')",[]).unwrap();
+        c.execute("INSERT INTO ai_usage(id,analysis_id,operation,model,created_at) VALUES('u','a','summary','deepseek-flash',1)",[]).unwrap();
+        assert!(c.execute("INSERT INTO transcript_segments(id,analysis_id,segment_index,start_ms,end_ms,text) VALUES('bad','a',1,1000,10,'越界')",[]).is_err());
+        c.execute("DELETE FROM series WHERE id='s'", []).unwrap();
+        assert_eq!(
+            c.query_row("SELECT item_id FROM video_analyses", [], |r| r
+                .get::<_, Option<String>>(0))
+                .unwrap(),
+            None
+        );
+        c.execute("DELETE FROM video_analyses WHERE id='a'", [])
+            .unwrap();
+        assert_eq!(
+            c.query_row("SELECT count(*) FROM transcript_segments", [], |r| r
+                .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            c.query_row("SELECT analysis_id FROM ai_usage", [], |r| r
+                .get::<_, Option<String>>(0))
+                .unwrap(),
+            None
+        );
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
+#[test]
+fn ai_v6_empty_database_and_reopening_are_idempotent() {
+    let c = db::open(Path::new(":memory:")).unwrap();
+    for table in [
+        "video_analyses",
+        "transcript_segments",
+        "analysis_chunks",
+        "analysis_keyframes",
+        "ai_usage",
+        "knowledge_index",
+        "knowledge_links",
+        "knowledge_tags",
+    ] {
+        assert_eq!(
+            c.query_row(
+                "SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?1",
+                [table],
+                |r| r.get::<_, i64>(0)
+            )
+            .unwrap(),
+            1,
+            "{table}"
+        );
+    }
+    assert!(c
+        .execute(
+            "INSERT INTO knowledge_links(source_path,target) VALUES('missing.md','Note')",
+            []
+        )
+        .is_err());
 }

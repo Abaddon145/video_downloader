@@ -17,7 +17,7 @@ pub fn open(path: &Path) -> AppResult<Connection> {
     } else {
         0
     };
-    if version > 5 || version < 0 {
+    if version > 6 || version < 0 {
         return Err("学习库版本高于本软件或版本记录无效，请保留数据库并使用对应版本".into());
     }
     let tx = c.transaction().map_err(error)?;
@@ -49,7 +49,22 @@ pub fn open(path: &Path) -> AppResult<Connection> {
         tx.execute_batch(include_str!("schema-v5.sql"))
             .map_err(error)?;
     }
-    tx.execute_batch("PRAGMA user_version=5;").map_err(error)?;
+    if version < 6 {
+        tx.execute_batch(include_str!("schema-v6.sql"))
+            .map_err(error)?;
+    }
+    tx.execute_batch("PRAGMA user_version=6;").map_err(error)?;
     tx.commit().map_err(error)?;
+    enable_search(&c);
     Ok(c)
+}
+// Search is an optional acceleration; LIKE remains available on every build.
+pub(crate) fn enable_search(c: &Connection) -> bool {
+    let supported = c
+        .query_row("SELECT sqlite_compileoption_used('ENABLE_FTS5')", [], |r| {
+            r.get::<_, bool>(0)
+        })
+        .unwrap_or(false);
+    supported && c.execute_batch("CREATE VIRTUAL TABLE IF NOT EXISTS transcript_fts USING fts5(id UNINDEXED,analysis_id UNINDEXED,text);
+       CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_fts USING fts5(path UNINDEXED,title,content);").is_ok()
 }
