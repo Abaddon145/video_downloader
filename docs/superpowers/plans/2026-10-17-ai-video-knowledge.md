@@ -59,7 +59,7 @@ Files: features/ai/{PlayerAiSidebar,AnalysisProgress,VideoSummary,VideoChapters,
 
 ### Phase 8: Vault backend
 Files: knowledge/{vault,markdown,index,links,search,obsidian,service,commands,models}.rs.
-- [ ] RED→GREEN new/existing Vault, Rootguard absolute/UNC/.. /Windowsnames/junction/symlink/race checks, ignored dirs/5MiB limits; expected_hash conflict safe atomic writing; create/rename/move/trash/reindex pagedtree; text/frontmatter/wiki/tags/backlinks/search; URI encoding/noObsidian graceful. Files source of truth; source references never full path bydefault. Commit backend.
+- [x] RED→GREEN new/existing Vault, Rootguard absolute/UNC/.. /Windowsnames/junction/symlink/race checks, ignored dirs/5MiB limits; expected_hash conflict safe atomic writing; create/rename/move/trash/reindex pagedtree; text/frontmatter/wiki/tags/backlinks/search; URI encoding/noObsidian graceful. Files source of truth; source references never full path bydefault. Commit backend.
 
 ### Phase 9: Vault UI
 Files: features/knowledge/{KnowledgePage,FileTree,MarkdownEditor,MarkdownPreview,KnowledgeSearch,Backlinks,TagPanel,KnowledgeToolbar}.tsx, types/knowledge.ts.
