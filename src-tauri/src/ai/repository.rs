@@ -160,3 +160,39 @@ impl Repository {
         Ok(TranscriptPage { items, total, page })
     }
 }
+
+impl Repository {
+    pub fn save_keyframes(&mut self, id: &str, frames: &[AnalysisKeyframe]) -> AppResult<()> {
+        let tx = self.conn.transaction().map_err(db::error)?;
+        tx.execute("DELETE FROM analysis_keyframes WHERE analysis_id=?1", [id])
+            .map_err(db::error)?;
+        for f in frames {
+            tx.execute("INSERT INTO analysis_keyframes(id,analysis_id,time_ms,path,sha256,scene_score) VALUES(?1,?2,?3,?4,?5,?6)",rusqlite::params![f.id,id,f.time_ms,f.path,f.sha256,f.scene_score]).map_err(db::error)?;
+        }
+        tx.execute(
+            "UPDATE video_analyses SET keyframes_done=1,updated_at=?2 WHERE id=?1",
+            rusqlite::params![id, crate::service::now()],
+        )
+        .map_err(db::error)?;
+        tx.commit().map_err(db::error)
+    }
+    pub fn keyframes(&self, id: &str) -> AppResult<Vec<AnalysisKeyframe>> {
+        self.get(id)?;
+        let mut stmt=self.conn.prepare("SELECT id,analysis_id,time_ms,path,sha256,scene_score FROM analysis_keyframes WHERE analysis_id=?1 ORDER BY time_ms LIMIT 60").map_err(db::error)?;
+        let rows = stmt
+            .query_map([id], |r| {
+                Ok(AnalysisKeyframe {
+                    id: r.get(0)?,
+                    analysis_id: r.get(1)?,
+                    time_ms: r.get(2)?,
+                    path: r.get(3)?,
+                    sha256: r.get(4)?,
+                    scene_score: r.get(5)?,
+                })
+            })
+            .map_err(db::error)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(db::error)?;
+        Ok(rows)
+    }
+}

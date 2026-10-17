@@ -111,3 +111,14 @@ pub struct TranscriptPage {
     pub total: u64,
     pub page: u32,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnalysisKeyframe {
+    pub id: String,
+    pub analysis_id: String,
+    pub time_ms: i64,
+    pub path: String,
+    pub sha256: String,
+    pub scene_score: Option<f64>,
+}

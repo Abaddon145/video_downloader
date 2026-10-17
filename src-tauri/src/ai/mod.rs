@@ -1,6 +1,7 @@
 pub mod client;
 pub mod commands;
 pub mod jobs;
+pub mod keyframes;
 pub mod models;
 pub mod prompts;
 pub mod repository;

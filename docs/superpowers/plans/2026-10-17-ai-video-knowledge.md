@@ -43,7 +43,7 @@ Files: prepare-tools/components/licenses, ai/transcription.rs and model manageme
 
 ### Phase 4: Keyframes
 Files: ai/keyframes.rs, centralized mode constants.
-- [ ] RED→GREEN scene+fallback180/90/45s, caps12/24/60, JPEG≤1280 quality80, SHA dedupe/time provenance. Real MP4/MKV/WMV/AVI/HEVC/4K/noaudio, cancellation and source changes. Commit only green.
+- [x] RED→GREEN scene+fallback180/90/45s, caps12/24/60, JPEG≤1280 quality80, SHA dedupe/time provenance. Real MP4/MKV/WMV/AVI/HEVC/4K/noaudio, cancellation and source changes. Commit only green.
 
 ### Phase 5: Chunk analysis/runtime
 Files: ai/{analysis,jobs,repository,client}.rs.

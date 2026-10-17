@@ -251,3 +251,204 @@ fn ai_transcript_database_paging_and_fts_are_atomic() {
     r.save_transcript("a", Some("zh"), &items[..1]).unwrap();
     assert_eq!(r.transcript("a", 1).unwrap().total, 1);
 }
+
+#[test]
+fn ai_keyframe_sampling_is_bounded_distributed_and_rejects_fake_scene_times() {
+    use super::{keyframes::*, models::AnalysisMode};
+    for (mode, cap) in [
+        (AnalysisMode::Quick, 12),
+        (AnalysisMode::Standard, 24),
+        (AnalysisMode::Deep, 60),
+    ] {
+        let policy = policy(mode);
+        assert_eq!(policy.max_frames, cap);
+        let times =
+            select_times(7200000, mode, &[(1000, 0.9), (2000, 0.8), (5000000, 0.95)]).unwrap();
+        assert!(times.len() <= cap);
+        assert!(times.iter().any(|t| t.0 > 6000000));
+        assert!(times.windows(2).all(|w| w[0].0 < w[1].0));
+    }
+    assert!(select_times(0, AnalysisMode::Standard, &[]).is_err());
+    let scenes=parse_scenes("frame:0 pts:9000 pts_time:0.1\nlavfi.scene_score=0.7\nframe:1 pts:200 pts_time:NaN\nlavfi.scene_score=0.8\nframe:2 pts:9 pts_time:999\nlavfi.scene_score=0.9\n",10000);
+    assert_eq!(scenes, vec![(100, 0.7)]);
+    let short = select_times(100, AnalysisMode::Standard, &[]).unwrap();
+    assert!(!short.is_empty());
+    assert!(short.iter().all(|s| s.0 >= 0 && s.0 < 100));
+}
+
+#[test]
+#[ignore = "Requires real media matrix; AI_QA_MATRIX and AI_QA_RESOURCES"]
+fn keyframes_real_format_matrix_scene_4k_and_readonly_sources() {
+    use super::{jobs::Control, keyframes as k, models::AnalysisMode, transcription as t};
+    use std::time::Duration;
+    let resources = std::path::PathBuf::from(std::env::var("AI_QA_RESOURCES").unwrap());
+    let matrix: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(std::env::var("AI_QA_MATRIX").unwrap()).unwrap())
+            .unwrap();
+    let directory = std::env::temp_dir().join(format!(
+        "映流画面 #&（）-{}",
+        crate::ffmpeg::runner::new_id()
+    ));
+    std::fs::create_dir(&directory).unwrap();
+    let control = Control::default();
+    let mut total = 0;
+    for (index, record) in matrix["records"].as_array().unwrap().iter().enumerate() {
+        let source = Path::new(record["path"].as_str().unwrap());
+        let before = t::file_hash(source).unwrap();
+        let info = t::probe_media(&resources, source, &control).unwrap();
+        let frames = k::extract(
+            &resources,
+            source,
+            &directory.join(format!("matrix-{index}")),
+            "matrix",
+            AnalysisMode::Standard,
+            &info,
+            &control,
+        )
+        .unwrap();
+        assert!(!frames.is_empty(), "{}", source.display());
+        assert!(frames.len() <= 24);
+        for frame in &frames {
+            let (w, h) = k::jpeg_dimensions(&std::fs::read(&frame.path).unwrap()).unwrap();
+            assert!(w <= 1280 && h <= 1280);
+            assert!(frame.time_ms >= 0 && frame.time_ms <= (info.duration.unwrap() * 1000.) as i64);
+            assert_eq!(t::file_hash(Path::new(&frame.path)).unwrap(), frame.sha256);
+        }
+        assert_eq!(t::file_hash(source).unwrap(), before);
+        total += 1;
+        println!(
+            "REAL_FRAMES source={} codec={} frames={} source_unchanged=true",
+            source.file_name().unwrap().to_string_lossy(),
+            info.videos[0].codec,
+            frames.len()
+        );
+    }
+    let ffmpeg = t::verified_tool(&resources, "ffmpeg.exe").unwrap();
+    let scene = directory.join("场景颜色.mp4");
+    let graph="color=c=red:s=320x180:r=5:d=3[r];color=c=blue:s=320x180:r=5:d=3[b];color=c=white:s=320x180:r=5:d=3[w];[r][b][w]concat=n=3:v=1:a=0";
+    control
+        .capture(
+            &ffmpeg,
+            &[
+                "-hide_banner",
+                "-nostdin",
+                "-loglevel",
+                "error",
+                "-n",
+                "-f",
+                "lavfi",
+                "-i",
+                graph,
+                "-c:v",
+                "libx264",
+                "-preset",
+                "ultrafast",
+                "-pix_fmt",
+                "yuv420p",
+            ]
+            .map(str::to_owned)
+            .into_iter()
+            .chain([scene.to_string_lossy().into_owned()])
+            .collect::<Vec<_>>(),
+            None,
+            Duration::from_secs(30),
+        )
+        .unwrap();
+    let info = t::probe_media(&resources, &scene, &control).unwrap();
+    assert!(info.audios.is_empty());
+    let frames = k::extract(
+        &resources,
+        &scene,
+        &directory.join("scene"),
+        "scene",
+        AnalysisMode::Deep,
+        &info,
+        &control,
+    )
+    .unwrap();
+    assert!(
+        frames.iter().any(|f| f.scene_score.is_some()),
+        "scene changes must actually be detected"
+    );
+    println!(
+        "REAL_FRAMES scene_detected={} frames={}",
+        frames.iter().filter(|f| f.scene_score.is_some()).count(),
+        frames.len()
+    );
+    let fourk = directory.join("4K 无音轨.mp4");
+    control
+        .capture(
+            &ffmpeg,
+            &[
+                "-hide_banner",
+                "-nostdin",
+                "-loglevel",
+                "error",
+                "-n",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc2=size=3840x2160:rate=1",
+                "-t",
+                "10",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "ultrafast",
+                "-crf",
+                "35",
+                "-pix_fmt",
+                "yuv420p",
+            ]
+            .map(str::to_owned)
+            .into_iter()
+            .chain([fourk.to_string_lossy().into_owned()])
+            .collect::<Vec<_>>(),
+            None,
+            Duration::from_secs(60),
+        )
+        .unwrap();
+    let info = t::probe_media(&resources, &fourk, &control).unwrap();
+    let before = t::file_hash(&fourk).unwrap();
+    let frames = k::extract(
+        &resources,
+        &fourk,
+        &directory.join("4k"),
+        "fourk",
+        AnalysisMode::Standard,
+        &info,
+        &control,
+    )
+    .unwrap();
+    assert!(!frames.is_empty());
+    assert_eq!(
+        k::jpeg_dimensions(&std::fs::read(&frames[0].path).unwrap()).unwrap(),
+        (1280, 720)
+    );
+    assert_eq!(t::file_hash(&fourk).unwrap(), before);
+    let cancelled = Control::default();
+    cancelled.cancel();
+    assert!(k::extract(
+        &resources,
+        &fourk,
+        &directory.join("cancel"),
+        "cancel",
+        AnalysisMode::Standard,
+        &info,
+        &cancelled
+    )
+    .is_err());
+    assert!(k::extract(
+        &resources,
+        &fourk,
+        &directory.join("audio"),
+        "audio",
+        AnalysisMode::Standard,
+        &crate::ffmpeg::models::MediaInfo::default(),
+        &control
+    )
+    .unwrap()
+    .is_empty());
+    println!("REAL_FRAMES matrix_formats={total} fourk=1280x720 no_audio=true pre_cancel=true");
+    std::fs::remove_dir_all(directory).unwrap();
+}

@@ -1,0 +1,26 @@
+
+running 1 test
+REAL_FRAMES source=01-MP4-H264-AAC.mp4 codec=h264 frames=1 source_unchanged=true
+REAL_FRAMES source=02-MKV-H264-AAC.mkv codec=h264 frames=1 source_unchanged=true
+REAL_FRAMES source=03-MKV-HEVC-AAC.mkv codec=hevc frames=1 source_unchanged=true
+REAL_FRAMES source=04-MOV-H264.mov codec=h264 frames=1 source_unchanged=true
+REAL_FRAMES source=05-AVI-MPEG4.avi codec=mpeg4 frames=1 source_unchanged=true
+REAL_FRAMES source=06-WMV-WMV3-WMA.wmv codec=wmv3 frames=3 source_unchanged=true
+REAL_FRAMES source=07-WMV-VC1-WMA.wmv codec=vc1 frames=2 source_unchanged=true
+REAL_FRAMES source=08-MPEG-MPEG2.mpg codec=mpeg2video frames=1 source_unchanged=true
+REAL_FRAMES source=09-TS-H264.ts codec=h264 frames=1 source_unchanged=true
+REAL_FRAMES source=10-M2TS-H264.m2ts codec=h264 frames=1 source_unchanged=true
+REAL_FRAMES source=11-WebM-VP9-Opus.webm codec=vp9 frames=1 source_unchanged=true
+REAL_FRAMES source=12-FLV.flv codec=flv1 frames=1 source_unchanged=true
+REAL_FRAMES scene_detected=2 frames=3
+test ai::tests::keyframes_real_format_matrix_scene_4k_and_readonly_sources has been running for over 60 seconds
+REAL_FRAMES matrix_formats=12 fourk=1280x720 no_audio=true pre_cancel=true
+test ai::tests::keyframes_real_format_matrix_scene_4k_and_readonly_sources ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 108 filtered out; finished in 63.86s
+
+     Running unittests src\main.rs (C:/Users/14582/Documents/ChatGPT/视频下载软件/src-tauri/target\debug\deps\video_downloader-743186f98c912b98.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
