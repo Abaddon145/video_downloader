@@ -33,8 +33,8 @@ Interfaces: open existing DB via learning::db::open. AiService/KnowledgeService 
 
 ### Phase 2: Key/settings/client
 Files: ai/{settings,client,prompts,usage}.rs, native credential entry, ai models/commands, AI Settings component/types.
-- [ ] RED→GREEN: DPAPI opaque file/change/delete/no-key tests, raw key absent in views/state/errors; native entry only. Fixed endpoint client timeout15/120, retry2 1s/3s for429/500/502/503/504, bounded response,401/402/network messages. Fake HTTP transport fixtures clearly marked; real connection only with user-entered key.
-- [ ] Verify full suites; commit secure settings/client. Do not implement video analysis until pass.
+- [x] RED→GREEN: DPAPI opaque file/change/delete/no-key tests, raw key absent in views/state/errors; native entry only. Fixed endpoint client timeout15/120, retry2 1s/3s for429/500/502/503/504, bounded response,401/402/network messages. Fake HTTP transport fixtures clearly marked; real connection only with user-entered key.
+- [x] Verify full suites; commit secure settings/client. Do not implement video analysis until pass.
 
 ### Phase 3: Local Whisper
 Files: prepare-tools/components/licenses, ai/transcription.rs and model management, repository transcript commands.

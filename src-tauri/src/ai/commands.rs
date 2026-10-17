@@ -21,3 +21,39 @@ pub async fn ai_analysis(ai: Ai<'_>, id: String) -> AppResult<VideoAnalysis> {
         .await
         .map_err(|_| "读取分析记录失败")?
 }
+
+#[tauri::command]
+pub async fn ai_get_settings(ai: Ai<'_>) -> AppResult<super::settings::AiSettingsView> {
+    let ai = ai.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || ai.settings())
+        .await
+        .map_err(|_| "读取AI设置失败")?
+}
+#[tauri::command]
+pub async fn ai_save_settings(
+    ai: Ai<'_>,
+    settings: super::settings::AiSettings,
+) -> AppResult<super::settings::AiSettingsView> {
+    let ai = ai.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || ai.save_settings(settings))
+        .await
+        .map_err(|_| "保存AI设置失败")?
+}
+#[tauri::command]
+pub async fn ai_set_deepseek_key(ai: Ai<'_>) -> AppResult<bool> {
+    let ai = ai.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || ai.set_key())
+        .await
+        .map_err(|_| "密钥录入未完成")?
+}
+#[tauri::command]
+pub async fn ai_clear_deepseek_key(ai: Ai<'_>) -> AppResult<()> {
+    let ai = ai.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || ai.clear_key())
+        .await
+        .map_err(|_| "密钥删除未完成")?
+}
+#[tauri::command]
+pub async fn ai_test_deepseek(ai: Ai<'_>) -> AppResult<String> {
+    ai.test_connection().await
+}

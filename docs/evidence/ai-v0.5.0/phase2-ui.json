@@ -1,0 +1,13 @@
+{
+  "mocked": true,
+  "checks": [
+    "no web password field",
+    "native entry command has no key argument",
+    "auto analysis default off",
+    "privacy setting saved",
+    "test connection feedback",
+    "880px no horizontal overflow",
+    "no page errors"
+  ],
+  "passed": true
+}
