@@ -34,7 +34,7 @@ fn reference_service() -> (
     (service, control, dir)
 }
 
-fn reference_http(
+pub(super) fn reference_http(
     replies: Vec<serde_json::Value>,
     mut first_hook: Option<Box<dyn FnOnce() + Send>>,
 ) -> (

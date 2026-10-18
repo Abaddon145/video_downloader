@@ -299,8 +299,8 @@ fn toggling_only_auto_note_reuses_paid_analysis_without_another_queue_entry() {
     ai.with(|r| {
         r.conn
             .execute(
-                "UPDATE video_analyses SET prompt_version=?1 WHERE id='a'",
-                [crate::ai::prompts::ANALYSIS_PROMPT_VERSION],
+                "UPDATE video_analyses SET prompt_version=?1,template_id='general',template_version=1,template_snapshot=?2 WHERE id='a'",
+                rusqlite::params![crate::ai::prompts::TEMPLATE_PROMPT_VERSION,serde_json::to_string(&crate::ai::templates::builtins().remove(0)).unwrap()],
             )
             .unwrap();
         Ok(())
@@ -315,6 +315,10 @@ fn toggling_only_auto_note_reuses_paid_analysis_without_another_queue_entry() {
     ));
     let got = ai
         .start_analysis(AnalysisRequest {
+            template_id: None,
+            template_version: None,
+            reuse_analysis_id: None,
+            auto_generate_note: None,
             force: false,
             path: root.join("课程.mp4").to_string_lossy().into(),
             item_id: Some("lesson".into()),
@@ -328,6 +332,10 @@ fn toggling_only_auto_note_reuses_paid_analysis_without_another_queue_entry() {
     assert!(ai.runtime.lock().unwrap().pending.is_empty());
     let restricted = ai
         .start_analysis(AnalysisRequest {
+            template_id: None,
+            template_version: None,
+            reuse_analysis_id: None,
+            auto_generate_note: None,
             force: false,
             path: root.join("课程.mp4").to_string_lossy().into(),
             item_id: Some("lesson".into()),
@@ -340,6 +348,74 @@ fn toggling_only_auto_note_reuses_paid_analysis_without_another_queue_entry() {
     assert_ne!(restricted.id, "a");
     assert!(!restricted.options.allow_images);
     assert_eq!(ai.runtime.lock().unwrap().pending.len(), 1);
+    drop(ai);
+    drop(k);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn auto_note_uses_frozen_single_choice_instead_of_new_task_default() {
+    for (choice, default) in [(true, false), (false, true)] {
+        let (root, ai, k, id) = fixture();
+        let mut settings = ai.settings().unwrap().settings;
+        settings.auto_generate_notes = default;
+        ai.save_settings(settings).unwrap();
+        ai.with(|r|{r.conn.execute("UPDATE video_analyses SET note_target_vault_id=?1,options_json=json_set(options_json,'$.autoGenerateNote',json(?2)) WHERE id='a'",rusqlite::params![id,if choice {"true"}else{"false"}]).unwrap();Ok(())}).unwrap();
+        let control = Arc::new(crate::ai::jobs::Control::default());
+        ai.runtime.lock().unwrap().active = Some(("a".into(), control.clone()));
+        ai.export_auto_note_with(&k, "a", &control).unwrap();
+        assert_eq!(ai.analysis("a").unwrap().markdown_path.is_some(), choice);
+        ai.shutdown();
+        drop(ai);
+        drop(k);
+        fs::remove_dir_all(root).unwrap();
+    }
+}
+
+#[test]
+fn cached_note_export_uses_current_vault_without_rewriting_paid_history_or_usage() {
+    let (root, ai, k, id) = fixture();
+    ai.with(|r|{r.conn.execute("UPDATE video_analyses SET note_target_vault_id=?1,options_json=json_set(options_json,'$.autoGenerateNote',json('false')) WHERE id='a'",[id]).unwrap();Ok(())}).unwrap();
+    let before = ai.analysis("a").unwrap();
+    let other = root.join("CurrentVault");
+    fs::create_dir(&other).unwrap();
+    let current = k
+        .set_vault(other.to_str().unwrap(), false)
+        .unwrap()
+        .vault_id
+        .unwrap();
+    ai.export_cached_note_with(&k, "a").unwrap();
+    let after = ai.analysis("a").unwrap();
+    assert_eq!(after.markdown_vault_id, Some(current));
+    assert!(after.markdown_path.is_some());
+    assert_eq!(
+        serde_json::to_value(before.summary).unwrap(),
+        serde_json::to_value(after.summary).unwrap()
+    );
+    assert_eq!(
+        serde_json::to_value(before.options).unwrap(),
+        serde_json::to_value(after.options).unwrap()
+    );
+    assert_eq!(
+        ai.with(|r| r
+            .conn
+            .query_row("SELECT count(*) FROM ai_usage", [], |r| r.get::<_, i64>(0))
+            .map_err(crate::learning::db::error))
+            .unwrap(),
+        0
+    );
+    let empty_data = root.join("NoVaultSettings");
+    fs::create_dir(&empty_data).unwrap();
+    let no_vault = KnowledgeService::new(&empty_data);
+    ai.export_cached_note_with(&no_vault, "a").unwrap();
+    let warning = ai.analysis("a").unwrap();
+    assert!(warning.note_warning.unwrap().contains("Vault"));
+    assert_eq!(warning.markdown_path, after.markdown_path);
+    drop(no_vault);
+    assert_eq!(
+        fs::read(root.join("课程.mp4")).unwrap(),
+        b"source-read-only"
+    );
     drop(ai);
     drop(k);
     fs::remove_dir_all(root).unwrap();

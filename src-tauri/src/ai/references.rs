@@ -243,6 +243,7 @@ impl super::service::AiService {
         client: &super::client::DeepSeekClient,
     ) -> AppResult<VideoAnalysisResult> {
         let (mut result, failed) = super::analysis::parse_result_candidates(text, scope)?;
+        super::templates::validate_output(&result, analysis.template_snapshot.as_ref())?;
         self.reference_request_guard(id, analysis, control)?;
         if let Some(request) = (!failed.is_empty())
             .then(|| repair_request(&result, &failed, scope))

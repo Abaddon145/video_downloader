@@ -111,6 +111,7 @@ pub fn validate_result(r: &VideoAnalysisResult, s: &Scope<'_>) -> AppResult<()> 
     strings(&r.action_items, 100, 2000)?;
     strings(&r.tags, 32, 64)?;
     strings(&r.warnings, 8, 200)?;
+    validate_sections(&r.sections, s)?;
     if r.chapters.len() > 200
         || r.key_points.len() > 200
         || r.tutorial_steps.len() > 200
@@ -160,6 +161,60 @@ pub fn validate_result(r: &VideoAnalysisResult, s: &Scope<'_>) -> AppResult<()> 
         time(term.time_ms, s)?;
         string(&term.name, 200, true)?;
         string(&term.definition, 4000, true)?;
+    }
+    Ok(())
+}
+fn validate_sections(sections: &[PurposeSection], scope: &Scope<'_>) -> AppResult<()> {
+    let mut ids = HashSet::new();
+    let mut bytes = 0;
+    if sections.len() > 12 {
+        return Err("用途栏目超过12个".into());
+    }
+    for section in sections {
+        if !super::templates::valid_id(&section.id)
+            || !ids.insert(&section.id)
+            || section.items.len() > 20
+        {
+            return Err("用途栏目重复、无效或条目过多".into());
+        }
+        string(&section.title, 80, true)?;
+        for item in &section.items {
+            string(&item.title, 200, true)?;
+            string(&item.content, 2000, true)?;
+            bytes += item.title.len() + item.content.len();
+            if item.source_segment_ids.len() > 16
+                || item.keyframe_ids.len() > 6
+                || item.source_segment_ids.is_empty() && item.keyframe_ids.is_empty()
+            {
+                return Err("用途栏目缺少有界真实来源".into());
+            }
+            if item
+                .source_segment_ids
+                .iter()
+                .any(|id| !scope.segments.iter().any(|s| &s.id == id))
+                || item
+                    .keyframe_ids
+                    .iter()
+                    .any(|id| !scope.frames.iter().any(|f| &f.id == id))
+            {
+                return Err("用途栏目引用了未提供的来源".into());
+            }
+            if let Some(at) = item.time_ms {
+                time(at, scope)?;
+                if !scope.segments.iter().any(|s| {
+                    item.source_segment_ids.contains(&s.id) && at >= s.start_ms && at <= s.end_ms
+                }) && !scope
+                    .frames
+                    .iter()
+                    .any(|f| item.keyframe_ids.contains(&f.id) && at == f.time_ms)
+                {
+                    return Err("用途栏目时间与来源不一致".into());
+                }
+            }
+        }
+    }
+    if bytes > 96000 {
+        return Err("用途栏目总正文过长".into());
     }
     Ok(())
 }
@@ -376,7 +431,7 @@ impl super::service::AiService {
         let analysis = self.analysis(id)?;
         self.check_consent(&analysis.options)?;
         let (segments, frames) = self.with(|r| Ok((r.all_transcript(id)?, r.keyframes(id)?)))?;
-        let chunks = build_chunks(
+        let mut chunks = build_chunks(
             id,
             analysis.duration_ms.ok_or("缺少真实媒体时长")?,
             analysis.analysis_mode,
@@ -385,6 +440,12 @@ impl super::service::AiService {
             analysis.options.allow_transcript,
             analysis.options.allow_images,
         )?;
+        if let Some(template) = &analysis.template_snapshot {
+            let hash = super::templates::snapshot_hash(template)?;
+            for chunk in &mut chunks {
+                chunk.id.push_str(&format!("-{}", &hash[..16]));
+            }
+        }
         self.owned(id, control, |r| r.prepare_chunks(id, &chunks))?;
         let concurrency = self.settings()?.settings.chunk_concurrency as usize;
         for batch in chunks.chunks(concurrency) {
@@ -428,7 +489,8 @@ impl super::service::AiService {
         Self::check_source(source, &analysis.source_fingerprint)?;
         self.owned(id, control, |r| r.chunk_status(&chunk.id, "running", None))?;
         let key = self.key()?;
-        let body = messages(&chunk, &self.data.join("ai/cache").join(id))?;
+        let mut body = messages(&chunk, &self.data.join("ai/cache").join(id))?;
+        super::templates::attach_purpose(&mut body, analysis.template_snapshot.as_ref())?;
         let reply = control
             .reply(client.chat_for(
                 key.as_bytes(),

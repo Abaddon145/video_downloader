@@ -18,6 +18,10 @@ impl AnalysisMode {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VideoAnalysis {
+    pub template_id: String,
+    pub template_version: u32,
+    pub template_snapshot: Option<super::templates::AnalysisTemplate>,
+    pub template_warning: Option<String>,
     pub note_target_vault_id: Option<String>,
     pub note_warning: Option<String>,
     pub title: Option<String>,
@@ -47,6 +51,8 @@ pub struct VideoAnalysis {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct VideoAnalysisResult {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sections: Vec<PurposeSection>,
     pub content_type: String,
     pub one_sentence_summary: String,
     pub overview: String,
@@ -58,6 +64,22 @@ pub struct VideoAnalysisResult {
     pub tags: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub warnings: Vec<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PurposeSection {
+    pub id: String,
+    pub title: String,
+    pub items: Vec<PurposeItem>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PurposeItem {
+    pub title: String,
+    pub content: String,
+    pub time_ms: Option<i64>,
+    pub source_segment_ids: Vec<String>,
+    pub keyframe_ids: Vec<String>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -157,6 +179,14 @@ impl Default for AnalysisOptions {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AnalysisRequest {
+    #[serde(default)]
+    pub template_id: Option<String>,
+    #[serde(default)]
+    pub template_version: Option<u32>,
+    #[serde(default)]
+    pub reuse_analysis_id: Option<String>,
+    #[serde(default)]
+    pub auto_generate_note: Option<bool>,
     #[serde(default)]
     pub force: bool,
     pub path: String,

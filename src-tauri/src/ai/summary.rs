@@ -20,6 +20,12 @@ pub fn final_messages(results: &[VideoAnalysisResult], scope: &Scope<'_>) -> App
             r.key_points
                 .iter()
                 .flat_map(|p| p.source_segment_ids.iter().map(String::as_str))
+                .chain(
+                    r.sections
+                        .iter()
+                        .flat_map(|s| &s.items)
+                        .flat_map(|i| i.source_segment_ids.iter().map(String::as_str)),
+                )
         })
         .collect::<HashSet<_>>();
     let sources = scope
@@ -62,6 +68,13 @@ fn restricted<'a>(
                 .key_points
                 .iter()
                 .flat_map(|p| p.source_segment_ids.iter().map(String::as_str))
+                .chain(
+                    u.result
+                        .sections
+                        .iter()
+                        .flat_map(|s| &s.items)
+                        .flat_map(|i| i.source_segment_ids.iter().map(String::as_str)),
+                )
         })
         .collect::<HashSet<_>>();
     (
@@ -213,10 +226,12 @@ impl AiService {
             &units.iter().map(|u| u.result.clone()).collect::<Vec<_>>(),
             &scope,
         )?;
+        super::templates::attach_purpose(&mut messages, analysis.template_snapshot.as_ref())?;
         use sha2::{Digest, Sha256};
         let bytes = serde_json::to_vec(&(
             &analysis.model,
-            super::prompts::ANALYSIS_PROMPT_VERSION,
+            &analysis.prompt_version,
+            &analysis.template_snapshot,
             &messages,
         ))
         .map_err(|_| "无法校验总结素材")?;
@@ -230,6 +245,10 @@ impl AiService {
                 if std::fs::metadata(&owned).is_ok_and(|m| m.len() <= 1024 * 1024) {
                     if let Ok(text) = std::fs::read_to_string(owned) {
                         if let Ok(result) = parse_result(&text, &scope) {
+                            super::templates::validate_output(
+                                &result,
+                                analysis.template_snapshot.as_ref(),
+                            )?;
                             return Ok(result);
                         }
                     }

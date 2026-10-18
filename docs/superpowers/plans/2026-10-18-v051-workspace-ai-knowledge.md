@@ -117,3 +117,5 @@ Interfaces: NoteKey=vaultId+path；NoteSession{document,draft,editVersion,saveSt
 Phase2开发和自动验证完成：Node42、Rust195/0/8ignored、build通过；浏览器布局与持久化回归通过，真实mpv/DPI留最终人工矩阵。继续Phase3。
 
 Phase3统一菜单与当前业务动作已提交前验证：Node47、Rust199/0/8ignored、build通过；七组菜单与五种持久化/预览检查通过。模板与知识高级菜单依赖Phase4/6，尚不宣称完成全部v0.5.1。
+
+Phase4用途模板已独立验证：Node49、Rust219/0/8ignored、build通过；模板7组、课程35项、知识22项浏览器模拟通过。迁移v7保留旧数据，真实API/mpv/DPI未在本阶段验收。继续Phase5–7。

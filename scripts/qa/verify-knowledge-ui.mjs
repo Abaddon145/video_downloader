@@ -1,3 +1,4 @@
+import {installGeneralTemplateFixture} from './fixtures/general-template.mjs';
 import {createRequire} from 'node:module';import {mkdirSync,writeFileSync} from 'node:fs';import assert from 'node:assert/strict';
 const require=createRequire(import.meta.url),{chromium}=require(process.env.PLAYWRIGHT_MODULE??'playwright');const out=process.env.QA_OUTPUT_DIR??'artifacts/v050/ai-ui';mkdirSync(out,{recursive:true});
 const browser=await chromium.launch({executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true});const checks=[];
@@ -82,6 +83,7 @@ try{
   }};
  });
 
+ await context.addInitScript(installGeneralTemplateFixture);
  const page=await context.newPage(),errors=[];page.setDefaultTimeout(10000);page.on('pageerror',e=>errors.push(e.message));await page.goto(process.env.QA_BASE_URL??'http://127.0.0.1:5250');
  await page.getByRole('navigation',{name:'主导航'}).getByRole('button',{name:'知识库',exact:true}).click();
  await page.getByRole('button',{name:'选择已有知识库',exact:true}).click();

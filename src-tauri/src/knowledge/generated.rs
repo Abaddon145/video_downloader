@@ -117,6 +117,13 @@ fn note(
     assets: &[(String, Vec<u8>)],
 ) -> AppResult<String> {
     let mut meta = serde_json::json!({"source":"yingliu","duration":a.duration_ms,"ai_model":a.model,"analysis_mode":a.analysis_mode.as_str(),"analyzed_at":a.completed_at.unwrap_or(a.updated_at),"analyzed_at_unit":"unix_milliseconds","generated_by":"yingliu","analysis_id":a.id,"item_id":a.item_id,"title":title,"summary_hash":summary_hash,"generated_body_hash":hash(body.as_bytes()),"tags":a.summary.as_ref().map(|s|&s.tags),"attachments":assets.iter().map(|(p,b)|serde_json::json!({"path":p,"sha256":hash(b)})).collect::<Vec<_>>()});
+    meta["template_id"] = serde_json::json!(a.template_id);
+    meta["template_version"] = serde_json::json!(a.template_version);
+    meta["prompt_version"] = serde_json::json!(a.prompt_version);
+    if let Some(template) = &a.template_snapshot {
+        meta["template_hash"] = serde_json::json!(crate::ai::templates::snapshot_hash(template)?);
+        meta["template_name"] = serde_json::json!(template.name);
+    }
     meta["generated_metadata_hash"] = serde_json::Value::String(metadata_hash(&meta)?);
     let yaml = serde_yaml::to_string(&meta).map_err(|_| "无法整理笔记元数据")?;
     let text = format!("---\n{yaml}---\n{body}");
@@ -133,28 +140,94 @@ pub fn render(
     let summary = a.summary.as_ref().ok_or("分析尚无完整总结")?;
     let title = a.title.as_deref().unwrap_or("未命名课程");
     let summary_hash = hash(&serde_json::to_vec(summary).map_err(|_| "总结无效")?);
-    let mut body = format!(
-        "# {title}\n\n{}\n\n{}\n\n[[完整转录]] · [[关键知识]]\n\n## 章节\n",
-        summary.one_sentence_summary, summary.overview
-    );
+    crate::ai::templates::validate_output(summary, a.template_snapshot.as_ref())?;
+    let time = |ms| {
+        if a.template_snapshot
+            .as_ref()
+            .is_none_or(|t| t.time_references)
+        {
+            time_link(a.item_id.as_deref(), ms)
+        } else {
+            String::new()
+        }
+    };
+    let mut chapters = String::from("## 章节\n");
     for c in &summary.chapters {
-        body += &format!(
-            "\n### {} {}\n\n{}\n",
-            time_link(a.item_id.as_deref(), c.start_ms),
-            c.title,
-            c.summary
-        )
+        chapters += &format!("\n### {} {}\n\n{}\n", time(c.start_ms), c.title, c.summary);
     }
+    let mut points = String::new();
     for point in &summary.key_points {
-        body += &format!(
+        points += &format!(
             "\n## {} {}\n\n{}\n",
-            time_link(a.item_id.as_deref(), point.time_ms),
+            time(point.time_ms),
             point.title,
             point.content
         );
     }
+    let mut steps = String::new();
+    for step in &summary.tutorial_steps {
+        steps += &format!(
+            "\n## 步骤 {} · {} {}\n\n{}\n{}\n",
+            step.order,
+            time(step.time_ms),
+            step.title,
+            step.description,
+            step.notes.join("\n")
+        );
+    }
+    let mut terms = String::new();
+    for term in &summary.terms {
+        terms += &format!(
+            "\n### {} {}\n\n{}\n",
+            time(term.time_ms),
+            term.name,
+            term.definition
+        );
+    }
+    let mut actions = String::new();
+    for action in &summary.action_items {
+        actions += &format!("\n- [ ] {action}\n");
+    }
+    let mut sections = String::new();
+    for section in &summary.sections {
+        sections += &format!("\n## {}\n", section.title);
+        for item in &section.items {
+            sections += &format!(
+                "\n### {} {}\n\n{}\n",
+                item.time_ms.map(&time).unwrap_or_default(),
+                item.title,
+                item.content
+            );
+        }
+        if section.items.is_empty() {
+            sections += "\n提供的素材不足，暂无可核实条目。\n";
+        }
+    }
+    let mut body = if let Some(template) = &a.template_snapshot {
+        crate::ai::templates::render_markdown(
+            &template.markdown_template,
+            &[
+                ("title", title.into()),
+                ("templateName", template.name.clone()),
+                ("oneSentenceSummary", summary.one_sentence_summary.clone()),
+                ("overview", summary.overview.clone()),
+                ("chapters", chapters.clone()),
+                ("keyPoints", points.clone()),
+                ("sections", sections.clone()),
+                ("tutorialSteps", steps.clone()),
+                ("terms", terms.clone()),
+                ("actionItems", actions.clone()),
+                ("links", "[[完整转录]] · [[关键知识]]".into()),
+            ],
+        )?
+    } else {
+        format!(
+            "# {title}\n\n{}\n\n{}\n\n[[完整转录]] · [[关键知识]]\n\n{chapters}{points}",
+            summary.one_sentence_summary, summary.overview
+        )
+    };
     for (path, _) in &assets {
-        body += &format!("\n![[{path}]]\n")
+        body += &format!("\n![[{path}]]\n");
     }
     let mut transcript = format!("# {title} · 完整转录\n\n[[视频总结]] · [[关键知识]]\n");
     let mut bucket = None;
@@ -166,47 +239,14 @@ pub fn render(
                 "\n## {} — {}\n",
                 clock(group * 180000),
                 clock(((group + 1) * 180000).min(a.duration_ms.unwrap_or(i64::MAX)))
-            )
+            );
         }
-        transcript += &format!(
-            "\n{} {}\n",
-            time_link(a.item_id.as_deref(), segment.start_ms),
-            segment.text
-        )
+        transcript += &format!("\n{} {}\n", time(segment.start_ms), segment.text);
     }
     if segments.is_empty() {
-        transcript += "\n本次分析没有可用转录。\n"
+        transcript += "\n本次分析没有可用转录。\n";
     }
-    let mut knowledge = format!("# {title} · 关键知识\n\n[[视频总结]] · [[完整转录]]\n");
-    for point in &summary.key_points {
-        knowledge += &format!(
-            "\n## {} {}\n\n{}\n",
-            time_link(a.item_id.as_deref(), point.time_ms),
-            point.title,
-            point.content
-        )
-    }
-    for step in &summary.tutorial_steps {
-        knowledge += &format!(
-            "\n## 步骤 {} · {} {}\n\n{}\n{}\n",
-            step.order,
-            time_link(a.item_id.as_deref(), step.time_ms),
-            step.title,
-            step.description,
-            step.notes.join("\n")
-        )
-    }
-    for term in &summary.terms {
-        knowledge += &format!(
-            "\n### {} {}\n\n{}\n",
-            time_link(a.item_id.as_deref(), term.time_ms),
-            term.name,
-            term.definition
-        )
-    }
-    for action in &summary.action_items {
-        knowledge += &format!("\n- [ ] {action}\n")
-    }
+    let knowledge = format!("# {title} · 关键知识\n\n[[视频总结]] · [[完整转录]]\n{points}{steps}{terms}{actions}{sections}");
     let notes = [body, transcript, knowledge]
         .into_iter()
         .enumerate()
@@ -428,9 +468,6 @@ impl AiService {
                 {
                     return Err("分析已取消或中断".into());
                 }
-                if !self.settings()?.settings.auto_generate_notes {
-                    return Err("已关闭自动生成知识笔记".into());
-                }
             } else if runtime
                 .active
                 .as_ref()
@@ -459,10 +496,7 @@ impl AiService {
         use tauri::Manager;
         control.check()?;
         let a = self.analysis(id)?;
-        if !a.options.auto_generate_note
-            || a.options.local_only
-            || !self.settings()?.settings.auto_generate_notes
-        {
+        if !a.options.auto_generate_note || a.options.local_only {
             return Ok(());
         }
         let k = self
@@ -479,7 +513,7 @@ impl AiService {
         control: &Arc<Control>,
     ) -> AppResult<()> {
         let a = self.analysis(id)?;
-        if !a.options.auto_generate_note || !self.settings()?.settings.auto_generate_notes {
+        if !a.options.auto_generate_note {
             return Ok(());
         }
         control.check()?;
@@ -500,6 +534,45 @@ impl AiService {
                 Ok(())
             })?
         }
+        Ok(())
+    }
+    pub(crate) fn export_cached_note(&self, id: &str) -> AppResult<()> {
+        use tauri::Manager;
+        let k = self
+            .app
+            .as_ref()
+            .and_then(|app| app.try_state::<Arc<KnowledgeService>>())
+            .map(|k| k.inner().clone());
+        match k {
+            Some(k) => self.export_cached_note_with(&k, id),
+            None => self.cached_note_warning(id, "请在知识库中选择Vault后手动生成知识笔记"),
+        }
+    }
+    pub(crate) fn export_cached_note_with(&self, k: &KnowledgeService, id: &str) -> AppResult<()> {
+        let result = k
+            .settings()
+            .and_then(|settings| {
+                settings
+                    .vault_id
+                    .ok_or_else(|| "请在知识库中选择Vault后手动生成知识笔记".into())
+            })
+            .and_then(|vault| self.generate_note(k, id, &vault));
+        if let Err(error) = result {
+            self.cached_note_warning(id, &error)?;
+        }
+        Ok(())
+    }
+    fn cached_note_warning(&self, id: &str, error: &str) -> AppResult<()> {
+        self.with(|r| {
+            r.conn
+                .execute(
+                    "UPDATE video_analyses SET note_warning=?2,updated_at=?3 WHERE id=?1",
+                    rusqlite::params![id, error, crate::service::now()],
+                )
+                .map_err(db::error)?;
+            Ok(())
+        })?;
+        self.emit_analysis(id, "ai-analysis-updated");
         Ok(())
     }
     pub fn analysis_note(

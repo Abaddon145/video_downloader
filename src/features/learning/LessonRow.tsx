@@ -11,7 +11,7 @@ export function LessonRow({item,cover,playing,downloadBusy,aiStatus,action,move}
   {id:'mark',label:item.progress.completed?'标记未完成':'标记完成',disabled:playing,group:'play'},
   {id:'download',label:'下载 / 重试下载',disabled:downloadBusy||!item.sourceUrl||['queued','downloading'].includes(item.downloadState),group:'play'},
   {id:'ai',label:'AI分析',disabled:!item.available,group:'ai'},
-  {id:'ai-template',label:'选择AI模板分析',disabled:true,group:'ai'},
+  {id:'ai-template',label:'选择AI模板分析',disabled:!item.available,group:'ai'},
   {id:'ai-retry',label:'继续失败的分析',disabled:!item.available||!aiStatus||!['failed','interrupted','cancelled'].includes(aiStatus.status),group:'ai'},
   {id:'ai-regenerate',label:'重新生成AI总结',disabled:!item.available||!aiStatus?.hasSummary,group:'ai'},
   {id:'ai-full',label:'重新完整分析',disabled:!item.available,group:'ai'},

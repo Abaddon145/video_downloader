@@ -17,7 +17,7 @@ pub fn open(path: &Path) -> AppResult<Connection> {
     } else {
         0
     };
-    if version > 6 || version < 0 {
+    if version > 7 || version < 0 {
         return Err("学习库版本高于本软件或版本记录无效，请保留数据库并使用对应版本".into());
     }
     let tx = c.transaction().map_err(error)?;
@@ -88,7 +88,11 @@ pub fn open(path: &Path) -> AppResult<Connection> {
                 .map_err(error)?;
         }
     }
-    tx.execute_batch("PRAGMA user_version=6;").map_err(error)?;
+    if version < 7 {
+        tx.execute_batch(include_str!("schema-v7.sql"))
+            .map_err(error)?;
+    }
+    tx.execute_batch("PRAGMA user_version=7;").map_err(error)?;
     tx.commit().map_err(error)?;
     enable_search(&c);
     Ok(c)

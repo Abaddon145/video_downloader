@@ -7,7 +7,7 @@ use std::{
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
-fn service() -> (Arc<AiService>, Arc<Control>, PathBuf) {
+pub(super) fn service() -> (Arc<AiService>, Arc<Control>, PathBuf) {
     let dir = std::env::temp_dir().join(crate::ffmpeg::runner::new_id());
     std::fs::create_dir(&dir).unwrap();
     let source = dir.join("not-uploaded.mp4");
@@ -355,6 +355,10 @@ fn ai_durable_queue_consent_cache_cancel_retry_and_regenerate_keep_local_checkpo
     let (s, c, dir) = service();
     let source = dir.join("not-uploaded.mp4").to_string_lossy().into_owned();
     let request = AnalysisRequest {
+        template_id: None,
+        template_version: None,
+        reuse_analysis_id: None,
+        auto_generate_note: None,
         force: false,
         path: source.clone(),
         item_id: None,
@@ -377,14 +381,17 @@ fn ai_durable_queue_consent_cache_cancel_retry_and_regenerate_keep_local_checkpo
         r.save_keyframes(&a.id, &[])
     })
     .unwrap();
-    s.retry_analysis(&a.id, true).unwrap();
-    let retry = s.analysis(&a.id).unwrap();
-    assert!(retry.transcript_done && retry.keyframes_done);
+    let retry = s.retry_analysis(&a.id, true).unwrap();
+    assert_ne!(retry.id, a.id);
+    let old = s.analysis(&a.id).unwrap();
+    assert!(old.transcript_done && old.keyframes_done);
+    assert_eq!(old.status, "cancelled");
     assert_eq!(retry.status, "queued");
     assert_eq!(s.runtime.lock().unwrap().pending.len(), 1);
-    assert!(s.retry_analysis(&a.id, false).is_err());
+    assert!(s.retry_analysis(&retry.id, false).is_err());
     s.shutdown();
-    assert_eq!(s.analysis(&a.id).unwrap().status, "interrupted");
+    assert_eq!(s.analysis(&retry.id).unwrap().status, "interrupted");
+    assert_eq!(s.analysis(&a.id).unwrap().status, "cancelled");
     assert!(c.check().is_err());
     assert!(s.start_analysis(request).is_err());
     drop(s);
@@ -667,17 +674,24 @@ fn ai_real_local_pipeline_mocked_summary_failure_resume_and_regenerate_without_w
     assert_eq!(retry.lock().unwrap().len(), 1);
     assert!(s.analysis("a").unwrap().summary.is_some());
     s.runtime.lock().unwrap().active = Some(("busy".into(), Arc::new(Control::default())));
-    s.retry_analysis("a", true).unwrap();
+    let regenerated = s.retry_analysis("a", true).unwrap();
+    assert_ne!(regenerated.id, "a");
+    let original_summary = serde_json::to_value(s.analysis("a").unwrap().summary).unwrap();
     {
         let mut rt = s.runtime.lock().unwrap();
         rt.pending.clear();
-        rt.active = Some(("a".into(), c.clone()));
+        rt.active = Some((regenerated.id.clone(), c.clone()));
     }
     let (client, regenerate, thread) = mock(vec![200, 200], false, Duration::ZERO);
-    s.run_analysis("a", &c, Some(&client)).unwrap();
+    s.run_analysis(&regenerated.id, &c, Some(&client)).unwrap();
     thread.join().unwrap();
     assert_eq!(regenerate.lock().unwrap().len(), 2);
     assert_eq!(s.analysis("a").unwrap().status, "completed");
+    assert_eq!(
+        serde_json::to_value(s.analysis("a").unwrap().summary).unwrap(),
+        original_summary
+    );
+    assert_eq!(s.analysis(&regenerated.id).unwrap().status, "completed");
     assert_eq!(t::file_hash(&source).unwrap(), before);
     println!("REAL_LOCAL_MOCK_AI full_pipeline=true retry_requests=1 regenerate_requests=2 whisper_reused=true source_sha256={before}");
     drop(s);
@@ -771,6 +785,10 @@ fn ai_learning_picker_searches_lesson_and_series_and_keeps_course_association() 
     assert_eq!(s.library_videos("' OR 1=1 --", 1).unwrap().total, 0);
     let a = s
         .start_analysis(AnalysisRequest {
+            template_id: None,
+            template_version: None,
+            reuse_analysis_id: None,
+            auto_generate_note: None,
             force: false,
             path: source,
             item_id: Some(found.items[0].item_id.clone()),

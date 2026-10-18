@@ -1,4 +1,10 @@
 export type AnalysisMode = 'quick' | 'standard' | 'deep';
+export interface AnalysisTemplate {
+ id:string;version:number;name:string;description:string;focus:string;
+ sections:{id:string;title:string}[];detail:'concise'|'balanced'|'detailed';
+ extractParameters:boolean;extractTerms:boolean;exercises:boolean;timeReferences:boolean;
+ markdownTemplate:string;builtin:boolean;favorite:boolean;
+}
 export interface AiSettings {
  model: string; defaultMode: AnalysisMode; whisperModel: 'base' | 'small' | 'custom';
  allowTranscript: boolean; allowImages: boolean; cleanTemporaryFiles: boolean;
@@ -8,12 +14,14 @@ export interface AiSettingsView { settings: AiSettings; hasApiKey: boolean }
 
 export interface AnalysisOptions {localOnly:boolean;transcribeAudio:boolean;allowTranscript:boolean;allowImages:boolean;whisperModel:string;autoGenerateNote:boolean}
 export interface VideoAnalysis {
+ templateId?:string;templateVersion?:number;templateSnapshot?:AnalysisTemplate|null;templateWarning?:string|null;
  title?:string|null;id:string;itemId:string|null;sourcePath:string;sourceFingerprint:string;status:string;analysisMode:AnalysisMode;model:string;promptVersion:string;
  language:string|null;durationMs:number|null;progress:number;stage:string|null;summary:VideoAnalysisResult|null;markdownPath:string|null;markdownVaultId:string|null;
  error:string|null;noteWarning:string|null;noteTargetVaultId:string|null;createdAt:number;updatedAt:number;completedAt:number|null;options:AnalysisOptions;transcriptDone:boolean;keyframesDone:boolean;
 }
 export interface Chapter {startMs:number;endMs:number;title:string;summary:string;keywords:string[];keyframeIds:string[]}
 export interface VideoAnalysisResult {
+ sections?:{id:string;title:string;items:{title:string;content:string;timeMs:number|null;sourceSegmentIds:string[];keyframeIds:string[]}[]}[];
  warnings?:string[];
  contentType:string;oneSentenceSummary:string;overview:string;chapters:Chapter[];
  keyPoints:{timeMs:number;title:string;content:string;importance:number;sourceSegmentIds:string[]}[];
@@ -29,7 +37,7 @@ export interface UsageView {analyses:number;questions:number;models:UsageModel[]
 export interface CacheInfo {bytes:number;clearableBytes:number}
 export interface WhisperModel {id:string;label:string;filename:string;bytes:number;sha256:string;url:string;source:string;installed:boolean}
 export interface ModelDownload {id:string;modelId:string;status:string;received:number;total:number;error:string|null}
-export interface AnalysisSource {title?:string;path:string;itemId?:string|null;force?:boolean}
+export interface AnalysisSource {title?:string;path:string;itemId?:string|null;force?:boolean;reuseAnalysisId?:string|null;templateId?:string|null;templateVersion?:number|null}
 
 export interface LibraryVideo {itemId:string;title:string;seriesTitle:string;path:string|null;durationMs:number|null;available:boolean}
 export interface LibraryVideoPage {items:LibraryVideo[];total:number;page:number}

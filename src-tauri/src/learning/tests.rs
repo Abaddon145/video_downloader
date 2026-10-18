@@ -75,7 +75,7 @@ fn learning_database_creates_versioned_tables_and_enforces_relations() {
     let version: i64 = c
         .query_row("SELECT version FROM schema_version", [], |r| r.get(0))
         .expect("schema must exist");
-    assert_eq!(version, 6);
+    assert_eq!(version, 7);
     for table in [
         "categories",
         "series",
@@ -784,7 +784,7 @@ fn learning_v4_upgrade_preserves_progress_notes_and_source_thumbnail() {
         r.conn
             .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
             .unwrap(),
-        6
+        7
     );
     let item = r.item("i").unwrap();
     assert_eq!(item.progress.position_ms, 450000);
@@ -1175,7 +1175,7 @@ fn ai_v6_migrates_actual_v5_and_preserves_learning_data() {
         assert_eq!(
             c.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
                 .unwrap(),
-            6
+            7
         );
         assert_eq!(
             c.query_row("SELECT position_ms FROM playback_progress", [], |r| r

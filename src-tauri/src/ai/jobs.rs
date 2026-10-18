@@ -123,6 +123,9 @@ impl AiService {
                 whisper_model: settings.whisper_model,
                 ..Default::default()
             },
+            None,
+            None,
+            None,
         )
     }
     pub fn start_analysis(self: &Arc<Self>, request: AnalysisRequest) -> AppResult<VideoAnalysis> {
@@ -133,7 +136,9 @@ impl AiService {
             allow_transcript: request.allow_transcript,
             allow_images: request.allow_images,
             whisper_model: settings.whisper_model.clone(),
-            auto_generate_note: settings.auto_generate_notes,
+            auto_generate_note: request
+                .auto_generate_note
+                .unwrap_or(settings.auto_generate_notes),
         };
         self.check_consent(&options)?;
         if !options.allow_transcript && !options.allow_images {
@@ -143,12 +148,22 @@ impl AiService {
             return Err("当前模型不支持画面分析，请选择 DeepSeek Flash".into());
         }
         self.key()?;
+        let (template, warning) = self.with(|r| {
+            r.resolve_template(request.template_id.as_deref(), request.template_version)
+        })?;
         self.enqueue(
             &request.path,
             request.item_id,
             request.mode,
             !request.force,
             options,
+            Some(template),
+            warning,
+            if request.force {
+                None
+            } else {
+                request.reuse_analysis_id
+            },
         )
     }
     fn enqueue(
@@ -158,6 +173,9 @@ impl AiService {
         mode: AnalysisMode,
         use_cache: bool,
         options: AnalysisOptions,
+        template: Option<super::templates::AnalysisTemplate>,
+        template_warning: Option<String>,
+        reuse_analysis_id: Option<String>,
     ) -> AppResult<VideoAnalysis> {
         let source = crate::learning::importer::regular_file(path)?;
         let fingerprint = t::fingerprint(&source)?;
@@ -169,6 +187,27 @@ impl AiService {
             .and_then(|k| k.settings().ok())
             .and_then(|s| s.vault_id);
         let options_json = serde_json::to_string(&options).map_err(|_| "无法保存分析选项")?;
+        let snapshot = template
+            .as_ref()
+            .map(|t| serde_json::to_string(&t.frozen()))
+            .transpose()
+            .map_err(|_| "无法冻结模板")?;
+        let template_id = template.as_ref().map_or("general", |t| t.id.as_str());
+        let template_version = template.as_ref().map_or(0, |t| t.version);
+        let prompt_version = if template.is_some() {
+            super::prompts::TEMPLATE_PROMPT_VERSION
+        } else {
+            super::prompts::ANALYSIS_PROMPT_VERSION
+        };
+        if let Some(reuse) = &reuse_analysis_id {
+            let old = self.analysis(reuse)?;
+            if old.source_fingerprint != fingerprint
+                || crate::learning::importer::regular_file(&old.source_path)? != source
+                || old.item_id != item_id
+            {
+                return Err("复用素材与当前视频或课程不一致".into());
+            }
+        }
         let mut runtime = self.runtime.lock().map_err(|_| "AI任务状态不可用")?;
         if runtime.exiting {
             return Err("软件正在退出".into());
@@ -182,14 +221,14 @@ impl AiService {
                 if saved.as_deref().and_then(|p|crate::learning::importer::regular_file(p).ok()).as_ref()!=Some(&source){return Err("关联课程与源文件不一致".into());}
             }
             if use_cache && !options.local_only {
-                let cached:Option<String>=r.conn.query_row("SELECT id FROM video_analyses WHERE source_fingerprint=?1 AND source_path=?2 AND item_id IS ?3 AND analysis_mode=?4 AND model=?5 AND prompt_version=?6 AND json_remove(options_json,'$.autoGenerateNote')=json_remove(?7,'$.autoGenerateNote') AND status NOT IN ('failed','cancelled','interrupted') ORDER BY created_at DESC LIMIT 1",params![fingerprint,source.to_string_lossy(),item_id,mode.as_str(),settings.model,super::prompts::ANALYSIS_PROMPT_VERSION,options_json],|r|r.get(0)).optional().map_err(db::error)?;
+                let cached:Option<String>=r.conn.query_row("SELECT id FROM video_analyses WHERE source_fingerprint=?1 AND source_path=?2 AND item_id IS ?3 AND analysis_mode=?4 AND model=?5 AND prompt_version=?6 AND json_remove(options_json,'$.autoGenerateNote')=json_remove(?7,'$.autoGenerateNote') AND template_id=?8 AND template_version=?9 AND template_snapshot IS ?10 AND status NOT IN ('failed','cancelled','interrupted') ORDER BY created_at DESC LIMIT 1",params![fingerprint,source.to_string_lossy(),item_id,mode.as_str(),settings.model,prompt_version,options_json,template_id,template_version,snapshot],|r|r.get(0)).optional().map_err(db::error)?;
                 if let Some(id)=cached{return Ok((id,false));}
             }
             let id=crate::ffmpeg::runner::new_id().replace("media-","ai-");let now=crate::service::now();
-            r.conn.execute("INSERT INTO video_analyses(id,item_id,source_path,source_fingerprint,status,analysis_mode,model,prompt_version,options_json,created_at,updated_at,stage,note_target_vault_id) VALUES(?1,?2,?3,?4,'queued',?5,?6,?7,?8,?9,?9,'等待分析',?10)",params![id,item_id,source.to_string_lossy(),fingerprint,mode.as_str(),settings.model,super::prompts::ANALYSIS_PROMPT_VERSION,options_json,now,note_target_vault_id]).map_err(db::error)?;
+            r.conn.execute("INSERT INTO video_analyses(id,item_id,source_path,source_fingerprint,status,analysis_mode,model,prompt_version,options_json,created_at,updated_at,stage,note_target_vault_id,template_id,template_version,template_snapshot,template_warning,reuse_analysis_id) VALUES(?1,?2,?3,?4,'queued',?5,?6,?7,?8,?9,?9,'等待分析',?10,?11,?12,?13,?14,?15)",params![id,item_id,source.to_string_lossy(),fingerprint,mode.as_str(),settings.model,prompt_version,options_json,now,note_target_vault_id,template_id,template_version,snapshot,template_warning,reuse_analysis_id]).map_err(db::error)?;
             Ok((id,true))
         })?;
-        let analysis = self.analysis(&id.0)?;
+        let mut analysis = self.analysis(&id.0)?;
         if id.1 {
             runtime.pending.push_back(id.0.clone());
         }
@@ -197,6 +236,15 @@ impl AiService {
         if id.1 {
             self.emit_analysis(&id.0, "ai-analysis-updated");
             self.kick_queue();
+        } else if options.auto_generate_note
+            && analysis.status == "completed"
+            && analysis.summary.is_some()
+        {
+            self.export_cached_note(&id.0)?;
+            analysis = self.analysis(&id.0)?;
+        }
+        if template_warning.is_some() {
+            analysis.template_warning = template_warning;
         }
         Ok(analysis)
     }
@@ -205,6 +253,47 @@ impl AiService {
         id: &str,
         regenerate: bool,
     ) -> AppResult<VideoAnalysis> {
+        if regenerate {
+            let analysis = self.analysis(id)?;
+            if !["completed", "failed", "cancelled", "interrupted"]
+                .contains(&analysis.status.as_str())
+            {
+                return Err("该分析当前不能重新生成".into());
+            }
+            Self::check_source(
+                Path::new(&analysis.source_path),
+                &analysis.source_fingerprint,
+            )?;
+            if !analysis.options.local_only {
+                self.check_consent(&analysis.options)?;
+                self.key()?;
+                if analysis.options.allow_images
+                    && self.settings()?.settings.model != super::settings::DEFAULT_MODEL
+                {
+                    return Err("当前模型不支持画面分析".into());
+                }
+            }
+            let template = if analysis.options.local_only {
+                None
+            } else {
+                Some(
+                    analysis
+                        .template_snapshot
+                        .clone()
+                        .unwrap_or_else(|| super::templates::builtins().remove(0)),
+                )
+            };
+            return self.enqueue(
+                &analysis.source_path,
+                analysis.item_id,
+                analysis.analysis_mode,
+                false,
+                analysis.options,
+                template,
+                None,
+                Some(id.into()),
+            );
+        }
         let mut runtime = self.runtime.lock().map_err(|_| "AI任务状态不可用")?;
         if runtime.exiting {
             return Err("软件正在退出".into());
@@ -230,27 +319,17 @@ impl AiService {
             Path::new(&analysis.source_path),
             &analysis.source_fingerprint,
         )?;
-        if !regenerate && analysis.prompt_version != super::prompts::ANALYSIS_PROMPT_VERSION {
+        if analysis.prompt_version != super::prompts::ANALYSIS_PROMPT_VERSION
+            && analysis.prompt_version != super::prompts::TEMPLATE_PROMPT_VERSION
+        {
             return Err("AI模板已更新，请选择重新生成总结；无需重新识别语音".into());
         }
         if !analysis.options.local_only {
             self.check_consent(&analysis.options)?;
             self.key()?;
         }
-        if regenerate {
-            // Reuse local transcript and frames; the explicit action requests new AI results.
-            let cache = self.data.join("ai/cache").join(id).join("summary-cache");
-            if cache.exists() {
-                let owned =
-                    crate::learning::cache::owned(&self.data.join("ai/cache").join(id), &cache)?;
-                std::fs::remove_dir_all(owned).map_err(|_| "无法清理旧总结缓存")?;
-            }
-        }
         self.with(|r|{
-            let tx=r.conn.transaction().map_err(db::error)?;
-            if regenerate {tx.execute("DELETE FROM analysis_chunks WHERE analysis_id=?1",[id]).map_err(db::error)?;}
-            tx.execute("UPDATE video_analyses SET status='queued',stage='等待继续分析',error=NULL,completed_at=NULL,updated_at=?2,summary_json=CASE WHEN ?3 THEN NULL ELSE summary_json END,prompt_version=CASE WHEN ?3 THEN ?4 ELSE prompt_version END WHERE id=?1",params![id,crate::service::now(),regenerate,super::prompts::ANALYSIS_PROMPT_VERSION]).map_err(db::error)?;
-            tx.commit().map_err(db::error)
+            r.conn.execute("UPDATE video_analyses SET status='queued',stage='等待继续分析',error=NULL,completed_at=NULL,updated_at=?2 WHERE id=?1",params![id,crate::service::now()]).map_err(db::error)?; Ok(())
         })?;
         runtime.pending.push_back(id.into());
         let a = self.analysis(id)?;
@@ -339,9 +418,15 @@ impl AiService {
                     (vec![], None)
                 };
             let subtitle = !existing.is_empty();
+            if !subtitle {
+                self.reuse_materials(&analysis, duration_ms, control, true, false)?;
+            }
+            let reused = self.analysis(id)?;
             let (language, segments) = if subtitle {
                 self.stage(id, control, "transcribing", "正在读取已有字幕", 0.2)?;
                 (None, existing)
+            } else if reused.transcript_done {
+                (reused.language, self.with(|r| r.all_transcript(id))?)
             } else if !analysis.options.transcribe_audio || info.audios.is_empty() {
                 (None, vec![])
             } else {
@@ -402,6 +487,9 @@ impl AiService {
             );
         }
         if !analysis.keyframes_done {
+            self.reuse_materials(&analysis, duration_ms, control, false, true)?;
+        }
+        if !self.analysis(id)?.keyframes_done {
             self.stage(id, control, "extracting_keyframes", "正在分析画面", 0.38)?;
             let frames = if analysis.options.allow_images {
                 super::keyframes::extract(
