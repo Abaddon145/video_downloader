@@ -1,6 +1,6 @@
 use super::{
     analysis::{parse_result, Scope},
-    client::DeepSeekClient,
+    client::{DeepSeekClient, RequestPurpose},
     jobs::Control,
     models::*,
     service::AiService,
@@ -9,6 +9,10 @@ use crate::domain::AppResult;
 use serde_json::{json, Value};
 use std::{collections::HashSet, path::Path, sync::Arc};
 pub const FINAL_TEXT_BYTES: usize = 120000;
+const MAX_SUMMARY_REQUESTS: u32 = 64;
+const MAX_RECOVERY_DEPTH: u8 = 8;
+const SUMMARY_OUTPUT_LIMITS: &str = "全片总结必须简洁，完整JSON总正文不超过8000字。概述最多1000字；章节最多20个、重点最多20个、教程步骤最多16个、术语最多20个，每条说明最多100字。合并相似内容，不重复逐段复述；详细依据仍保留在分段结果中。所有原有来源和时间校验规则继续有效。";
+const COMPACT_OUTPUT_LIMITS: &str = "上次响应因输出过长被截断。这次必须返回完整的精简JSON，不得解释重试过程。总正文不超过2500字，概述最多400字，章节最多8个、重点最多8个、步骤最多6个、术语最多8个，每条说明最多60字。仍保留所有必需字段，允许数组为空，不得伪造来源。";
 pub fn final_messages(results: &[VideoAnalysisResult], scope: &Scope<'_>) -> AppResult<Vec<Value>> {
     let ids = results
         .iter()
@@ -83,6 +87,7 @@ impl AiService {
         control: &Arc<Control>,
         client: &DeepSeekClient,
     ) -> AppResult<VideoAnalysisResult> {
+        let mut remaining_requests = MAX_SUMMARY_REQUESTS;
         let analysis = self.analysis(id)?;
         self.check_consent(&analysis.options)?;
         let(segments,frames,bounds)=self.with(|r|{let mut st=r.conn.prepare("SELECT start_ms,end_ms FROM analysis_chunks WHERE analysis_id=?1 AND status='completed' ORDER BY chunk_index").map_err(crate::learning::db::error)?;let bounds=st.query_map([id],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,i64>(1)?))).map_err(crate::learning::db::error)?.collect::<Result<Vec<_>,_>>().map_err(crate::learning::db::error)?;Ok((if analysis.options.allow_transcript{r.all_transcript(id)?}else{vec![]},if analysis.options.allow_images{r.keyframes(id)?}else{vec![]},bounds))})?;
@@ -105,7 +110,17 @@ impl AiService {
             let all = units.iter().map(|u| u.result.clone()).collect::<Vec<_>>();
             if final_messages(&all, &scope).is_ok() {
                 return self
-                    .summarize_group(id, &analysis, &units, &segments, &frames, control, client)
+                    .summarize_group(
+                        id,
+                        &analysis,
+                        &units,
+                        &segments,
+                        &frames,
+                        control,
+                        client,
+                        &mut remaining_requests,
+                        0,
+                    )
                     .await;
             }
             if level == 8 {
@@ -147,7 +162,17 @@ impl AiService {
             let mut next = Vec::new();
             for group in groups {
                 let result = self
-                    .summarize_group(id, &analysis, &group, &segments, &frames, control, client)
+                    .summarize_group(
+                        id,
+                        &analysis,
+                        &group,
+                        &segments,
+                        &frames,
+                        control,
+                        client,
+                        &mut remaining_requests,
+                        0,
+                    )
                     .await?;
                 next.push(Unit {
                     start: group.first().unwrap().start,
@@ -168,6 +193,8 @@ impl AiService {
         frames: &[AnalysisKeyframe],
         control: &Arc<Control>,
         client: &DeepSeekClient,
+        remaining_requests: &mut u32,
+        recovery_depth: u8,
     ) -> AppResult<VideoAnalysisResult> {
         control.check()?;
         self.check_consent(&analysis.options)?;
@@ -182,7 +209,7 @@ impl AiService {
             segments: &s,
             frames: &f,
         };
-        let messages = final_messages(
+        let mut messages = final_messages(
             &units.iter().map(|u| u.result.clone()).collect::<Vec<_>>(),
             &scope,
         )?;
@@ -209,18 +236,115 @@ impl AiService {
                 }
             }
         }
-        let key = self.key()?;
-        let reply = control
-            .reply(client.chat(key.as_bytes(), &analysis.model, messages))
-            .await?;
-        self.with(|r| r.record_usage(Some(id), "summary", &reply.model, &reply.usage))?;
-        control.check()?;
-        self.check_consent(&analysis.options)?;
-        Self::check_source(
-            Path::new(&analysis.source_path),
-            &analysis.source_fingerprint,
-        )?;
-        let result = parse_result(reply.checked_content()?, &scope)?;
+        // The cache identity remains the source summaries, so prior successful work survives retries.
+        let original_system = messages[0]["content"]
+            .as_str()
+            .ok_or("总结规则无效")?
+            .to_owned();
+        let mut compact = false;
+        let mut result = loop {
+            control.check()?;
+            self.check_consent(&analysis.options)?;
+            Self::check_source(
+                Path::new(&analysis.source_path),
+                &analysis.source_fingerprint,
+            )?;
+            if *remaining_requests == 0 {
+                return Err("本次整理已达到安全请求预算，已保存完成的内容；可稍后继续分析".into());
+            }
+            messages[0]["content"] = json!(format!(
+                "{}\n{}",
+                original_system,
+                if compact {
+                    COMPACT_OUTPUT_LIMITS
+                } else {
+                    SUMMARY_OUTPUT_LIMITS
+                }
+            ));
+            let key = self.key()?;
+            *remaining_requests -= 1;
+            let reply = control
+                .reply(client.chat_for(
+                    key.as_bytes(),
+                    &analysis.model,
+                    messages.clone(),
+                    RequestPurpose::Summary,
+                ))
+                .await?;
+            self.with(|r| r.record_usage(Some(id), "summary", &reply.model, &reply.usage))?;
+            control.check()?;
+            self.check_consent(&analysis.options)?;
+            Self::check_source(
+                Path::new(&analysis.source_path),
+                &analysis.source_fingerprint,
+            )?;
+            if reply.truncated {
+                if !compact {
+                    compact = true;
+                    continue;
+                }
+                if units.len() <= 1 || recovery_depth >= MAX_RECOVERY_DEPTH {
+                    return Err(
+                        "AI多次未返回完整总结，已保留分段结果，可继续分析；不会保存不完整内容"
+                            .into(),
+                    );
+                }
+                let middle = units.len() / 2;
+                let mut smaller = Vec::new();
+                for group in [&units[..middle], &units[middle..]] {
+                    let result = Box::pin(self.summarize_group(
+                        id,
+                        analysis,
+                        group,
+                        segments,
+                        frames,
+                        control,
+                        client,
+                        remaining_requests,
+                        recovery_depth + 1,
+                    ))
+                    .await?;
+                    smaller.push(Unit {
+                        start: group.first().unwrap().start,
+                        end: group.last().unwrap().end,
+                        result,
+                    });
+                }
+                break Box::pin(self.summarize_group(
+                    id,
+                    analysis,
+                    &smaller,
+                    segments,
+                    frames,
+                    control,
+                    client,
+                    remaining_requests,
+                    recovery_depth + 1,
+                ))
+                .await?;
+            }
+            break self
+                .parse_result_with_repair(
+                    id,
+                    analysis,
+                    reply.checked_content()?,
+                    &scope,
+                    control,
+                    client,
+                )
+                .await?;
+        };
+        for warning in units.iter().flat_map(|unit| &unit.result.warnings) {
+            if !result.warnings.contains(warning) {
+                if warning == super::references::OMITTED_KEYPOINT_WARNING {
+                    result.warnings.truncate(7);
+                }
+                if result.warnings.len() < 8 {
+                    result.warnings.push(warning.clone());
+                }
+            }
+        }
+        super::analysis::validate_result(&result, &scope)?;
         let bytes = serde_json::to_vec(&result).map_err(|_| "无法保存全片总结")?;
         self.owned(id, control, |_| {
             std::fs::create_dir_all(&directory).map_err(|_| "无法创建总结缓存")?;
