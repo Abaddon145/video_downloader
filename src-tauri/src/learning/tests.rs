@@ -2,6 +2,34 @@ use super::db;
 use rusqlite::Connection;
 use std::path::Path;
 #[test]
+fn moving_course_preserves_identity_progress_and_notes_and_rejects_missing_target() {
+    let mut r = super::repository::Repository::open(Path::new(":memory:")).unwrap();
+    r.conn.execute_batch("INSERT INTO series(id,title,created_at,updated_at) VALUES('a','原系列',0,0),('b','新系列',0,0);
+        INSERT INTO series_items(id,series_id,title,file_path,created_at,updated_at) VALUES('i','a','课程','C:/只读.mp4',0,0);
+        INSERT INTO playback_progress(item_id,position_ms,duration_ms,completed,updated_at) VALUES('i',42000,60000,0,0);
+        INSERT INTO video_notes(id,item_id,time_ms,content,created_at,updated_at) VALUES('n','i',42000,'保留笔记',0,0);").unwrap();
+    assert!(r.move_item_to_series("i", "missing").is_err());
+    assert_eq!(r.item("i").unwrap().series_id, "a");
+    r.move_item_to_series("i", "b").unwrap();
+    let item = r.item("i").unwrap();
+    assert_eq!(item.series_id, "b");
+    assert_eq!(item.file_path.as_deref(), Some("C:/只读.mp4"));
+    assert_eq!(item.progress.position_ms, 42000);
+    assert_eq!(
+        r.conn
+            .query_row(
+                "SELECT content FROM video_notes WHERE item_id='i'",
+                [],
+                |row| row.get::<_, String>(0)
+            )
+            .unwrap(),
+        "保留笔记"
+    );
+    assert_eq!(r.get_series("a").unwrap().total_items, 0);
+    assert_eq!(r.get_series("b").unwrap().total_items, 1);
+    assert!(r.move_item_to_series("missing", "b").is_err());
+}
+#[test]
 fn library_sort_precedes_pagination_and_aggregates_latest_analysis_per_item() {
     let r = super::repository::Repository::open(Path::new(":memory:")).unwrap();
     for n in 0..51 {

@@ -46,11 +46,14 @@ pub async fn knowledge_tree(
     vault_id: String,
     parent: String,
     page: u32,
+    sort: Option<String>,
 ) -> AppResult<KnowledgeView<TreePage>> {
     let k = knowledge.inner().clone();
-    let result = tauri::async_runtime::spawn_blocking(move || k.tree(&vault_id, &parent, page))
-        .await
-        .map_err(|_| "知识库后台操作未完成，请重试")?;
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        k.tree_sorted(&vault_id, &parent, page, sort.as_deref().unwrap_or("name"))
+    })
+    .await
+    .map_err(|_| "知识库后台操作未完成，请重试")?;
     result
 }
 
@@ -179,6 +182,29 @@ pub async fn knowledge_delete(
         tauri::async_runtime::spawn_blocking(move || k.delete(&vault_id, &path, &expected_hash))
             .await
             .map_err(|_| "知识库后台操作未完成，请重试")?;
+    if result.is_ok() {
+        let _ = app.emit(
+            "knowledge-file-changed",
+            serde_json::json!({"id":event_id,"vaultId":event_vault,"kind":"delete"}),
+        );
+    }
+    result
+}
+
+#[tauri::command]
+pub async fn knowledge_delete_empty_directory(
+    knowledge: Knowledge<'_>,
+    app: tauri::AppHandle,
+    vault_id: String,
+    path: String,
+) -> AppResult<KnowledgeMutation> {
+    let k = knowledge.inner().clone();
+    let event_id = path.clone();
+    let event_vault = vault_id.clone();
+    let result =
+        tauri::async_runtime::spawn_blocking(move || k.delete_empty_directory(&vault_id, &path))
+            .await
+            .map_err(|_| "删除空笔记本未完成")?;
     if result.is_ok() {
         let _ = app.emit(
             "knowledge-file-changed",
@@ -338,6 +364,63 @@ pub async fn knowledge_obsidian_manager() -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(|| crate::service::shell_open("obsidian://choose-vault"))
         .await
         .map_err(|_| "Obsidian Vault 管理器请求未完成")?
+}
+
+#[tauri::command]
+pub async fn knowledge_open_entry_folder(
+    knowledge: Knowledge<'_>,
+    vault_id: String,
+    path: String,
+) -> AppResult<()> {
+    let k = knowledge.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || k.open_entry_folder(&vault_id, &path))
+        .await
+        .map_err(|_| "打开笔记文件夹未完成")?
+}
+
+#[tauri::command]
+pub async fn knowledge_export_note(
+    knowledge: Knowledge<'_>,
+    app: tauri::AppHandle,
+    vault_id: String,
+    path: String,
+) -> AppResult<bool> {
+    use std::io::Write;
+    use tauri_plugin_dialog::DialogExt;
+    let k = knowledge.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let doc = k.read(&vault_id, &path)?.data;
+        let Some(target) = app
+            .dialog()
+            .file()
+            .add_filter("Markdown", &["md"])
+            .set_file_name(doc.path.rsplit('/').next().unwrap_or("笔记.md"))
+            .blocking_save_file()
+        else {
+            return Ok(false);
+        };
+        let target = target
+            .into_path()
+            .map_err(|_| "请选择本地 Markdown 文件路径")?;
+        if !target
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("md"))
+        {
+            return Err("导出文件必须使用 .md 扩展名".into());
+        }
+        // A selected existing path must never overwrite the source note or another user file.
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&target)
+            .map_err(|_| "无法创建导出文件；目标可能已存在，请使用新的文件名")?;
+        file.write_all(doc.text.as_bytes())
+            .and_then(|_| file.sync_all())
+            .map_err(|_| "导出写入未完成，请检查目标磁盘")?;
+        Ok(true)
+    })
+    .await
+    .map_err(|_| "导出笔记未完成")?
 }
 
 #[tauri::command]

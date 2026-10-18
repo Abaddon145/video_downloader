@@ -16,6 +16,65 @@ fn setup() -> (PathBuf, std::sync::Arc<KnowledgeService>, PathBuf) {
     (root, service, vault)
 }
 
+#[test]
+fn empty_notebook_delete_rejects_nonempty_and_keeps_obsidian_untouched() {
+    let (root, service, path) = setup();
+    let settings = service.set_vault(path.to_str().unwrap(), false).unwrap();
+    let id = settings.vault_id.unwrap();
+    service.create(&id, "映流/空笔记本", "", true).unwrap();
+    service
+        .create(&id, "映流/有内容/笔记.md", "# 不能删除", false)
+        .unwrap();
+    assert!(service.delete_empty_directory(&id, "映流/有内容").is_err());
+    assert_eq!(
+        service.read(&id, "映流/有内容/笔记.md").unwrap().data.text,
+        "# 不能删除"
+    );
+    service
+        .delete_empty_directory(&id, "映流/空笔记本")
+        .unwrap();
+    assert!(!path.join("映流/空笔记本").exists());
+    assert!(service.delete_empty_directory(&id, ".obsidian").is_err());
+    assert_eq!(
+        fs::read_to_string(path.join(".obsidian/config.json")).unwrap(),
+        "unchanged"
+    );
+    drop(service);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn notebook_name_sort_is_whitelisted_and_applied_before_pagination() {
+    let (root, service, path) = setup();
+    let id = service
+        .set_vault(path.to_str().unwrap(), false)
+        .unwrap()
+        .vault_id
+        .unwrap();
+    for n in 0..51 {
+        fs::write(path.join(format!("映流/笔记{n:02}.md")), "# 内容").unwrap();
+    }
+    let first = service
+        .tree_sorted(&id, "映流", 1, "nameDesc")
+        .unwrap()
+        .data;
+    assert_eq!(first.total, 51);
+    assert_eq!(first.items.len(), 50);
+    assert_eq!(first.items[0].name, "笔记50.md");
+    assert_eq!(
+        service
+            .tree_sorted(&id, "映流", 2, "nameDesc")
+            .unwrap()
+            .data
+            .items[0]
+            .name,
+        "笔记00.md"
+    );
+    assert!(service.tree_sorted(&id, "映流", 1, "anything").is_err());
+    drop(service);
+    fs::remove_dir_all(root).unwrap();
+}
+
 fn linked_note(db: &rusqlite::Connection, vault_id: &str, path: &str) {
     db.execute_batch("INSERT INTO series(id,title,created_at,updated_at) VALUES('series','Series',1,1);
         INSERT INTO series_items(id,series_id,title,created_at,updated_at) VALUES('lesson','series','Lesson',1,1);").unwrap();

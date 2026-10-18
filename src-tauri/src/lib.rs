@@ -150,6 +150,10 @@ fn retry_media_task(media: AppMedia<'_>, id: String) -> AppResult<()> {
     media.retry(&id)
 }
 #[tauri::command]
+fn remove_media_records(media: AppMedia<'_>, ids: Vec<String>) -> AppResult<()> {
+    media.remove_records(ids)
+}
+#[tauri::command]
 fn open_media_output(media: AppMedia<'_>, id: String, folder: bool) -> AppResult<()> {
     media.open_output(&id, folder)
 }
@@ -282,6 +286,7 @@ pub fn run() {
             create_media_task,
             cancel_media_task,
             retry_media_task,
+            remove_media_records,
             open_media_output,
             save_download_presets,
             batch_task_action,
@@ -330,6 +335,7 @@ pub fn run() {
             knowledge_rename,
             knowledge_move,
             knowledge_delete,
+            knowledge_delete_empty_directory,
             knowledge_search,
             knowledge_backlinks,
             knowledge_resolve,
@@ -342,6 +348,8 @@ pub fn run() {
             knowledge_confirm_obsidian,
             knowledge_obsidian_manager,
             knowledge_open_vault_folder,
+            knowledge_open_entry_folder,
+            knowledge_export_note,
             enqueue_downloads,
             control_task,
             remove_task,

@@ -924,12 +924,21 @@ impl Vault {
         rename(&file, target.handle(), &target.name, false)
     }
     pub fn trash(&self, rel: &str, expected_hash: &str) -> AppResult<String> {
-        self.trash_kind(rel, expected_hash, false)
+        self.trash_kind(rel, expected_hash, false, false)
     }
     pub fn trash_raster(&self, rel: &str, expected_hash: &str) -> AppResult<String> {
-        self.trash_kind(rel, expected_hash, true)
+        self.trash_kind(rel, expected_hash, true, false)
     }
-    fn trash_kind(&self, rel: &str, expected_hash: &str, allow_raster: bool) -> AppResult<String> {
+    pub fn delete_empty_directory(&self, rel: &str) -> AppResult<String> {
+        self.trash_kind(rel, "", false, true)
+    }
+    fn trash_kind(
+        &self,
+        rel: &str,
+        expected_hash: &str,
+        allow_raster: bool,
+        empty_only: bool,
+    ) -> AppResult<String> {
         let _lock = self.mutation.lock().map_err(|_| "知识库暂时不可用")?;
         let path = validate_relative(rel, false)?;
         let parent = self.parent(&path)?;
@@ -943,11 +952,30 @@ impl Vault {
             None,
         )?;
         if info(&file)?.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY != 0 {
+            if empty_only && !names(&file)?.is_empty() {
+                return Err("笔记本中仍有文件，请先移动其中内容".into());
+            }
+            if empty_only {
+                // Windows rechecks emptiness atomically; a racing external write must not be moved or deleted.
+                let disposition = FILE_DISPOSITION_INFO { DeleteFile: true };
+                unsafe {
+                    checked(SetFileInformationByHandle(
+                        file.as_raw_handle(),
+                        FileDispositionInfo,
+                        (&disposition as *const FILE_DISPOSITION_INFO).cast(),
+                        size_of::<FILE_DISPOSITION_INFO>() as u32,
+                    ))?;
+                }
+                return Ok(path);
+            }
             if !expected_hash.is_empty() {
                 return Err("目录回收不接受文件内容哈希".into());
             }
             preflight(&file, 0, &mut 0)?;
         } else {
+            if empty_only {
+                return Err("仅能删除空笔记本".into());
+            }
             if allow_raster {
                 if !raster(&path) {
                     return Err("附件不是允许的图片类型".into());
@@ -981,6 +1009,9 @@ impl Vault {
         Ok(format!("{TRASH}/{destination}"))
     }
     pub fn list(&self, parent: &str, page: u32) -> AppResult<TreePage> {
+        self.list_sorted(parent, page, false)
+    }
+    pub fn list_sorted(&self, parent: &str, page: u32, reverse: bool) -> AppResult<TreePage> {
         let _lock = self.mutation.lock().map_err(|_| "知识库暂时不可用")?;
         let path = validate_relative(parent, true)?;
         let mut chain = vec![self.root_handle()?];
@@ -1031,10 +1062,18 @@ impl Vault {
             });
         }
         items.sort_by(|a, b| {
-            b.directory
-                .cmp(&a.directory)
-                .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
-                .then_with(|| a.name.cmp(&b.name))
+            b.directory.cmp(&a.directory).then_with(|| {
+                let order = a
+                    .name
+                    .to_lowercase()
+                    .cmp(&b.name.to_lowercase())
+                    .then_with(|| a.name.cmp(&b.name));
+                if reverse {
+                    order.reverse()
+                } else {
+                    order
+                }
+            })
         });
         let total = items.len() as u64;
         let page = page.max(1);

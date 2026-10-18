@@ -122,6 +122,10 @@ impl LearningService {
                 r.rename_item(&id, &title)?;
                 Ok(id)
             }
+            LearningChange::MoveItem { id, series_id } => {
+                r.move_item_to_series(&id, &series_id)?;
+                Ok(id)
+            }
             LearningChange::DeleteItem {
                 id,
                 delete_files,

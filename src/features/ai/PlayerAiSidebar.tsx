@@ -34,7 +34,8 @@ export function PlayerAiSidebar({itemId,source,currentMs,onSeek,notes,requestVer
   }).then(stop=>alive?stops.push(stop):stop()).catch(e=>{if(alive)setError(aiError(e));});
   return()=>{alive=false;stops.forEach(stop=>stop());};},[itemId,source.path]);
  useEffect(()=>{if(requestVersion&&requestVersion!==requested.current&&loaded){requested.current=requestVersion;setTab('summary');
-  if(requestAction==='ai-regenerate'&&analysis?.summary)setPending('regenerate');
+  if(requestAction==='ai-template'){setForce(!!analysis);setConfirm(true);}
+  else if(requestAction==='ai-regenerate'&&analysis?.summary)setPending('regenerate');
   else if(requestAction==='ai-full'){setForce(true);setConfirm(true);}
   else if(!analysis||analysis.options.localOnly){setForce(false);setConfirm(true);}
  }},[requestVersion,requestAction,loaded,analysis]);

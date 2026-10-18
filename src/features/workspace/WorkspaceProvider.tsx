@@ -12,6 +12,7 @@ export function WorkspaceProvider({children}:{children:ReactNode}) {
  const [loadFailed,setLoadFailed]=useState(false),[loadAttempt,setLoadAttempt]=useState(0);
  const latest=useRef(workspace),changed=useRef(false),alive=useRef(true);
  const save=useMemo(()=>saveWorkspaceQueue(async value=>{
+  if(!('__TAURI_INTERNALS__' in window))return;
   await invoke('workspace_save',{settings:value});
   try {acknowledgeWorkspace(localStorage,value);}catch{/* Rust save succeeded; keep a harmless recovery copy. */}
   if(alive.current)setError('');
@@ -20,6 +21,10 @@ export function WorkspaceProvider({children}:{children:ReactNode}) {
   let live=true,loaded=false;alive.current=true;setError('');setLoadFailed(false);setDismissed(false);
   let pending:WorkspaceSettings|null=null;
   try {pending=readPendingWorkspace(localStorage);}catch{/* Rust remains usable without browser storage. */}
+  if(!('__TAURI_INTERNALS__' in window)){
+   const initial=pending??defaultWorkspace();latest.current=initial;changed.current=!!pending;setWorkspace(initial);setReady(true);
+   return()=>{live=false;alive.current=false;};
+  }
   void invoke<unknown>('workspace_get').then(value=>{
    if(!live)return;
    const initial=pending??readWorkspace(value);

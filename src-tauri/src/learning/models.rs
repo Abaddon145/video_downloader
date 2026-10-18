@@ -197,6 +197,10 @@ pub enum LearningChange {
         id: String,
         title: String,
     },
+    MoveItem {
+        id: String,
+        series_id: String,
+    },
     DeleteItem {
         id: String,
         delete_files: bool,

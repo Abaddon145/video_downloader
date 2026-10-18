@@ -40,6 +40,38 @@ pub fn can_retry(s: MediaTaskStatus) -> bool {
         MediaTaskStatus::Failed | MediaTaskStatus::Cancelled | MediaTaskStatus::Interrupted
     )
 }
+pub(crate) fn records_after_removal(
+    tasks: &[MediaTask],
+    ids: &[String],
+    running: Option<&str>,
+) -> AppResult<Vec<MediaTask>> {
+    if ids.is_empty() {
+        return Err("请选择要移除的媒体记录".into());
+    }
+    let selected: HashSet<&str> = ids.iter().map(String::as_str).collect();
+    for id in &selected {
+        let task = tasks
+            .iter()
+            .find(|task| task.id == *id)
+            .ok_or("媒体任务不存在")?;
+        if running == Some(*id)
+            || !matches!(
+                task.status,
+                MediaTaskStatus::Completed
+                    | MediaTaskStatus::Failed
+                    | MediaTaskStatus::Cancelled
+                    | MediaTaskStatus::Interrupted
+            )
+        {
+            return Err("只能移除已结束且进程已退出的媒体任务".into());
+        }
+    }
+    Ok(tasks
+        .iter()
+        .filter(|task| !selected.contains(task.id.as_str()))
+        .cloned()
+        .collect())
+}
 pub fn friendly_error(raw: &str) -> String {
     let l = raw.to_ascii_lowercase();
     if l.contains("no space left") || l.contains("disk full") {
@@ -438,6 +470,23 @@ impl MediaService {
             t.finished_at = None;
             t.output_path = None;
             self.commit(&mut s, next)?;
+        }
+        self.emit();
+        Ok(())
+    }
+    pub fn remove_records(&self, ids: Vec<String>) -> AppResult<()> {
+        {
+            let mut state = self.state.lock().unwrap();
+            if ids.iter().any(|id| {
+                state
+                    .jobs
+                    .keys()
+                    .any(|job| job == id || job.starts_with(&format!("{id}-")))
+            }) {
+                return Err("媒体任务进程仍在退出，请稍后重试".into());
+            }
+            let next = records_after_removal(&state.tasks, &ids, state.running.as_deref())?;
+            self.commit(&mut state, next)?;
         }
         self.emit();
         Ok(())

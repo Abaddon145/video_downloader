@@ -314,6 +314,32 @@ impl Repository {
         }
         Ok(())
     }
+    pub fn move_item_to_series(&mut self, id: &str, series_id: &str) -> AppResult<()> {
+        let previous = self.item(id)?.series_id;
+        self.get_series(series_id)?;
+        if previous == series_id {
+            return Ok(());
+        }
+        let tx = self.conn.transaction().map_err(db::error)?;
+        let order: i64 = tx
+            .query_row(
+                "SELECT COALESCE(MAX(sort_order),-1)+1 FROM series_items WHERE series_id=?1",
+                [series_id],
+                |row| row.get(0),
+            )
+            .map_err(db::error)?;
+        tx.execute(
+            "UPDATE series_items SET series_id=?1,sort_order=?2,updated_at=?3 WHERE id=?4",
+            params![series_id, order, now(), id],
+        )
+        .map_err(db::error)?;
+        tx.execute(
+            "UPDATE series SET updated_at=?1 WHERE id IN (?2,?3)",
+            params![now(), previous, series_id],
+        )
+        .map_err(db::error)?;
+        tx.commit().map_err(db::error)
+    }
     pub fn move_entry(
         &mut self,
         scope: &str,

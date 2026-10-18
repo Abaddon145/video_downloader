@@ -1,0 +1,11 @@
+{
+  "mocked": true,
+  "passed": true,
+  "checks": [
+    "browser-only preview remains usable without a desktop settings file",
+    "failed initial read gates editing and retries reading without overwriting saved settings",
+    "immediate reload retains a pending layout before the Rust save finishes",
+    "delayed initial loading preserves unrelated saved category and player sizes",
+    "disk failure remains visible and keeps the local pending layout"
+  ]
+}

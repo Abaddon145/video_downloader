@@ -145,10 +145,22 @@ impl KnowledgeService {
         })
     }
     pub fn tree(&self, id: &str, parent: &str, page: u32) -> AppResult<KnowledgeView<TreePage>> {
+        self.tree_sorted(id, parent, page, "name")
+    }
+    pub fn tree_sorted(
+        &self,
+        id: &str,
+        parent: &str,
+        page: u32,
+        sort: &str,
+    ) -> AppResult<KnowledgeView<TreePage>> {
+        if !matches!(sort, "name" | "nameDesc") {
+            return Err("笔记本排序方式无效".into());
+        }
         self.with_vault(id, |_, v| {
             Ok(KnowledgeView {
                 vault_id: id.into(),
-                data: v.list(parent, page)?,
+                data: v.list_sorted(parent, page, sort == "nameDesc")?,
             })
         })
     }
@@ -225,6 +237,9 @@ impl KnowledgeService {
         self.with_vault(id, |s, v| {
             let from = vault::validate_relative(from, false)?;
             let to = vault::validate_relative(to, false)?;
+            if to.to_lowercase().starts_with(&(from.to_lowercase()+"/")) {
+                return Err("不能将笔记本移动到它自己的内部".into());
+            }
             if let Some((parent, _)) = to.rsplit_once('/') {
                 ensure_directory(v, parent)?;
             }
@@ -279,6 +294,17 @@ impl KnowledgeService {
                 vault_id: id.into(),
                 path,
                 index_warning: warning,
+            })
+        })
+    }
+    pub fn delete_empty_directory(&self, id: &str, path: &str) -> AppResult<KnowledgeMutation> {
+        self.with_vault(id, |_, v| {
+            let path = vault::validate_relative(path, false)?;
+            v.delete_empty_directory(&path)?;
+            Ok(KnowledgeMutation {
+                vault_id: id.into(),
+                path,
+                index_warning: None,
             })
         })
     }
@@ -471,6 +497,18 @@ impl KnowledgeService {
     pub fn open_vault_folder(&self, id: &str) -> AppResult<()> {
         self.with_vault(id, |_, v| {
             crate::service::shell_open(super::obsidian::local_path(&v.root)?)
+        })
+    }
+    pub fn open_entry_folder(&self, id: &str, path: &str) -> AppResult<()> {
+        self.with_vault(id, |_, v| {
+            let doc = v.read(path)?;
+            let parent = doc
+                .path
+                .rsplit_once('/')
+                .map(|(parent, _)| parent)
+                .unwrap_or("");
+            v.list(parent, 1)?;
+            crate::service::shell_open(super::obsidian::local_path(&v.root.join(parent))?)
         })
     }
 

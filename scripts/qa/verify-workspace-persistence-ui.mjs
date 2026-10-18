@@ -29,6 +29,14 @@ async function setup(options={}){
 const openLibrary=async page=>{await page.getByRole('navigation',{name:'主导航'}).getByRole('button',{name:'学习库',exact:true}).click();await page.locator('.library-view-settings summary').click();};
 try{
  {
+  const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();
+  await context.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
+  await page.goto(process.env.QA_BASE_URL??'http://127.0.0.1:5260');
+  await page.waitForFunction(()=>document.querySelector('.workspace-save-error')||document.querySelector('nav[aria-label="主导航"]'));
+  assert.equal(await page.getByRole('navigation',{name:'主导航'}).count(),1,'browser-only UI preview must remain usable without a Rust bridge');
+  checks.push('browser-only preview remains usable without a desktop settings file');await context.close();
+ }
+ {
   const initial=defaultWorkspace();initial.currentLayout.library.categoryWidth=340;initial.currentLayout.player.panelSize=520;
   const {context,page}=await setup({failLoad:true,initial});
   await page.getByRole('status').filter({hasText:'QA temporary read failure'}).waitFor();
