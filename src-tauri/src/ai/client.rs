@@ -5,6 +5,23 @@ use std::time::Duration;
 pub const API_BASE: &str = "https://api.deepseek.com";
 pub const RETRY_DELAYS: [u64; 2] = [1, 3];
 pub const MAX_RESPONSE: usize = 2 * 1024 * 1024;
+#[derive(Clone, Copy)]
+pub enum RequestPurpose {
+    Chunk,
+    Summary,
+    Question,
+    ReferenceRepair,
+}
+impl RequestPurpose {
+    fn output_tokens(self) -> u32 {
+        match self {
+            Self::Chunk => 8192,
+            Self::Summary => 16384,
+            Self::Question => 2048,
+            Self::ReferenceRepair => 2048,
+        }
+    }
+}
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TokenUsage {
@@ -16,6 +33,7 @@ pub struct TokenUsage {
 }
 #[derive(Debug)]
 pub struct ChatReply {
+    pub truncated: bool,
     pub error: Option<String>,
     pub content: String,
     pub model: String,
@@ -126,13 +144,24 @@ impl DeepSeekClient {
         }
         Ok("连接成功，所选模型可用；未发送视频内容".into())
     }
+    #[cfg(test)]
     pub async fn chat(
         &self,
         key: &[u8],
         model: &str,
         messages: Vec<Value>,
     ) -> AppResult<ChatReply> {
-        let v=self.request(key,"/chat/completions",Some(&json!({"model":model,"messages":messages,"response_format":{"type":"json_object"},"max_tokens":8192,"stream":false,"thinking":{"type":"disabled"}}))).await?;
+        self.chat_for(key, model, messages, RequestPurpose::Chunk)
+            .await
+    }
+    pub async fn chat_for(
+        &self,
+        key: &[u8],
+        model: &str,
+        messages: Vec<Value>,
+        purpose: RequestPurpose,
+    ) -> AppResult<ChatReply> {
+        let v=self.request(key,"/chat/completions",Some(&json!({"model":model,"messages":messages,"response_format":{"type":"json_object"},"max_tokens":purpose.output_tokens(),"stream":false,"thinking":{"type":"disabled"}}))).await?;
         let text = v
             .pointer("/choices/0/message/content")
             .and_then(Value::as_str);
@@ -181,6 +210,7 @@ impl DeepSeekClient {
             return Err("DeepSeek用量数据无效".into());
         }
         Ok(ChatReply {
+            truncated,
             error,
             content,
             model: v

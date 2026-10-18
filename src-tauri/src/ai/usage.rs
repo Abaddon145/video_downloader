@@ -8,7 +8,14 @@ impl Repository {
         model: &str,
         usage: &TokenUsage,
     ) -> AppResult<()> {
-        if !["chunk", "summary", "question", "explain"].contains(&operation)
+        if ![
+            "chunk",
+            "summary",
+            "question",
+            "explain",
+            "reference_repair",
+        ]
+        .contains(&operation)
             || model.len() > 128
             || [
                 usage.input_tokens,

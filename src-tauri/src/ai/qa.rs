@@ -313,7 +313,12 @@ impl AiService {
         let key = self.key()?;
         let control = Control::default();
         let reply = control
-            .reply(client.chat(key.as_bytes(), &analysis.model, body))
+            .reply(client.chat_for(
+                key.as_bytes(),
+                &analysis.model,
+                body,
+                super::client::RequestPurpose::Question,
+            ))
             .await?;
         self.with(|r| {
             r.record_usage(

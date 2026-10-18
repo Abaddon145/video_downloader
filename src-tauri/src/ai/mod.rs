@@ -9,6 +9,9 @@ pub mod keyframes;
 pub mod models;
 pub mod prompts;
 pub mod qa;
+#[cfg(test)]
+mod reference_tests;
+pub mod references;
 pub mod repository;
 pub mod service;
 pub mod settings;

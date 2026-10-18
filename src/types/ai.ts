@@ -14,6 +14,7 @@ export interface VideoAnalysis {
 }
 export interface Chapter {startMs:number;endMs:number;title:string;summary:string;keywords:string[];keyframeIds:string[]}
 export interface VideoAnalysisResult {
+ warnings?:string[];
  contentType:string;oneSentenceSummary:string;overview:string;chapters:Chapter[];
  keyPoints:{timeMs:number;title:string;content:string;importance:number;sourceSegmentIds:string[]}[];
  tutorialSteps:{order:number;timeMs:number;title:string;description:string;notes:string[]}[];

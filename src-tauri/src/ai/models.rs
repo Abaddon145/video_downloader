@@ -56,6 +56,8 @@ pub struct VideoAnalysisResult {
     pub terms: Vec<Term>,
     pub action_items: Vec<String>,
     pub tags: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<String>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
