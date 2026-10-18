@@ -243,6 +243,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             workspace::workspace_get,
             workspace::workspace_save,
+            workspace::workspace_import,
+            workspace::workspace_export,
             learning_check_updates,
             learning_enqueue_downloads,
             learning_download_item,

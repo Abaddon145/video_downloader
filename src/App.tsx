@@ -1,4 +1,5 @@
 import {AiSettings} from './features/ai/AiSettings';
+import {WorkspaceSettingsPanel} from './features/workspace/WorkspaceSettingsPanel';
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNode, type MouseEvent as ReactMouseEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import {getVersion} from '@tauri-apps/api/app';
 import { invoke, isTauri } from '@tauri-apps/api/core';
@@ -181,6 +182,7 @@ function SettingsPanel({ snapshot, act, notify, cookieFailure }: { cookieFailure
   const applyUpdate = async () => { const result = await act('update_engine', {}, '内核更新完成'); if (result) setUpdate(null); };
   const busy = snapshot.previewing || snapshot.tasks.some(task => ['queued', ...busyStatuses].includes(task.status));
   return <div className="settings-content">
+    <WorkspaceSettingsPanel/>
     <PresetSettings presets={snapshot.settings.downloadPresets ?? []} save={async presets=>!!await act('save_download_presets',{presets},'下载预设已保存')} />
     <section className="settings-card"><div className="section-icon"><Folder size={20} /></div><div className="settings-section"><h2>下载与保存</h2><p className="section-description">配置新任务的默认保存位置与同时下载数量</p><label className="field-label" htmlFor="download-directory">保存目录</label><div className="input-with-button"><input id="download-directory" value={form.downloadDir} onChange={event => change('downloadDir', event.target.value)} /><button className="secondary" onClick={() => { void chooseDirectory(); }}><FolderOpen size={16} />浏览</button></div><div className="setting-line"><div><label htmlFor="concurrency">同时下载数量</label><p className="help">已运行任务会先完成；新任务按此数量排队</p></div><select id="concurrency" value={form.concurrency} onChange={event => change('concurrency', Number(event.target.value))}>{[1, 2, 3, 4].map(value => <option value={value} key={value}>{value} 个任务{value === 2 ? ' · 推荐' : ''}</option>)}</select></div></div></section>
     <section className="settings-card"><div className="section-icon"><ShieldCheck size={20} /></div><div className="settings-section"><h2>登录与 Cookie</h2><p className="section-description">下载需要登录的内容时，使用你的本地登录状态</p><div className="radio-group">{[{ id: 'none', text: '不使用 Cookie' }, { id: 'browser', text: '从浏览器读取' }, { id: 'file', text: '导入 Cookie 文件' }].map(item => <label key={item.id}><input type="radio" name="cookie-mode" value={item.id} checked={form.cookieMode === item.id} onChange={() => change('cookieMode', item.id)} />{item.text}</label>)}</div>

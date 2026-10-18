@@ -1,0 +1,15 @@
+{
+  "mocked": true,
+  "passed": true,
+  "checks": [
+    "theme, accent, font size, density, sidebar width and motion reach root DOM/CSS and persist",
+    "five built-ins are selectable and protected; custom layout presets create, update, rename and delete",
+    "credential, future-version and corrupt imports show errors and retain settings; valid import applies",
+    "export sends only validated WorkspaceSettings layout fields",
+    "restore defaults resets appearance and current layout",
+    "native export failure is visible in the settings UI",
+    "workspace write failure remains visible",
+    "880 CSS px fits at simulated deviceScaleFactor 1.25; this is browser emulation, not physical DPI validation",
+    "880 CSS px fits at simulated deviceScaleFactor 1.5; this is browser emulation, not physical DPI validation"
+  ]
+}

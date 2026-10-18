@@ -2,6 +2,7 @@ use crate::domain::AppResult;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashSet},
+    io::{Read, Write},
     path::{Path, PathBuf},
     sync::Mutex,
 };
@@ -182,6 +183,7 @@ impl WorkspaceSettings {
         let mut ids = HashSet::new();
         for p in &self.presets {
             if p.id.is_empty()
+                || p.id.starts_with("builtin.")
                 || p.id.len() > 100
                 || p.name.trim().is_empty()
                 || p.name.chars().count() > 80
@@ -194,6 +196,83 @@ impl WorkspaceSettings {
         }
         Ok(())
     }
+}
+fn settings_bytes(settings: &WorkspaceSettings) -> AppResult<Vec<u8>> {
+    settings.validate()?;
+    let bytes = serde_json::to_vec_pretty(settings).map_err(|_| "无法序列化工作区配置")?;
+    if bytes.len() as u64 > MAX_BYTES {
+        return Err("工作区配置超过128KiB".into());
+    }
+    Ok(bytes)
+}
+fn json_path(path: &Path) -> AppResult<()> {
+    if !path.is_absolute()
+        || !path
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("json"))
+    {
+        return Err("请选择本地 .json 工作区配置文件".into());
+    }
+    Ok(())
+}
+fn read_import(path: &Path) -> AppResult<WorkspaceSettings> {
+    json_path(path)?;
+    let file = std::fs::File::open(path).map_err(|_| "无法读取工作区配置文件")?;
+    let metadata = file.metadata().map_err(|_| "无法读取工作区配置文件信息")?;
+    if !metadata.is_file() || metadata.len() > MAX_BYTES {
+        return Err("工作区配置必须是128KiB以内的普通文件".into());
+    }
+    let mut bytes = Vec::new();
+    file.take(MAX_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| "读取工作区配置文件失败")?;
+    if bytes.len() as u64 > MAX_BYTES {
+        return Err("工作区配置超过128KiB".into());
+    }
+    let settings: WorkspaceSettings = serde_json::from_slice(&bytes)
+        .map_err(|_| "工作区配置JSON无效或包含未知字段；原文件已保留")?;
+    settings.validate()?;
+    Ok(settings)
+}
+fn write_export(path: &Path, bytes: &[u8]) -> AppResult<()> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::{MoveFileExW, MOVEFILE_WRITE_THROUGH};
+    json_path(path)?;
+    let temporary = path.with_extension(format!("{}.new", crate::ffmpeg::runner::new_id()));
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary)
+        .map_err(|_| "无法创建工作区导出文件，请检查目录权限")?;
+    let written = file.write_all(bytes).and_then(|_| file.sync_all());
+    drop(file);
+    let result = written
+        .map_err(|_| "工作区配置写入未完成，请检查目标磁盘".to_owned())
+        .and_then(|_| {
+            let wide = |p: &Path| {
+                p.as_os_str()
+                    .encode_wide()
+                    .chain(Some(0))
+                    .collect::<Vec<_>>()
+            };
+            // Publish only a complete new file; never replace another user file, even after a dialog race.
+            if unsafe {
+                MoveFileExW(
+                    wide(&temporary).as_ptr(),
+                    wide(path).as_ptr(),
+                    MOVEFILE_WRITE_THROUGH,
+                )
+            } == 0
+            {
+                Err("无法保存工作区配置；目标可能已存在，请使用新的文件名".into())
+            } else {
+                Ok(())
+            }
+        });
+    if result.is_err() {
+        let _ = std::fs::remove_file(&temporary);
+    }
+    result
 }
 pub struct WorkspaceStore {
     path: PathBuf,
@@ -218,11 +297,7 @@ impl WorkspaceStore {
             .unwrap_or_default())
     }
     pub fn save(&self, settings: WorkspaceSettings) -> AppResult<()> {
-        settings.validate()?;
-        let bytes = serde_json::to_vec_pretty(&settings).map_err(|e| e.to_string())?;
-        if bytes.len() as u64 > MAX_BYTES {
-            return Err("工作区配置超过128KB".into());
-        }
+        let bytes = settings_bytes(&settings)?;
         let _guard = self.guard.lock().map_err(|_| "工作区设置暂不可用")?;
         crate::native::save_atomic(&self.path, &bytes)
     }
@@ -238,10 +313,136 @@ pub fn workspace_save(
 ) -> AppResult<()> {
     workspace.save(settings)
 }
+#[tauri::command]
+pub async fn workspace_import(app: tauri::AppHandle) -> AppResult<Option<WorkspaceSettings>> {
+    use tauri_plugin_dialog::DialogExt;
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(path) = app
+            .dialog()
+            .file()
+            .add_filter("工作区 JSON", &["json"])
+            .blocking_pick_file()
+        else {
+            return Ok(None);
+        };
+        let path = path.into_path().map_err(|_| "请选择本地JSON文件")?;
+        read_import(&path).map(Some)
+    })
+    .await
+    .map_err(|_| "工作区配置导入未完成")?
+}
+#[tauri::command]
+pub async fn workspace_export(
+    app: tauri::AppHandle,
+    settings: WorkspaceSettings,
+) -> AppResult<bool> {
+    use tauri_plugin_dialog::DialogExt;
+    tauri::async_runtime::spawn_blocking(move || {
+        let bytes = settings_bytes(&settings)?;
+        let Some(path) = app
+            .dialog()
+            .file()
+            .add_filter("工作区 JSON", &["json"])
+            .set_file_name("映流工作区.json")
+            .blocking_save_file()
+        else {
+            return Ok(false);
+        };
+        let path = path.into_path().map_err(|_| "请选择本地JSON文件路径")?;
+        write_export(&path, &bytes)?;
+        Ok(true)
+    })
+    .await
+    .map_err(|_| "工作区配置导出未完成")?
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn workspace_presets_reject_builtin_identity_and_control_characters() {
+        let mut settings = WorkspaceSettings::default();
+        settings.presets.push(WorkspacePreset {
+            id: "builtin.video".into(),
+            name: "自定义".into(),
+            layout: settings.current_layout.clone(),
+        });
+        assert!(settings.validate().is_err());
+        for invalid in ["bad\0id", "bad\u{7f}id", "bad\u{85}id"] {
+            settings.presets[0].id = invalid.into();
+            assert!(settings.validate().is_err());
+            settings.presets[0].id = "custom.test".into();
+            settings.presets[0].name = invalid.into();
+            assert!(settings.validate().is_err());
+            settings.presets[0].name = "自定义".into();
+        }
+        assert!(settings.validate().is_ok());
+    }
+    #[test]
+    fn workspace_import_is_strict_bounded_and_does_not_save_settings() {
+        let dir = std::env::temp_dir().join(crate::ffmpeg::runner::new_id());
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("导入 工作区.json");
+        let mut value = serde_json::to_value(WorkspaceSettings::default()).unwrap();
+        value["appearance"]["theme"] = "light".into();
+        std::fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
+        assert_eq!(read_import(&path).unwrap().appearance.theme, "light");
+        assert!(!dir.join("workspace.json").exists());
+        for key in ["apiKey", "cookie", "appSettings", "unknown"] {
+            value[key] = "private".into();
+            std::fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
+            assert!(read_import(&path).is_err());
+            value.as_object_mut().unwrap().remove(key);
+        }
+        value["appearance"]["cookie"] = "private".into();
+        std::fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
+        assert!(read_import(&path).is_err());
+        value["appearance"]
+            .as_object_mut()
+            .unwrap()
+            .remove("cookie");
+        let mut oversized = vec![b' '; MAX_BYTES as usize];
+        oversized.extend(serde_json::to_vec(&value).unwrap());
+        assert!(serde_json::from_slice::<WorkspaceSettings>(&oversized).is_ok());
+        std::fs::write(&path, &oversized).unwrap();
+        assert!(read_import(&path).unwrap_err().contains("128KiB"));
+        for invalid in [
+            b"{broken".to_vec(),
+            {
+                value["version"] = 2.into();
+                serde_json::to_vec(&value).unwrap()
+            },
+            {
+                value["version"] = 1.into();
+                value["appearance"]["fontSize"] = 999.into();
+                serde_json::to_vec(&value).unwrap()
+            },
+        ] {
+            std::fs::write(&path, &invalid).unwrap();
+            assert!(read_import(&path).is_err());
+            assert_eq!(std::fs::read(&path).unwrap(), invalid);
+        }
+        assert!(!dir.join("workspace.json").exists());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+    #[test]
+    fn workspace_export_publishes_complete_json_without_overwriting_existing_files() {
+        let dir = std::env::temp_dir().join(crate::ffmpeg::runner::new_id());
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("导出 工作区.json");
+        let mut settings = WorkspaceSettings::default();
+        settings.appearance.density = "compact".into();
+        let bytes = settings_bytes(&settings).unwrap();
+        write_export(&path, &bytes).unwrap();
+        assert_eq!(read_import(&path).unwrap().appearance.density, "compact");
+        assert!(write_export(&path, b"replace").is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), bytes);
+        assert!(write_export(&dir.join("wrong.txt"), &bytes).is_err());
+        settings.appearance.sidebar_width = 0.;
+        assert!(settings_bytes(&settings).is_err());
+        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
     #[test]
     fn workspace_round_trip_rejects_invalid_and_future_data_without_overwriting() {
         let dir = std::env::temp_dir().join(crate::ffmpeg::runner::new_id());

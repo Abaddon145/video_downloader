@@ -7,7 +7,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "node --test src/lib.test.ts src/media.test.ts src/features/learning/lib.test.ts src/features/ai/lib.test.ts src/features/knowledge/lib.test.ts src/features/workspace/defaults.test.ts src/features/workspace/pending.test.ts src/components/resize.test.ts src/components/contextMenu.test.ts src/downloadContextActions.test.ts src/components/media/mediaContextActions.test.ts src/features/ai/templates.test.ts",
+    "test": "node --test src/lib.test.ts src/media.test.ts src/features/learning/lib.test.ts src/features/ai/lib.test.ts src/features/knowledge/lib.test.ts src/features/workspace/defaults.test.ts src/features/workspace/pending.test.ts src/components/resize.test.ts src/components/contextMenu.test.ts src/downloadContextActions.test.ts src/components/media/mediaContextActions.test.ts src/features/ai/templates.test.ts src/features/workspace/presets.test.ts src/features/workspace/appearance.test.ts",
     "tauri": "tauri",
     "prepare:tools": "node scripts/prepare-tools.mjs"
   },

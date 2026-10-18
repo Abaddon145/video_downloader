@@ -1,6 +1,7 @@
 import { useMemo, type RefObject } from 'react';
 import CodeMirror, { EditorView, type ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { markdown } from '@codemirror/lang-markdown';
+import {useWorkspace} from '../workspace/WorkspaceProvider';
 
 type MarkdownEditorProps = {
   value: string;
@@ -10,6 +11,7 @@ type MarkdownEditorProps = {
 };
 
 export function MarkdownEditor({ value, onChange, readOnly = false, editorRef }: MarkdownEditorProps) {
+  const {resolvedTheme}=useWorkspace();
   const extensions = useMemo(
     () => [
       markdown(),
@@ -25,7 +27,7 @@ export function MarkdownEditor({ value, onChange, readOnly = false, editorRef }:
       value={value}
       onChange={onChange}
       extensions={extensions}
-      theme="dark"
+      theme={resolvedTheme}
       height="100%"
       minHeight="420px"
       readOnly={readOnly}
