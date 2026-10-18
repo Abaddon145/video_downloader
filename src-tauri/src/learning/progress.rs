@@ -1,7 +1,9 @@
 use super::{
     db,
     models::*,
-    repository::{now, Repository},
+    repository::{
+        item_row, now, series_row_at, Repository, ITEM_COLS, SERIES_COLS, SERIES_CTE, SERIES_FROM,
+    },
     service::LearningService,
 };
 use crate::domain::AppResult;
@@ -75,16 +77,7 @@ impl Repository {
         Ok(())
     }
     pub fn continue_learning(&self) -> AppResult<Vec<ContinueLearningItem>> {
-        let ids=self.rows("SELECT p.item_id FROM playback_progress p JOIN series_items i ON i.id=p.item_id WHERE p.completed=0 AND p.position_ms>=5000 AND p.last_played_at IS NOT NULL ORDER BY p.last_played_at DESC,p.item_id LIMIT 6",[],|r|r.get::<_,String>(0))?;
-        ids.iter()
-            .map(|id| {
-                let item = self.item(id)?;
-                Ok(ContinueLearningItem {
-                    series: self.get_series(&item.series_id)?,
-                    item,
-                })
-            })
-            .collect()
+        self.rows(&format!("{SERIES_CTE} SELECT {ITEM_COLS},{SERIES_COLS} FROM {SERIES_FROM} JOIN series_items i ON i.series_id=s.id JOIN playback_progress p ON p.item_id=i.id WHERE p.completed=0 AND p.position_ms>=5000 AND p.last_played_at IS NOT NULL ORDER BY p.last_played_at DESC,p.item_id LIMIT 6"),[],|r|Ok(ContinueLearningItem {item:item_row(r)?,series:series_row_at(r,21)?}))
     }
 }
 impl LearningService {

@@ -10,6 +10,7 @@ pub mod models;
 pub mod naming;
 pub mod native;
 pub mod service;
+pub mod workspace;
 
 use ai::commands::*;
 use domain::AppResult;
@@ -236,6 +237,8 @@ pub fn run() {
     let application = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            workspace::workspace_get,
+            workspace::workspace_save,
             learning_check_updates,
             learning_enqueue_downloads,
             learning_download_item,
@@ -353,6 +356,7 @@ pub fn run() {
         .setup(|app| {
             let service = Service::new(app.handle().clone()).map_err(std::io::Error::other)?;
             app.manage(service.clone());
+            app.manage(workspace::WorkspaceStore::new(&service.data));
             let media = ffmpeg::runner::MediaService::new(
                 app.handle().clone(),
                 &service.data,

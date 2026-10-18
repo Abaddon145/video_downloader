@@ -113,3 +113,5 @@ Interfaces: NoteKey=vaultId+path；NoteSession{document,draft,editVersion,saveSt
 ## Execution checkpoint
 
 2026-10-18：Phase0完成，Phase1三项P0及移动关联修复完成开发验证。Rust193/0/8ignored，Node37，build通过；Obsidian22、课程面板35浏览器模拟检查通过。实际Obsidian和原课程真实DeepSeek复测留人工项。继续Phase2，不将Phase2–7标记完成。
+
+Phase2开发和自动验证完成：Node42、Rust195/0/8ignored、build通过；浏览器布局与持久化回归通过，真实mpv/DPI留最终人工矩阵。继续Phase3。

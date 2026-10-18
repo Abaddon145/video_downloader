@@ -2,6 +2,46 @@ use super::db;
 use rusqlite::Connection;
 use std::path::Path;
 #[test]
+fn library_sort_precedes_pagination_and_aggregates_latest_analysis_per_item() {
+    let r = super::repository::Repository::open(Path::new(":memory:")).unwrap();
+    for n in 0..51 {
+        r.conn.execute("INSERT INTO series(id,title,sort_order,created_at,updated_at) VALUES(?1,?2,?3,0,?3)",rusqlite::params![format!("s{n:02}"),format!("课程{:02}",50-n),n]).unwrap();
+    }
+    r.conn.execute_batch(r#"INSERT INTO series_items(id,series_id,title,file_path,duration_ms,available,created_at,updated_at) VALUES('i','s50','最后导入','current.mp4',90000,1,0,72);
+      INSERT INTO playback_progress(item_id,position_ms,duration_ms,last_played_at,completed,updated_at) VALUES('i',5000,90000,123,1,0);
+      INSERT INTO video_analyses(id,item_id,source_path,source_fingerprint,status,analysis_mode,model,prompt_version,options_json,created_at,updated_at) VALUES
+       ('a','i','current.mp4','f','failed','quick','m','v','{"localOnly":false}',1,1),
+       ('b','i','current.mp4','f','completed','quick','m','v','{"localOnly":false}',2,2),
+       ('c','i','current.mp4','f','failed','quick','m','v','{"localOnly":true}',3,3),
+       ('d','i','old.mp4','f','failed','quick','m','v','{"localOnly":false}',4,4),
+       ('e','i','current.mp4','f','failed','quick','m','v','{}',5,5);"#).unwrap();
+    let (series, total) = r.list_series_sorted("", None, 1, false, "title").unwrap();
+    assert_eq!(total, 51);
+    assert_eq!(series.len(), 50);
+    assert_eq!(series[0].id, "s50");
+    let s = &series[0];
+    assert_eq!(s.total_duration_ms, 90000);
+    assert_eq!(s.available_items, 1);
+    assert_eq!(s.ai_completed_items, 1);
+    assert_eq!(s.ai_failed_items, 0);
+    assert_eq!(s.last_played_at, Some(123));
+    assert_eq!(s.updated_at, 72);
+    assert_eq!(
+        r.list_series_sorted("", None, 1, false, "lastPlayed")
+            .unwrap()
+            .0[0]
+            .id,
+        "s50"
+    );
+    assert_eq!(
+        r.list_series_sorted("", None, 2, false, "title").unwrap().0[0].id,
+        "s00"
+    );
+    assert!(r
+        .list_series_sorted("", None, 1, false, "DROP TABLE series")
+        .is_err());
+}
+#[test]
 fn learning_database_creates_versioned_tables_and_enforces_relations() {
     let c = db::open(Path::new(":memory:")).unwrap();
     let version: i64 = c
