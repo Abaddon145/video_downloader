@@ -40,6 +40,13 @@ await context.addInitScript(()=>{
   return true;
  }};
 });
+// Existing download/media/native checks use an empty, typed AI state.
+await context.addInitScript(()=>{
+ const original=window.__TAURI_INTERNALS__.invoke;
+ const settings={model:'deepseek-flash',defaultMode:'standard',whisperModel:'base',allowTranscript:true,allowImages:true,cleanTemporaryFiles:true,autoGenerateNotes:true,autoAnalyzeDownloads:false,chunkConcurrency:1};
+ const empty={ai_get_settings:{settings,hasApiKey:false},ai_whisper_models:[],ai_model_download:null,ai_usage:{analyses:0,questions:0,models:[]},ai_cache_info:{bytes:0,clearableBytes:0},ai_item_statuses:{},ai_for_item:null,ai_item_analyses:{items:[],total:0,page:1},ai_course_transcript:{source:'none',analysisId:null,warning:null,nextStartMs:null,total:0,page:1,items:[]}};
+ window.__TAURI_INTERNALS__.invoke=async(command,args={})=>Object.hasOwn(empty,command)?structuredClone(empty[command]):original(command,args);
+});
 const page=await context.newPage(),checks=[],errors=[];page.on('pageerror',e=>errors.push(String(e)));
 const panel=()=>page.getByRole('tabpanel');
 const failures=[];async function check(name,fn){try{await fn();checks.push(name);console.log(`PASS ${name}`);}catch(e){failures.push({name,error:String(e)});console.log(`FAIL ${name}: ${e}`);}}

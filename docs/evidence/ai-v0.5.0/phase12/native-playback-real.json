@@ -1,0 +1,297 @@
+{
+  "run": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v050\\native-regression\\run-1792283868773",
+  "passed": 13,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "twelve codecs start within five seconds, seek to 80%, and never enqueue conversion",
+      "passed": true,
+      "detail": [
+        {
+          "name": "01-MP4-H264-AAC.mp4",
+          "ms": 1440,
+          "subtitles": 0
+        },
+        {
+          "name": "02-MKV-H264-AAC.mkv",
+          "ms": 743,
+          "subtitles": 1
+        },
+        {
+          "name": "03-MKV-HEVC-AAC.mkv",
+          "ms": 766,
+          "subtitles": 0
+        },
+        {
+          "name": "04-MOV-H264.mov",
+          "ms": 752,
+          "subtitles": 0
+        },
+        {
+          "name": "05-AVI-MPEG4.avi",
+          "ms": 719,
+          "subtitles": 0
+        },
+        {
+          "name": "06-WMV-WMV3-WMA.wmv",
+          "ms": 722,
+          "subtitles": 0
+        },
+        {
+          "name": "07-WMV-VC1-WMA.wmv",
+          "ms": 740,
+          "subtitles": 0
+        },
+        {
+          "name": "08-MPEG-MPEG2.mpg",
+          "ms": 716,
+          "subtitles": 0
+        },
+        {
+          "name": "09-TS-H264.ts",
+          "ms": 748,
+          "subtitles": 0
+        },
+        {
+          "name": "10-M2TS-H264.m2ts",
+          "ms": 742,
+          "subtitles": 0
+        },
+        {
+          "name": "11-WebM-VP9-Opus.webm",
+          "ms": 753,
+          "subtitles": 0
+        },
+        {
+          "name": "12-FLV.flv",
+          "ms": 747,
+          "subtitles": 0
+        }
+      ]
+    },
+    {
+      "name": "157-second original WMV starts immediately and renders in an owned child window",
+      "passed": true,
+      "detail": {
+        "ms": 421,
+        "windows": {
+          "processes": [
+            {
+              "ProcessId": 39076,
+              "ParentProcessId": 30176,
+              "ExecutablePath": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\��Ƶ��������\\src-tauri\\target\\release\\tools\\mpv.exe"
+            }
+          ],
+          "children": [
+            {
+              "hwnd": 1313682,
+              "pid": 30176,
+              "name": "Static",
+              "visible": true,
+              "left": 1370,
+              "top": 471,
+              "width": 500,
+              "height": 280,
+              "owned": true
+            },
+            {
+              "hwnd": 723830,
+              "pid": 39076,
+              "name": "mpv",
+              "visible": true,
+              "left": 1370,
+              "top": 471,
+              "width": 500,
+              "height": 280,
+              "owned": false
+            },
+            {
+              "hwnd": 3476216,
+              "pid": 30176,
+              "name": "WRY_WEBVIEW",
+              "visible": true,
+              "left": 1120,
+              "top": 321,
+              "width": 1200,
+              "height": 780,
+              "owned": false
+            },
+            {
+              "hwnd": 1641248,
+              "pid": 30176,
+              "name": "Chrome_WidgetWin_0",
+              "visible": true,
+              "left": 1120,
+              "top": 321,
+              "width": 1200,
+              "height": 780,
+              "owned": false
+            },
+            {
+              "hwnd": 2097452,
+              "pid": 37520,
+              "name": "Chrome_WidgetWin_1",
+              "visible": true,
+              "left": 1120,
+              "top": 321,
+              "width": 1200,
+              "height": 780,
+              "owned": false
+            },
+            {
+              "hwnd": 1248024,
+              "pid": 37520,
+              "name": "Chrome_RenderWidgetHostHWND",
+              "visible": true,
+              "left": 1120,
+              "top": 321,
+              "width": 1200,
+              "height": 780,
+              "owned": false
+            },
+            {
+              "hwnd": 2755522,
+              "pid": 34724,
+              "name": "Intermediate D3D Window",
+              "visible": true,
+              "left": 1120,
+              "top": 321,
+              "width": 1200,
+              "height": 780,
+              "owned": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "embedded and local subtitles, notes, ordered pause and progress survive restart",
+      "passed": true,
+      "detail": {
+        "itemId": "learn-1792283870249-17",
+        "positionMs": 10000,
+        "durationMs": 20031,
+        "completed": false,
+        "playbackRate": 1.5,
+        "lastPlayedAt": 1792283882975
+      }
+    },
+    {
+      "name": "late cancellation cannot kill a newer native session",
+      "passed": true
+    },
+    {
+      "name": "actual UI uses native controls, hides under notes, and enters/exits fullscreen",
+      "passed": true,
+      "detail": {
+        "ms": 893
+      }
+    },
+    {
+      "name": "failed native playback retires its owned window without navigation",
+      "passed": true
+    },
+    {
+      "name": "unresponsive IPC times out and terminates only the owned process",
+      "passed": true,
+      "detail": {
+        "ms": 3012
+      }
+    },
+    {
+      "name": "missing and corrupt bundled engine fail without starting conversion",
+      "passed": true
+    },
+    {
+      "name": "manual compatibility conversion remains available and never overwrites the source",
+      "passed": true
+    },
+    {
+      "name": "hide and immediate exit pause and save actual native progress",
+      "passed": true,
+      "detail": {
+        "itemId": "learn-1792283870249-28",
+        "positionMs": 85000,
+        "durationMs": 156958,
+        "completed": false,
+        "playbackRate": 1.5,
+        "lastPlayedAt": 1792283904187
+      }
+    },
+    {
+      "name": "damaged registered media fails in bounded time without orphaned windows",
+      "passed": true
+    },
+    {
+      "name": "all original fixtures remain byte-identical",
+      "passed": true
+    },
+    {
+      "name": "no JavaScript exceptions",
+      "passed": true
+    }
+  ],
+  "timings": [
+    {
+      "name": "01-MP4-H264-AAC.mp4",
+      "ms": 1440,
+      "subtitles": 0
+    },
+    {
+      "name": "02-MKV-H264-AAC.mkv",
+      "ms": 743,
+      "subtitles": 1
+    },
+    {
+      "name": "03-MKV-HEVC-AAC.mkv",
+      "ms": 766,
+      "subtitles": 0
+    },
+    {
+      "name": "04-MOV-H264.mov",
+      "ms": 752,
+      "subtitles": 0
+    },
+    {
+      "name": "05-AVI-MPEG4.avi",
+      "ms": 719,
+      "subtitles": 0
+    },
+    {
+      "name": "06-WMV-WMV3-WMA.wmv",
+      "ms": 722,
+      "subtitles": 0
+    },
+    {
+      "name": "07-WMV-VC1-WMA.wmv",
+      "ms": 740,
+      "subtitles": 0
+    },
+    {
+      "name": "08-MPEG-MPEG2.mpg",
+      "ms": 716,
+      "subtitles": 0
+    },
+    {
+      "name": "09-TS-H264.ts",
+      "ms": 748,
+      "subtitles": 0
+    },
+    {
+      "name": "10-M2TS-H264.m2ts",
+      "ms": 742,
+      "subtitles": 0
+    },
+    {
+      "name": "11-WebM-VP9-Opus.webm",
+      "ms": 753,
+      "subtitles": 0
+    },
+    {
+      "name": "12-FLV.flv",
+      "ms": 747,
+      "subtitles": 0
+    }
+  ],
+  "errors": []
+}

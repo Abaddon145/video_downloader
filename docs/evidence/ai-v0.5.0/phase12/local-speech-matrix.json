@@ -1,0 +1,60 @@
+{
+  "localWhisperReal": true,
+  "model": "Whisper Small",
+  "modelSha256": "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
+  "apiRequests": 0,
+  "originalFilesUnchanged": true,
+  "speechRecognitionSmokeOnly": true,
+  "mixedFixture": "Concatenation of Chinese dialogue and first six seconds of the public JFK WAV, not a natural bilingual conversation",
+  "sourceHashes": {
+    "chinese.ogg": "da5bcc75e8c872aeae7c35982bef42c742dd97ca47f83c02fd1ee38009383fd9",
+    "korean.wav": "d26bf85dcd6cd525b151068cbaaabbaf0aae499ceca4e5714cb132b97c30846e",
+    "jfk.wav": "59dfb9a4acb36fe2a2affc14bacbee2920ff435cb13cc314a08c13f66ba7860e"
+  },
+  "sources": [
+    {
+      "language": "Chinese",
+      "page": "https://commons.wikimedia.org/wiki/File:Chinese-Lesson1-Dialogue1.ogg",
+      "license": "CC BY-SA 3.0 / GFDL; attribution and authors on source page"
+    },
+    {
+      "language": "Korean",
+      "reference": "우리",
+      "page": "https://commons.wikimedia.org/wiki/File:LL-Q9176_(kor)-Daniel_Mietchen-우리.wav",
+      "license": "CC0",
+      "speaker": "Daniel Mietchen"
+    }
+  ],
+  "records": [
+    {
+      "fixture": "zh",
+      "detectedLanguage": "zh",
+      "text": "你好 你好 我叫金妮 你叫什么名字 我叫欧文",
+      "segments": 5,
+      "containsChinese": true,
+      "containsKorean": false,
+      "containsLatin": false,
+      "koreanReferenceMatched": null
+    },
+    {
+      "fixture": "ko",
+      "detectedLanguage": "ko",
+      "text": "꾸리",
+      "segments": 1,
+      "containsChinese": false,
+      "containsKorean": true,
+      "containsLatin": false,
+      "koreanReferenceMatched": false
+    },
+    {
+      "fixture": "mixed",
+      "detectedLanguage": "zh",
+      "text": "你好,我叫金妮,你叫什么名字? 我叫欧文",
+      "segments": 2,
+      "containsChinese": true,
+      "containsKorean": false,
+      "containsLatin": false,
+      "koreanReferenceMatched": null
+    }
+  ]
+}

@@ -2,7 +2,7 @@ import {createRequire} from 'node:module';import {mkdirSync,writeFileSync} from 
 const require=createRequire(import.meta.url),{chromium}=require(process.env.PLAYWRIGHT_MODULE??'playwright');const out=process.env.QA_OUTPUT_DIR??'artifacts/v050/ai-ui';mkdirSync(out,{recursive:true});
 const browser=await chromium.launch({executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true});const checks=[];
 try{
- const context=await browser.newContext({viewport:{width:1440,height:1000}});await context.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+ const context=await browser.newContext({deviceScaleFactor:Number(process.env.QA_DPI_SCALE??1),viewport:{width:1440,height:1000}});await context.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
  await context.addInitScript(()=>{
   window.isTauri=true;window.calls=[];let next=1;const callbacks=new Map(),listeners=new Map();
   const settings={model:'deepseek-flash',defaultMode:'standard',whisperModel:'base',allowTranscript:true,allowImages:true,cleanTemporaryFiles:true,autoGenerateNotes:true,autoAnalyzeDownloads:false,chunkConcurrency:1};

@@ -22,3 +22,6 @@ pub mod whisper_models;
 pub mod subtitles;
 
 pub mod downloads;
+
+#[cfg(test)]
+mod live_tests;

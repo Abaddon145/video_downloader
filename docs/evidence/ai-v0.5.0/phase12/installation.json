@@ -1,0 +1,22 @@
+{
+  "version": "0.5.0",
+  "exitCode": 0,
+  "previousVersion": "0.1.1",
+  "existingInstallationBackedUp": true,
+  "privateDataBackupOutsideDeliverables": true,
+  "installMode": "currentUser",
+  "flags": [
+    "/S",
+    "/NS",
+    "/UPDATE"
+  ],
+  "installerBytes": 187458656,
+  "installerSha256": "c41749ebebd65c54fecb1d513c446dc72891701983aa3c18c22b288c235ad177",
+  "installedExeMatchesBuildExceptTauriNsisTag": true,
+  "installedExeSha256": "6511e43139f969155f7970b41832c73adcf0469bd1844f73420388bdadbb9699",
+  "unpatchedBuildExeSha256": "2547f1d17e1c15ca0d464276eb48225ecd06e0eefd1d5d8fbae45d9b38c9d6c3",
+  "tauriPayloadTag": "__TAURI_BUNDLE_TYPE_VAR_NSS replaces __TAURI_BUNDLE_TYPE_VAR_UNK; all other bytes equal",
+  "priorDataFileHashesUnchanged": true,
+  "priorDataFilesCompared": 43,
+  "priorDataFilesMissing": []
+}

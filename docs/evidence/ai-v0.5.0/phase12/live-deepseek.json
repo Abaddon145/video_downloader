@@ -1,0 +1,42 @@
+{
+  "analysisId": "ai-1792283175301-2",
+  "chapters": 1,
+  "credentialRemoved": true,
+  "elapsedSeconds": 17,
+  "endpoint": "https://api.deepseek.com",
+  "keyframes": 1,
+  "liveApi": true,
+  "markdown": {
+    "knowledgePath": "映流/课程-未命名课程-46afb6bf58/分析-46afb6bf585f-772614ed28560884/关键知识.md",
+    "path": "映流/课程-未命名课程-46afb6bf58/分析-46afb6bf585f-772614ed28560884/视频总结.md",
+    "transcriptPath": "映流/课程-未命名课程-46afb6bf58/分析-46afb6bf585f-772614ed28560884/完整转录.md",
+    "vaultId": "2c990d9ed8320e303b8584a936d102f81cd6d93cdafbf468acfe991b7ecd687e",
+    "warning": null
+  },
+  "mocked": false,
+  "model": "deepseek-flash",
+  "questionReferences": [
+    {
+      "endMs": 10600,
+      "label": "字幕",
+      "startMs": 0
+    }
+  ],
+  "sourceSha256After": "84723dfb2ae93ad00509aa118a0bfaaa8914d7cf62b747a4c3e69afaac8b4fc4",
+  "sourceSha256Before": "84723dfb2ae93ad00509aa118a0bfaaa8914d7cf62b747a4c3e69afaac8b4fc4",
+  "status": "completed",
+  "transcriptSegments": 1,
+  "usage": {
+    "analyses": 1,
+    "models": [
+      {
+        "cachedTokens": 256,
+        "inputTokens": 2290,
+        "model": "deepseek-flash",
+        "outputTokens": 1072,
+        "unknownRequests": 0
+      }
+    ],
+    "questions": 1
+  }
+}
