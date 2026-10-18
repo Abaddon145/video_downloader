@@ -75,5 +75,7 @@ Files: knowledge note generation, ai completed workflow, screenshot helper and U
 
 ### Phase 12: QA/delivery
 - [ ] Complete API status/JSON/injection/provenance/response limits, no-key leaks to dist/state/DB/log/diagnostics, captured upload body contains only allowed text/JPEG. Whisper failure/download/model/source SHA, video+language+duration+complexpath matrix; Vault conflicts/escapes/reindex/Obsidian all covered. Distinguish mock vs real and host limits.
-- [ ] Existing download/MediaPro/mpv/learning/notes/subtitle/thumb/tray/restore/fullscreen/keyboard tests pass. Real screenshot review of AI/Vault/player/880width/scales. One final independent branch review, one verified fix pass.
+- [x] Existing download/MediaPro/mpv/learning/notes/subtitle/thumb/tray/restore/fullscreen/keyboard tests pass. Real screenshot review of AI/Vault/player/880width/scales. One final independent branch review, one verified fix pass.
 - [ ] Versions0.5.0 package/Cargo/tauri; React Tauri getVersion. Docs ai-video-analysis-v0.5.0/knowledge-vault-v0.5.0/deepseek-privacy-v0.5.0/ai-video-analysis-delivery, evidence, README. NSIS/source/versions/licenses/SHA verified. NewDraftPR, no merge/Release. Archive ledger/keep worktree.
+
+Phase12 status: operational/security/regression/build/install checks passed, but extreme-short Korean and concatenated mixed-language recognition quality did not pass; full real60min+ course AI quality not established. Retain candidate installer and Draft PR, no formal Release and no all-DoD-complete claim. See delivery report.
