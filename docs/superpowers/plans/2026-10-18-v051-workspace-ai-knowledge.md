@@ -28,8 +28,8 @@
 Files: docs/evidence/v0.5.1/, docs/superpowers/specs/2026-10-18-v051-execution-document.md。
 - [x] 核对PR8/参考PR14真实HEAD，建立新分支；保留上轮未提交修复。
 - [x] SQLite backup API生成一致性私有快照并quick_check；只读复制Vault并逐文件SHA核对，密钥不复制。
-- [ ] 对固定HEAD运行npm test / npm run build / cargo test --locked，记录当前基线，不把已有新回归当作旧基线。
-- [ ] 将本计划与用户原文保存仓库，记录分阶段实际结果和提交SHA。
+- [x] 对固定HEAD运行npm test / npm run build / cargo test --locked，记录当前基线，不把已有新回归当作旧基线。
+- [x] 将本计划与用户原文保存仓库，记录分阶段实际结果和提交SHA。
 
 ## Task 1 / Phase 1A — AI引用局部恢复
 Files: ai/analysis.rs, ai/references.rs, ai/prompts.rs, ai/models.rs, ai/reference_tests.rs, frontend VideoSummary。
@@ -109,3 +109,7 @@ Interfaces: NoteKey=vaultId+path；NoteSession{document,draft,editVersion,saveSt
 - 已有时间修复未提交且会把远距离冲突锚定到来源；新文档明确要求小偏差校正/局部修复，故该实现视为未定稿，用新回归替换其不符合新设计的期望，保留旧安全断言。
 - 现有172Rust/37Node为固定基线；上轮未交付修复174Rust通过仅作为工作中状态，不冒充原始基线。
 - 无可靠应用回执时，Obsidian联动“已验证”只能来自明确用户确认；不引入插件或后台服务。
+
+## Execution checkpoint
+
+2026-10-18：Phase0完成，Phase1三项P0及移动关联修复完成开发验证。Rust193/0/8ignored，Node37，build通过；Obsidian22、课程面板35浏览器模拟检查通过。实际Obsidian和原课程真实DeepSeek复测留人工项。继续Phase2，不将Phase2–7标记完成。

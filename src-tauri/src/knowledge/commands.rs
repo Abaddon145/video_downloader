@@ -285,12 +285,70 @@ pub async fn knowledge_open_in_obsidian(
     knowledge: Knowledge<'_>,
     vault_id: String,
     path: String,
-) -> AppResult<String> {
+) -> AppResult<ObsidianOpenResult> {
     let k = knowledge.inner().clone();
     let result = tauri::async_runtime::spawn_blocking(move || k.open_in_obsidian(&vault_id, &path))
         .await
         .map_err(|_| "知识库后台操作未完成，请重试")?;
     result
+}
+
+#[tauri::command]
+pub async fn knowledge_obsidian_connection(
+    knowledge: Knowledge<'_>,
+    vault_id: String,
+) -> AppResult<ObsidianConnection> {
+    let k = knowledge.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || k.obsidian_connection(&vault_id))
+        .await
+        .map_err(|_| "Obsidian 状态检查未完成")?
+}
+
+#[tauri::command]
+pub async fn knowledge_configure_obsidian(
+    knowledge: Knowledge<'_>,
+    vault_id: String,
+    kind: ObsidianKind,
+    identifier: Option<String>,
+    registration_confirmed: bool,
+) -> AppResult<KnowledgeSettings> {
+    let k = knowledge.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        k.configure_obsidian(&vault_id, kind, identifier, registration_confirmed)
+    })
+    .await
+    .map_err(|_| "Obsidian 设置未保存")?
+}
+
+#[tauri::command]
+pub async fn knowledge_confirm_obsidian(
+    knowledge: Knowledge<'_>,
+    vault_id: String,
+    expected: ObsidianBinding,
+    path: String,
+) -> AppResult<KnowledgeSettings> {
+    let k = knowledge.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || k.confirm_obsidian(&vault_id, &expected, &path))
+        .await
+        .map_err(|_| "Obsidian 确认未保存")?
+}
+
+#[tauri::command]
+pub async fn knowledge_obsidian_manager() -> AppResult<()> {
+    tauri::async_runtime::spawn_blocking(|| crate::service::shell_open("obsidian://choose-vault"))
+        .await
+        .map_err(|_| "Obsidian Vault 管理器请求未完成")?
+}
+
+#[tauri::command]
+pub async fn knowledge_open_vault_folder(
+    knowledge: Knowledge<'_>,
+    vault_id: String,
+) -> AppResult<()> {
+    let k = knowledge.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || k.open_vault_folder(&vault_id))
+        .await
+        .map_err(|_| "知识库文件夹请求未完成")?
 }
 
 #[tauri::command]
