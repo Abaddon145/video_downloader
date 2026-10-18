@@ -18,6 +18,8 @@ impl AnalysisMode {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VideoAnalysis {
+    pub note_target_vault_id: Option<String>,
+    pub note_warning: Option<String>,
     pub title: Option<String>,
     pub options: AnalysisOptions,
     pub transcript_done: bool,

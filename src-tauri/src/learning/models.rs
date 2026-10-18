@@ -63,6 +63,8 @@ pub struct LearningItem {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VideoNote {
+    pub markdown_vault_id: Option<String>,
+    pub markdown_path: Option<String>,
     pub id: String,
     pub item_id: String,
     pub time_ms: i64,

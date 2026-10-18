@@ -71,7 +71,7 @@ Files: learning player/sidebar/lesson rows, existing playbackHandle, media page/
 
 ### Phase 11: Generated notes and screenshot notes
 Files: knowledge note generation, ai completed workflow, screenshot helper and UI.
-- [ ] RED→GREEN summary/transcript2–5min/knowledge/templates/attachments, Rust-cleaned paths, normal YAML/wiki/tags/time links without absolutepaths. defaultauto-noteON, reuse write-conflict protection/user edits. Screenshot actual time→FFmpeg→attachment+Markdown+time note, source readonly, safe partial failure. Delete analysis preserves notes bydefault; jointdelete needsconfirm. Commit notes.
+- [x] RED→GREEN summary/transcript2–5min/knowledge/templates/attachments, Rust-cleaned paths, normal YAML/wiki/tags/time links without absolutepaths. defaultauto-noteON, reuse write-conflict protection/user edits. Screenshot actual time→FFmpeg→attachment+Markdown+time note, source readonly, safe partial failure. Delete analysis preserves notes bydefault; jointdelete needsconfirm. Commit notes.
 
 ### Phase 12: QA/delivery
 - [ ] Complete API status/JSON/injection/provenance/response limits, no-key leaks to dist/state/DB/log/diagnostics, captured upload body contains only allowed text/JPEG. Whisper failure/download/model/source SHA, video+language+duration+complexpath matrix; Vault conflicts/escapes/reindex/Obsidian all covered. Distinguish mock vs real and host limits.

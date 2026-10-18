@@ -69,6 +69,25 @@ pub fn open(path: &Path) -> AppResult<Connection> {
         )
         .map_err(error)?;
     }
+    // Idempotently complete the unreleased v6 schema without changing paid analysis cache keys.
+    for (table, column) in [
+        ("video_analyses", "note_target_vault_id"),
+        ("video_analyses", "note_warning"),
+        ("video_notes", "markdown_vault_id"),
+        ("video_notes", "markdown_path"),
+    ] {
+        let columns = tx
+            .prepare(&format!("PRAGMA table_info({table})"))
+            .map_err(error)?
+            .query_map([], |r| r.get::<_, String>(1))
+            .map_err(error)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(error)?;
+        if !columns.iter().any(|name| name == column) {
+            tx.execute_batch(&format!("ALTER TABLE {table} ADD COLUMN {column} TEXT;"))
+                .map_err(error)?;
+        }
+    }
     tx.execute_batch("PRAGMA user_version=6;").map_err(error)?;
     tx.commit().map_err(error)?;
     enable_search(&c);

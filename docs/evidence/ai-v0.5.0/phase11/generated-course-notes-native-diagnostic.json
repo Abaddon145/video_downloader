@@ -1,0 +1,65 @@
+{
+  "states": [
+    {
+      "session": "learn-1792281428340-0q283gkqfojn-n-msz0ziq",
+      "itemId": "learn-1792281422576-4",
+      "ready": true,
+      "position": 0.266,
+      "duration": 156.958,
+      "rate": 1,
+      "paused": false,
+      "volume": 0.8,
+      "muted": false,
+      "ended": false,
+      "subtitles": [],
+      "subtitleId": null,
+      "error": null
+    },
+    {
+      "session": "learn-1792281428340-0q283gkqfojn-n-msz0ziq",
+      "itemId": "learn-1792281422576-4",
+      "ready": true,
+      "position": 0.4,
+      "duration": 156.958,
+      "rate": 1,
+      "paused": true,
+      "volume": 0.8,
+      "muted": false,
+      "ended": false,
+      "subtitles": [],
+      "subtitleId": null,
+      "error": null
+    },
+    {
+      "session": "learn-1792281428340-0q283gkqfojn-n-msz0ziq",
+      "itemId": "learn-1792281422576-4",
+      "ready": true,
+      "position": 0.4,
+      "duration": 156.958,
+      "rate": 1,
+      "paused": true,
+      "volume": 0.8,
+      "muted": false,
+      "ended": false,
+      "subtitles": [],
+      "subtitleId": null,
+      "error": null
+    },
+    {
+      "session": "learn-1792281428340-0q283gkqfojn-n-msz0ziq",
+      "itemId": "learn-1792281422576-4",
+      "ready": true,
+      "position": 0.4,
+      "duration": 156.958,
+      "rate": 1,
+      "paused": true,
+      "volume": 0.8,
+      "muted": false,
+      "ended": false,
+      "subtitles": [],
+      "subtitleId": null,
+      "error": null
+    }
+  ],
+  "body": "映流\n视频下载器\n工作空间\n下载\n学习库\n知识库\n媒体工具\n历史\n设置\n本地运行\n\n下载文件只保存在你的电脑\n\nyt-dlp 2026.08.19\nWINDOWS DESKTOP\nv0.4.2\n你的本地媒体工作空间\n知识库\n\n把学习收获，沉淀为自己的知识。\n\n本地存储\n我的知识库\n新建笔记\n新建文件夹\n切换知识库\n文件\n映流\n视频总结.md\n已保存到本地\n编辑\n预览\n分屏\n保存\n重命名\n移动\n删除\n在Obsidian中打开\nPhase11 生成笔记验收\n\nPhase11 本地验收：课程总结来自 SQLite 测试夹具。\n\n此摘要用于验证本地生成 Markdown 的完整流程，不触发任何 AI 请求。\n\n完整转录 · 关键知识\n\n章节\n00:00:00 界面与操作\n\n验证播放器时间点与知识笔记链接。\n\n00:00:06 记录当前画面\n\n在六秒处保存画面和笔记。\n\n笔记信息\n大纲\nPhase11 生成笔记验收\n章节\n[00:00:00](yingliu://video/learn-1792281422576-4?t=0) 界面与操作\n[00:00:06](yingliu://video/learn-1792281422576-4?t=6000) 记录当前画面\n标签\n#Phase11\n#QA\n反向链接\nPhase11 生成笔记验收\nPhase11 生成笔记验收"
+}

@@ -12,3 +12,6 @@ export interface SearchPage{items:SearchHit[];total:number;page:number}
 export interface IndexStats{indexed:number;skipped:number;complete:boolean;warnings:string[]}
 export interface KnowledgeAsset{mime:string;base64:string}
 export type LeaveGuard=(leave:()=>void)=>void;
+
+export interface KnowledgeReference{vaultId:string;path:string}
+export interface KnowledgeOpenRequest extends KnowledgeReference{version:number}

@@ -225,6 +225,10 @@ impl KnowledgeService {
                 ensure_directory(v, parent)?;
             }
             v.move_entry(&from, &to)?;
+            for table in ["video_analyses","video_notes"] {
+                let _=s.db.execute(&format!("UPDATE {table} SET markdown_path=?3||substr(markdown_path,length(?2)+1) WHERE markdown_vault_id=?1 AND (markdown_path=?2 OR substr(markdown_path,1,length(?2)+1)=?2||'/')"),rusqlite::params![id,from,to]);
+            }
+
             let warning = if Self::remove_paths(s, &from).is_err() {
                 Some("文件已移动，但旧搜索索引未能清理；请重新扫描知识库".into())
             } else if to.to_ascii_lowercase().ends_with(".md") {
@@ -491,6 +495,174 @@ impl KnowledgeService {
         Ok(KnowledgeView {
             vault_id: id.into(),
             data: stats,
+        })
+    }
+}
+
+impl KnowledgeService {
+    pub(crate) fn prepare_generated(
+        &self,
+        a: &crate::ai::models::VideoAnalysis,
+        pack: &super::generated::Pack,
+        id: &str,
+    ) -> AppResult<super::generated::PreparedNote> {
+        use super::generated::{verify_pack, PreparedNote};
+        self.with_vault(id, |s, v| {
+            if a.markdown_vault_id.as_deref() == Some(id) {
+                if let Some(path) = a.markdown_path.as_deref() {
+                    if let Some((base, _)) = path.rsplit_once('/') {
+                        if verify_pack(v, base, a, &pack.summary_hash).is_ok() {
+                            return Ok(PreparedNote {
+                                vault_id: id.into(),
+                                target: base.into(),
+                                draft: None,
+                            });
+                        }
+                    }
+                }
+            }
+            let parent = format!("{}/{}", s.settings.root_folder, pack.folder);
+            ensure_directory(v, &parent)?;
+            let mut target = format!("{parent}/{}", pack.version);
+            if v.list(&target, 1).is_ok() {
+                if verify_pack(v, &target, a, &pack.summary_hash).is_ok() {
+                    return Ok(PreparedNote {
+                        vault_id: id.into(),
+                        target,
+                        draft: None,
+                    });
+                }
+                target += &format!("-{}", crate::ffmpeg::runner::new_id());
+            }
+            let draft = format!("{parent}/Draft-{}", crate::ffmpeg::runner::new_id());
+            v.create_dir(&draft)?;
+            let result = (|| {
+                for (name, text) in &pack.notes {
+                    v.create_file(&format!("{draft}/{name}"), text)?;
+                }
+                for (name, bytes) in &pack.assets {
+                    if let Some((dir, _)) = name.rsplit_once('/') {
+                        ensure_directory(v, &format!("{draft}/{dir}"))?;
+                    }
+                    v.create_raster(&format!("{draft}/{name}"), bytes)?;
+                }
+                Ok(())
+            })();
+            if let Err(error) = result {
+                let _ = v.trash(&draft, "");
+                return Err(error);
+            }
+            Ok(PreparedNote {
+                vault_id: id.into(),
+                target,
+                draft: Some(draft),
+            })
+        })
+    }
+    pub(crate) fn publish_prepared(
+        &self,
+        prepared: &super::generated::PreparedNote,
+    ) -> AppResult<()> {
+        self.with_vault(&prepared.vault_id, |_, v| {
+            if let Some(draft) = &prepared.draft {
+                v.move_entry(draft, &prepared.target)?;
+            }
+            Ok(())
+        })
+    }
+    pub(crate) fn discard_prepared(&self, prepared: &super::generated::PreparedNote) {
+        if let Some(draft) = &prepared.draft {
+            let _ = self.with_vault(&prepared.vault_id, |_, v| v.trash(draft, "").map(|_| ()));
+        }
+    }
+    pub(crate) fn index_generated(&self, id: &str, base: &str) -> AppResult<()> {
+        self.with_vault(id, |s, v| {
+            for name in super::generated::NAMES {
+                let path = format!("{base}/{name}");
+                if let Ok(doc) = v.read(&path) {
+                    index::upsert(&mut s.db, &doc)
+                        .map_err(|_| "笔记已保存，搜索索引更新失败，请重新扫描知识库".to_owned())?;
+                }
+            }
+            Ok(())
+        })
+    }
+    pub(crate) fn plan_generated_delete(
+        &self,
+        a: &crate::ai::models::VideoAnalysis,
+        id: &str,
+    ) -> AppResult<super::generated::DeletePlan> {
+        self.with_vault(id, |_, v| super::generated::plan_files(v, a, id))
+    }
+    pub(crate) fn delete_generated_files(
+        &self,
+        a: &crate::ai::models::VideoAnalysis,
+        id: &str,
+        files: &[super::generated::GeneratedFile],
+    ) -> AppResult<super::generated::BundleDeleted> {
+        self.with_vault(id,|s,v|{let plan=super::generated::plan_files(v,a,id)?;if files!=plan.files||files.len()>9{return Err("笔记已变化或删除清单不一致，请重新预览并确认".into())}
+   let mut result=super::generated::BundleDeleted{deleted_paths:vec![],record_deleted:false,warning:plan.warning};
+   for file in files{let outcome=if file.path.to_lowercase().ends_with(".md"){v.trash(&file.path,&file.hash)}else{v.trash_raster(&file.path,&file.hash)};match outcome{Ok(_)=>{result.deleted_paths.push(file.path.clone());let _=index::remove(&mut s.db,&file.path);},Err(error)=>{result.warning=Some(format!("部分笔记已移入Vault回收站，分析记录和其他文件保留，请恢复后重试：{error}"));break}}}Ok(result)
+  })
+    }
+    pub(crate) fn find_analysis_note(
+        &self,
+        id: &str,
+        analysis: &str,
+        summary_hash: &str,
+    ) -> AppResult<Option<super::generated::NoteReference>> {
+        self.with_vault(id, |s, v| {
+            let mut q =
+                s.db.prepare("SELECT path FROM knowledge_index WHERE analysis_id=?1 ORDER BY path")
+                    .map_err(db::error)?;
+            let paths = q
+                .query_map([analysis], |r| r.get::<_, String>(0))
+                .map_err(db::error)?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(db::error)?;
+            for path in paths {
+                if path.ends_with("/视频总结.md") {
+                    if let Ok(doc) = v.read(&path) {
+                        if super::generated::metadata(&doc, analysis).is_ok_and(|(meta, _)| {
+                            meta["summary_hash"].as_str() == Some(summary_hash)
+                        }) {
+                            return Ok(Some(super::generated::NoteReference {
+                                vault_id: id.into(),
+                                path,
+                            }));
+                        }
+                    }
+                }
+            }
+            Ok(None)
+        })
+    }
+}
+
+impl KnowledgeService {
+    pub(crate) fn prepare_screenshot(
+        &self,
+        id: &str,
+        note_id: &str,
+        title: &str,
+        item: &str,
+        time: i64,
+        content: &str,
+        jpeg: &[u8],
+    ) -> AppResult<super::generated::PreparedNote> {
+        use super::generated::{course_folder, hash, time_link, PreparedNote};
+        self.with_vault(id,|s,v|{let parent=format!("{}/{}",s.settings.root_folder,course_folder(title,item));ensure_directory(v,&parent)?;
+   let target=format!("{parent}/截图-{}",&hash(note_id.as_bytes())[..20]);let draft=format!("{parent}/Draft-{}",crate::ffmpeg::runner::new_id());v.create_dir(&draft)?;
+   let attachment=format!("{}/截图.jpg",s.settings.attachments_folder);let body=format!("# {title} · 截图笔记\n\n{}\n\n![[{attachment}]]\n\n{content}\n",time_link(Some(item),time));
+   let meta=serde_json::json!({"source":"yingliu","generated_by":"yingliu","note_id":note_id,"item_id":item,"time_ms":time,"title":format!("{title} · 截图笔记"),"generated_body_hash":hash(body.as_bytes())});let text=format!("---\n{}---\n{body}",serde_yaml::to_string(&meta).map_err(|_|"笔记元数据无效")?);
+   let result=(||{ensure_directory(v,&format!("{draft}/{}",s.settings.attachments_folder))?;v.create_raster(&format!("{draft}/{attachment}"),jpeg)?;v.create_file(&format!("{draft}/截图笔记.md"),&text)?;Ok(())})();if let Err(error)=result{let _=v.trash(&draft,"");return Err(error)}Ok(PreparedNote{vault_id:id.into(),target,draft:Some(draft)})
+  })
+    }
+    pub(crate) fn index_screenshot(&self, id: &str, path: &str) -> AppResult<()> {
+        self.with_vault(id, |s, v| {
+            let doc = v.read(path)?;
+            index::upsert(&mut s.db, &doc)?;
+            Ok(())
         })
     }
 }

@@ -14,3 +14,7 @@ pub mod search;
 
 #[cfg(test)]
 mod service_tests;
+
+pub mod generated;
+#[cfg(test)]
+mod generated_tests;

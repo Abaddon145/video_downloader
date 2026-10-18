@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {relativeNotePath,headings,remarkKnowledge,headingFragmentId,previewMarkdown,safeMarkdownUrl} from './lib.ts';
+import {MAX_OUTLINE_CHARACTERS,relativeNotePath,headings,remarkKnowledge,headingFragmentId,previewMarkdown,safeMarkdownUrl} from './lib.ts';
 test('Markdown relative paths remain inside Vault, including encoded traversal',()=>{
  assert.equal(relativeNotePath('映流/课程/笔记.md','../Attachments/截图.png'),'映流/Attachments/截图.png');
  assert.equal(relativeNotePath('映流/笔记.md','../../Windows/secret.md'),null);
@@ -28,4 +28,18 @@ test('preview hides only closed leading YAML metadata',()=>{
 test('preview links allow supported protocols and reject executable and absolute paths',()=>{
  for(const value of ['https://example.com/a','http://example.com','../Note.md','#%E4%B8%AD','yingliu-wiki:Note','yingliu-asset:p.png','yingliu://video/item?t=10'])assert.equal(safeMarkdownUrl(value),value,value);
  for(const value of ['javascript:alert(1)','data:text/html,x','file:///secret','//host/a','/secret','\\secret','%2F%2Fhost/a','java%73cript:alert(1)','note%00.md','#%E0%A4%A','https://','https://example.com\n'])assert.equal(safeMarkdownUrl(value),'',value);
+});
+
+test('outline labels and preview anchors use rendered Markdown text, including video and Wiki links',()=>{
+ const source='---\ntitle: X\n---\n## [00:08](yingliu://video/lesson?t=8000) **碰撞**\n## [[Folder/Note|知识]]\n## x_y &amp; `Collision`\n';
+ const rows=headings(source);
+ assert.deepEqual(rows.map(h=>h.text),['00:08 碰撞','知识','x_y & Collision']);
+ assert.deepEqual(rows.map(h=>h.id),['0008-碰撞','知识','x_y-collision']);
+ assert.equal(rows[0].offset,source.indexOf('##'));
+});
+
+test('large notes skip synchronous outline parsing without changing their content',()=>{
+ const text='# 标题\n'+'x'.repeat(MAX_OUTLINE_CHARACTERS);
+ assert.deepEqual(headings(text),[]);
+ assert.equal(headings('# 小笔记')[0].text,'小笔记');
 });

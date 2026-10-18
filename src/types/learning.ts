@@ -2,7 +2,7 @@ export interface LearningCategory{id:string;name:string;description:string|null;
 export interface LearningSeries{id:string;categoryId:string|null;title:string;description:string|null;coverPath:string|null;sourceType:string|null;sourceUrl:string|null;sourcePlaylistId:string|null;author:string|null;totalItems:number;completedItems:number;totalDurationMs:number;favorite:boolean;sortOrder:number;createdAt:number;updatedAt:number}
 export interface PlaybackProgress{itemId:string;positionMs:number;durationMs:number;completed:boolean;playbackRate:number;lastPlayedAt:number|null}
 export interface LearningItem{id:string;seriesId:string;title:string;filePath:string|null;sourceUrl:string|null;sourceVideoId:string|null;sourcePlaylistIndex:number|null;durationMs:number|null;sortOrder:number;thumbnailPath:string|null;thumbnailSource:string|null;sourceThumbnailUrl:string|null;thumbnailKey:string|null;downloadTaskId:string|null;available:boolean;downloadState:string;progress:PlaybackProgress}
-export interface VideoNote{id:string;itemId:string;timeMs:number;content:string;createdAt:number;updatedAt:number}
+export interface VideoNote{id:string;itemId:string;timeMs:number;content:string;markdownVaultId:string|null;markdownPath:string|null;createdAt:number;updatedAt:number}
 export interface LearningSettings{autoplayNext:boolean;completionThreshold:number;defaultPlaybackRate:number;restorePosition:boolean;autoSubtitles:boolean;playbackPreference:"auto"|"original"|"compatible";playbackCacheGb:number;playbackCacheDays:number}
 export interface SeriesDetail{series:LearningSeries;items:LearningItem[];page:number;total:number}
 export interface ContinueLearningItem{series:LearningSeries;item:LearningItem}

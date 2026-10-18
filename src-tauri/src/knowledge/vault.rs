@@ -854,6 +854,34 @@ impl Vault {
             _ => unreachable!(),
         }
     }
+    pub fn create_raster(&self, rel: &str, bytes: &[u8]) -> AppResult<()> {
+        let _lock = self.mutation.lock().map_err(|_| "知识库暂时不可用")?;
+        let path = validate_relative(rel, false)?;
+        if !raster(&path) || bytes.is_empty() || bytes.len() > 8 * 1024 * 1024 {
+            return Err("图片附件类型或大小无效".into());
+        }
+        let parent = self.parent(&path)?;
+        let temporary = format!(".yingliu-new-{}.tmp", crate::ffmpeg::runner::new_id());
+        let mut file = child(
+            parent.handle(),
+            &temporary,
+            Some(false),
+            FILE_WRITE_DATA | DELETE,
+            NT_CREATE,
+            FILE_SHARE_READ,
+            Some(&temporary),
+        )?;
+        let result = (|| {
+            file.write_all(bytes)
+                .and_then(|_| file.sync_all())
+                .map_err(fs_error)?;
+            rename(&file, parent.handle(), &parent.name, false)
+        })();
+        if result.is_err() {
+            remove_temporary(&file);
+        }
+        result
+    }
     pub fn write(&self, rel: &str, text: &str, expected_hash: &str) -> AppResult<WriteOutcome> {
         let _lock = self.mutation.lock().map_err(|_| "知识库暂时不可用")?;
         self.save(&validate_relative(rel, false)?, text, Some(expected_hash))
@@ -896,6 +924,12 @@ impl Vault {
         rename(&file, target.handle(), &target.name, false)
     }
     pub fn trash(&self, rel: &str, expected_hash: &str) -> AppResult<String> {
+        self.trash_kind(rel, expected_hash, false)
+    }
+    pub fn trash_raster(&self, rel: &str, expected_hash: &str) -> AppResult<String> {
+        self.trash_kind(rel, expected_hash, true)
+    }
+    fn trash_kind(&self, rel: &str, expected_hash: &str, allow_raster: bool) -> AppResult<String> {
         let _lock = self.mutation.lock().map_err(|_| "知识库暂时不可用")?;
         let path = validate_relative(rel, false)?;
         let parent = self.parent(&path)?;
@@ -914,8 +948,21 @@ impl Vault {
             }
             preflight(&file, 0, &mut 0)?;
         } else {
-            markdown(&path)?;
-            if document(&mut file, &self.root)?.hash != expected_hash {
+            if allow_raster {
+                if !raster(&path) {
+                    return Err("附件不是允许的图片类型".into());
+                }
+                if format!(
+                    "{:x}",
+                    Sha256::digest(read_bytes_from(&mut file, 8 * 1024 * 1024)?)
+                ) != expected_hash
+                {
+                    return Err("附件已变化，请重新确认".into());
+                }
+            } else if {
+                markdown(&path)?;
+                document(&mut file, &self.root)?.hash != expected_hash
+            } {
                 return Err("文件已被外部修改，请重新读取后再回收".into());
             }
         }

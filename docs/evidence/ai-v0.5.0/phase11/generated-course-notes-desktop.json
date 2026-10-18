@@ -1,0 +1,123 @@
+{
+  "mocked": false,
+  "realWindows": true,
+  "realFilesystem": true,
+  "aiRequests": 0,
+  "aiSummaryFixture": true,
+  "run": "C:\\Users\\14582\\.codex\\worktrees\\content-updates\\视频下载软件\\artifacts\\v050\\desktop-fixtures\\generated-notes-1792281450669",
+  "sourceSha256Before": "3934e0daba8f29c0cd785389813399dbaab39efb31abe65121b1b7c5486870c9",
+  "sourceSha256After": "3934e0daba8f29c0cd785389813399dbaab39efb31abe65121b1b7c5486870c9",
+  "vaultConfigSha256Before": "1fc2026aff20bfad6a5db650f1719c5a65060b521b7b1a499da4f5fccd10bd23",
+  "vaultConfigSha256After": "1fc2026aff20bfad6a5db650f1719c5a65060b521b7b1a499da4f5fccd10bd23",
+  "passed": 9,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "isolated fixture has a real course and two completed local summary/transcript rows without AI requests",
+      "passed": true,
+      "detail": {
+        "itemId": "learn-1792281455414-4",
+        "analysisIds": [
+          "ai-1792281455432-7",
+          "qa-1792281455436-older"
+        ],
+        "transcriptRows": 1,
+        "aiRequests": 0
+      }
+    },
+    {
+      "name": "real course sidebar generates and opens three YAML Markdown files from seeded data",
+      "passed": true,
+      "detail": {
+        "generated": {
+          "vaultId": "b38ed0ba94311fba268e91af8e268feee177cdc1ac90be2cebcf01562ab71e16",
+          "path": "映流/课程-Phase11 生成笔记验收-3aafc04837/分析-6f762144e102-a31b93ce4c28bf3d/视频总结.md",
+          "transcriptPath": "映流/课程-Phase11 生成笔记验收-3aafc04837/分析-6f762144e102-a31b93ce4c28bf3d/完整转录.md",
+          "knowledgePath": "映流/课程-Phase11 生成笔记验收-3aafc04837/分析-6f762144e102-a31b93ce4c28bf3d/关键知识.md",
+          "warning": null
+        },
+        "paths": [
+          "映流\\课程-Phase11 生成笔记验收-3aafc04837\\分析-6f762144e102-a31b93ce4c28bf3d\\视频总结.md",
+          "映流\\课程-Phase11 生成笔记验收-3aafc04837\\分析-6f762144e102-a31b93ce4c28bf3d\\完整转录.md",
+          "映流\\课程-Phase11 生成笔记验收-3aafc04837\\分析-6f762144e102-a31b93ce4c28bf3d\\关键知识.md"
+        ],
+        "yamlFrontmatter": true,
+        "noSourcePath": true
+      }
+    },
+    {
+      "name": "repeat export preserves a user edit in generated Markdown",
+      "passed": true,
+      "detail": {
+        "path": "映流/课程-Phase11 生成笔记验收-3aafc04837/分析-6f762144e102-a31b93ce4c28bf3d/视频总结.md",
+        "userEditPreserved": true
+      }
+    },
+    {
+      "name": "native screenshot at actual paused time writes a real image and linked Markdown VideoNote without altering source",
+      "passed": true,
+      "detail": {
+        "timeMs": 8174,
+        "nativePausedTimeMs": 8174,
+        "markdownPath": "映流/课程-Phase11 生成笔记验收-3aafc04837/截图-db065e1be1aa7437c493/截图笔记.md",
+        "attachment": "Attachments/截图.jpg",
+        "attachmentBytes": 6312,
+        "sourceSha256": "3934e0daba8f29c0cd785389813399dbaab39efb31abe65121b1b7c5486870c9"
+      }
+    },
+    {
+      "name": "screenshot note wiki links and raster attachment render in real Vault preview",
+      "passed": true,
+      "detail": {
+        "imageRendered": true,
+        "alt": "Attachments/截图.jpg"
+      }
+    },
+    {
+      "name": "old screenshot references are rejected after Vault switch without moving files",
+      "passed": true,
+      "detail": {
+        "staleReferenceRejected": true,
+        "sourceVaultFilesKept": true
+      }
+    },
+    {
+      "name": "default analysis deletion preserves its Markdown files and source media",
+      "passed": true,
+      "detail": {
+        "analysisDeleted": true,
+        "markdownFilesPreserved": 3,
+        "sourcePreserved": true
+      }
+    },
+    {
+      "name": "joint-delete requires explicit preview and hashes, removes only confirmed generated files",
+      "passed": true,
+      "detail": {
+        "confirmedFiles": [
+          "映流/课程-Phase11 生成笔记验收-3aafc04837/分析-0a24541816a4-a31b93ce4c28bf3d/视频总结.md",
+          "映流/课程-Phase11 生成笔记验收-3aafc04837/分析-0a24541816a4-a31b93ce4c28bf3d/完整转录.md",
+          "映流/课程-Phase11 生成笔记验收-3aafc04837/分析-0a24541816a4-a31b93ce4c28bf3d/关键知识.md"
+        ],
+        "userGeneratedFilesPreserved": [
+          "映流\\课程-Phase11 生成笔记验收-3aafc04837\\分析-6f762144e102-a31b93ce4c28bf3d\\视频总结.md",
+          "映流\\课程-Phase11 生成笔记验收-3aafc04837\\分析-6f762144e102-a31b93ce4c28bf3d\\完整转录.md",
+          "映流\\课程-Phase11 生成笔记验收-3aafc04837\\分析-6f762144e102-a31b93ce4c28bf3d\\关键知识.md"
+        ],
+        "sourcePreserved": true,
+        "obsidianConfigUnchanged": true
+      }
+    },
+    {
+      "name": "knowledge view fits 880px without horizontal overflow and preserves Vault sentinel",
+      "passed": true,
+      "detail": {
+        "width": 880,
+        "scrollWidth": 880,
+        "obsidianConfigUnchanged": true,
+        "sourceSha256": "3934e0daba8f29c0cd785389813399dbaab39efb31abe65121b1b7c5486870c9"
+      }
+    }
+  ],
+  "consoleErrors": []
+}

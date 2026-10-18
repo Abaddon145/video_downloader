@@ -10,7 +10,7 @@ export interface AnalysisOptions {localOnly:boolean;transcribeAudio:boolean;allo
 export interface VideoAnalysis {
  title?:string|null;id:string;itemId:string|null;sourcePath:string;sourceFingerprint:string;status:string;analysisMode:AnalysisMode;model:string;promptVersion:string;
  language:string|null;durationMs:number|null;progress:number;stage:string|null;summary:VideoAnalysisResult|null;markdownPath:string|null;markdownVaultId:string|null;
- error:string|null;createdAt:number;updatedAt:number;completedAt:number|null;options:AnalysisOptions;transcriptDone:boolean;keyframesDone:boolean;
+ error:string|null;noteWarning:string|null;noteTargetVaultId:string|null;createdAt:number;updatedAt:number;completedAt:number|null;options:AnalysisOptions;transcriptDone:boolean;keyframesDone:boolean;
 }
 export interface Chapter {startMs:number;endMs:number;title:string;summary:string;keywords:string[];keyframeIds:string[]}
 export interface VideoAnalysisResult {

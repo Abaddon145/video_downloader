@@ -105,6 +105,7 @@ pub struct AiRuntime {
 use super::{client::DeepSeekClient, models::*, service::AiService, transcription as t};
 use crate::learning::db;
 use rusqlite::{params, OptionalExtension};
+use tauri::Manager;
 const MAX_QUEUED: usize = 100;
 impl AiService {
     pub fn start_transcription(
@@ -161,6 +162,12 @@ impl AiService {
         let source = crate::learning::importer::regular_file(path)?;
         let fingerprint = t::fingerprint(&source)?;
         let settings = self.settings()?.settings;
+        let note_target_vault_id = self
+            .app
+            .as_ref()
+            .and_then(|app| app.try_state::<Arc<crate::knowledge::service::KnowledgeService>>())
+            .and_then(|k| k.settings().ok())
+            .and_then(|s| s.vault_id);
         let options_json = serde_json::to_string(&options).map_err(|_| "无法保存分析选项")?;
         let mut runtime = self.runtime.lock().map_err(|_| "AI任务状态不可用")?;
         if runtime.exiting {
@@ -175,11 +182,11 @@ impl AiService {
                 if saved.as_deref().and_then(|p|crate::learning::importer::regular_file(p).ok()).as_ref()!=Some(&source){return Err("关联课程与源文件不一致".into());}
             }
             if use_cache && !options.local_only {
-                let cached:Option<String>=r.conn.query_row("SELECT id FROM video_analyses WHERE source_fingerprint=?1 AND source_path=?2 AND item_id IS ?3 AND analysis_mode=?4 AND model=?5 AND prompt_version=?6 AND options_json=?7 AND status NOT IN ('failed','cancelled','interrupted') ORDER BY created_at DESC LIMIT 1",params![fingerprint,source.to_string_lossy(),item_id,mode.as_str(),settings.model,super::prompts::ANALYSIS_PROMPT_VERSION,options_json],|r|r.get(0)).optional().map_err(db::error)?;
+                let cached:Option<String>=r.conn.query_row("SELECT id FROM video_analyses WHERE source_fingerprint=?1 AND source_path=?2 AND item_id IS ?3 AND analysis_mode=?4 AND model=?5 AND prompt_version=?6 AND json_remove(options_json,'$.autoGenerateNote')=json_remove(?7,'$.autoGenerateNote') AND status NOT IN ('failed','cancelled','interrupted') ORDER BY created_at DESC LIMIT 1",params![fingerprint,source.to_string_lossy(),item_id,mode.as_str(),settings.model,super::prompts::ANALYSIS_PROMPT_VERSION,options_json],|r|r.get(0)).optional().map_err(db::error)?;
                 if let Some(id)=cached{return Ok((id,false));}
             }
             let id=crate::ffmpeg::runner::new_id().replace("media-","ai-");let now=crate::service::now();
-            r.conn.execute("INSERT INTO video_analyses(id,item_id,source_path,source_fingerprint,status,analysis_mode,model,prompt_version,options_json,created_at,updated_at,stage) VALUES(?1,?2,?3,?4,'queued',?5,?6,?7,?8,?9,?9,'等待分析')",params![id,item_id,source.to_string_lossy(),fingerprint,mode.as_str(),settings.model,super::prompts::ANALYSIS_PROMPT_VERSION,options_json,now]).map_err(db::error)?;
+            r.conn.execute("INSERT INTO video_analyses(id,item_id,source_path,source_fingerprint,status,analysis_mode,model,prompt_version,options_json,created_at,updated_at,stage,note_target_vault_id) VALUES(?1,?2,?3,?4,'queued',?5,?6,?7,?8,?9,?9,'等待分析',?10)",params![id,item_id,source.to_string_lossy(),fingerprint,mode.as_str(),settings.model,super::prompts::ANALYSIS_PROMPT_VERSION,options_json,now,note_target_vault_id]).map_err(db::error)?;
             Ok((id,true))
         })?;
         let analysis = self.analysis(&id.0)?;
@@ -437,6 +444,7 @@ impl AiService {
                     .map_err(db::error)?;
                 Ok(())
             })?;
+            self.export_auto_note(id, control)?;
             self.stage(id, control, "completed", "视频分析完成", 1.)
         })
     }

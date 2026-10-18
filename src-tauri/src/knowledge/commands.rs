@@ -292,3 +292,71 @@ pub async fn knowledge_open_in_obsidian(
         .map_err(|_| "知识库后台操作未完成，请重试")?;
     result
 }
+
+#[tauri::command]
+pub async fn knowledge_generate_analysis_note(
+    knowledge: Knowledge<'_>,
+    ai: State<'_, Arc<crate::ai::service::AiService>>,
+    app: tauri::AppHandle,
+    id: String,
+    vault_id: String,
+) -> AppResult<super::generated::GeneratedNote> {
+    let k = knowledge.inner().clone();
+    let a = ai.inner().clone();
+    let result = tauri::async_runtime::spawn_blocking(move || a.generate_note(&k, &id, &vault_id))
+        .await
+        .map_err(|_| "知识笔记生成线程未完成")??;
+    let _ = app.emit(
+        "knowledge-file-changed",
+        serde_json::json!({"vaultId":result.vault_id,"id":result.path,"kind":"create"}),
+    );
+    Ok(result)
+}
+#[tauri::command]
+pub async fn knowledge_analysis_note(
+    knowledge: Knowledge<'_>,
+    ai: State<'_, Arc<crate::ai::service::AiService>>,
+    id: String,
+) -> AppResult<Option<super::generated::NoteReference>> {
+    let k = knowledge.inner().clone();
+    let a = ai.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || a.analysis_note(&k, &id))
+        .await
+        .map_err(|_| "读取知识笔记关联失败")?
+}
+#[tauri::command]
+pub async fn knowledge_plan_analysis_delete(
+    knowledge: Knowledge<'_>,
+    ai: State<'_, Arc<crate::ai::service::AiService>>,
+    id: String,
+    vault_id: String,
+) -> AppResult<super::generated::DeletePlan> {
+    let k = knowledge.inner().clone();
+    let a = ai.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || a.plan_note_delete(&k, &id, &vault_id))
+        .await
+        .map_err(|_| "预览删除清单失败")?
+}
+#[tauri::command]
+pub async fn knowledge_delete_analysis_bundle(
+    knowledge: Knowledge<'_>,
+    ai: State<'_, Arc<crate::ai::service::AiService>>,
+    app: tauri::AppHandle,
+    id: String,
+    vault_id: String,
+    files: Vec<super::generated::GeneratedFile>,
+) -> AppResult<super::generated::BundleDeleted> {
+    let k = knowledge.inner().clone();
+    let a = ai.inner().clone();
+    let event_vault = vault_id.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        a.delete_note_bundle(&k, &id, &vault_id, &files)
+    })
+    .await
+    .map_err(|_| "联合删除线程未完成")??;
+    let _ = app.emit(
+        "knowledge-index-updated",
+        serde_json::json!({"vaultId":event_vault,"id":event_vault,"kind":"delete"}),
+    );
+    Ok(result)
+}

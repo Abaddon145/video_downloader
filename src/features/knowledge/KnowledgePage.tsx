@@ -1,20 +1,20 @@
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import {invoke} from '@tauri-apps/api/core';
 import {listen} from '@tauri-apps/api/event';
 import {open} from '@tauri-apps/plugin-dialog';
 import {BookOpen,FolderOpen,Plus,Save,PanelLeft,PanelRight,RefreshCw,ArrowUpRight,FileText} from 'lucide-react';
-import type {BacklinkPage,IndexStats,KnowledgeDocument,KnowledgeMutation,KnowledgeSettings,KnowledgeView,KnowledgeWrite,LeaveGuard,NoteCandidate,SearchPage} from '../../types/knowledge';
+import type {BacklinkPage,IndexStats,KnowledgeDocument,KnowledgeMutation,KnowledgeSettings,KnowledgeView,KnowledgeWrite,LeaveGuard,NoteCandidate,SearchPage,KnowledgeOpenRequest} from '../../types/knowledge';
 import {LearningDialog} from '../learning/Editors';
 import {aiError} from '../ai/lib';
 import {FileTree} from './FileTree';
 import {MarkdownEditor} from './MarkdownEditor';
 import type {ReactCodeMirrorRef} from '@uiw/react-codemirror';
 import {MarkdownPreview} from './MarkdownPreview';
-import {headingSlug,headings,relativeNotePath} from './lib';
+import {MAX_OUTLINE_CHARACTERS,headingSlug,headings,relativeNotePath} from './lib';
 import './knowledge.css';
 
 type FileAction='新建笔记'|'新建文件夹'|'重命名笔记'|'移动笔记'|'删除笔记';
-export default function KnowledgePage({notify,registerLeaveGuard,onOpenVideo}:{notify:(message:string)=>void;registerLeaveGuard?:(guard:LeaveGuard|null)=>void;onOpenVideo?:(itemId:string,timeMs:number)=>void}){
+export default function KnowledgePage({notify,registerLeaveGuard,onOpenVideo,openRequest,onOpenConsumed}:{notify:(message:string)=>void;registerLeaveGuard?:(guard:LeaveGuard|null)=>void;onOpenVideo?:(itemId:string,timeMs:number)=>void;openRequest?:KnowledgeOpenRequest|null;onOpenConsumed?:(version:number)=>void}){
  const [settings,setSettings]=useState<KnowledgeSettings|null>(null),[doc,setDoc]=useState<KnowledgeDocument|null>(null),[text,setText]=useState('');
  const [error,setError]=useState(''),[busy,setBusy]=useState(false),[indexing,setIndexing]=useState(false),[revision,setRevision]=useState(0);
  const [editorVersion,setEditorVersion]=useState(0),[mode,setMode]=useState<'编辑'|'预览'|'分屏'>('编辑'),[left,setLeft]=useState(true),[right,setRight]=useState(true);
@@ -25,12 +25,18 @@ export default function KnowledgePage({notify,registerLeaveGuard,onOpenVideo}:{n
  const editor=useRef<ReactCodeMirrorRef|null>(null),alive=useRef(true),operation=useRef(0),locked=useRef(false),scanBusy=useRef<string|null>(null);
  const current=useRef({settings,doc,text,busy});current.current={settings,doc,text,busy};
  const dirty=!!doc&&text!==doc.text;
+ const outline=useMemo(()=>headings(text),[text]);
  const valid=(id:string)=>alive.current&&current.current.settings?.vaultId===id;
  const guard:LeaveGuard=leave=>{if(locked.current){notify('正在处理笔记，请稍候');return;}if(current.current.doc&&current.current.text!==current.current.doc.text)setPending(()=>leave);else leave();};
  const guardRef=useRef(guard);guardRef.current=guard;
  useEffect(()=>{alive.current=true;const ticket=++operation.current;invoke<KnowledgeSettings>('knowledge_get_settings').then(s=>{if(alive.current&&ticket===operation.current)setSettings(s);}).catch(e=>{if(alive.current)setError(aiError(e));});registerLeaveGuard?.(leave=>guardRef.current(leave));return()=>{alive.current=false;++operation.current;registerLeaveGuard?.(null);};},[registerLeaveGuard]);
  function accept(d:KnowledgeDocument){if(current.current.doc?.path===d.path&&current.current.text!==d.text)setEditorVersion(v=>v+1);current.current={...current.current,doc:d,text:d.text};setDoc(d);setText(d.text);setConflict(null);setError('');setBacklinkPage(1);}
  async function read(path:string,heading?:string){const id=current.current.settings?.vaultId;if(!id)return;const ticket=++operation.current,ownLock=!locked.current;if(ownLock){locked.current=true;setBusy(true);}try{const r=await invoke<KnowledgeView<KnowledgeDocument>>('knowledge_read',{vaultId:id,path});if(valid(id)&&ticket===operation.current&&r.vaultId===id){accept(r.data);if(heading)requestAnimationFrame(()=>document.getElementById(headingSlug(heading))?.scrollIntoView({block:'nearest'}));}}catch(e){if(valid(id)&&ticket===operation.current)setError(aiError(e));}finally{if(ownLock){locked.current=false;if(alive.current)setBusy(false);}}}
+ const openedRequest=useRef(0);
+ useEffect(()=>{if(!openRequest||!settings||openedRequest.current===openRequest.version)return;const request=openRequest;openedRequest.current=request.version;
+  if(settings.vaultId!==request.vaultId){notify(settings.vaultId?'这篇笔记属于其他知识库，请先切换到对应知识库。':'请先选择这篇笔记所属的知识库。');onOpenConsumed?.(request.version);return;}
+  guard(()=>{void read(request.path).finally(()=>onOpenConsumed?.(request.version));});
+ },[openRequest?.version,settings?.vaultId,onOpenConsumed]);
  const openNote=(path:string,heading?:string)=>guard(()=>{void read(path,heading);});
  async function save(expected?:string):Promise<boolean>{
   const c=current.current,id=c.settings?.vaultId;if(!id||!c.doc||locked.current)return false;locked.current=true;setBusy(true);
@@ -58,7 +64,7 @@ export default function KnowledgePage({notify,registerLeaveGuard,onOpenVideo}:{n
   if(wiki){const ticket=operation.current;try{const r=await invoke<KnowledgeView<NoteCandidate[]>>('knowledge_resolve',{vaultId:id,source,target});if(!valid(id)||r.vaultId!==id||ticket!==operation.current||current.current.doc?.path!==source)return;if(r.data.length===1)openNote(r.data[0].path,target.split('#')[1]?.split('|')[0]);else if(r.data.length)setChoices(r.data);else notify('没有找到关联笔记');}catch(e){setError(aiError(e));}}
   else{const p=relativeNotePath(source,target);if(!p){notify('该链接不在知识库内');return;}openNote(/\.md$/i.test(p)?p:p+'.md',target.split('#')[1]);}
  }
- function jump(id:string){if(mode==='预览'){document.getElementById(id)?.scrollIntoView({block:'nearest'});return;}const h=headings(text).find(h=>h.id===id),view=editor.current?.view;if(h&&view){view.dispatch({selection:{anchor:h.offset},scrollIntoView:true});view.focus();}}
+ function jump(id:string){if(mode==='预览'){document.getElementById(id)?.scrollIntoView({block:'nearest'});return;}const h=outline.find(h=>h.id===id),view=editor.current?.view;if(h&&view){view.dispatch({selection:{anchor:h.offset},scrollIntoView:true});view.focus();}}
  function prepare(kind:FileAction){guard(()=>{setAction(kind);setPath(kind==='新建笔记'?`${settings?.rootFolder??'映流'}/新笔记.md`:kind==='新建文件夹'?`${settings?.rootFolder??'映流'}/新文件夹`:doc?.path??'');setActionError('');});}
  async function mutate(){const id=settings?.vaultId;if(!id||!action||locked.current)return;locked.current=true;setBusy(true);const kind=action;
   try{let r:KnowledgeMutation;if(kind==='删除笔记'){if(!doc)throw '请先选择笔记';r=await invoke('knowledge_delete',{vaultId:id,path:doc.path,expectedHash:doc.hash});}
@@ -80,7 +86,7 @@ export default function KnowledgePage({notify,registerLeaveGuard,onOpenVideo}:{n
     <header className="knowledge-note-header"><div><strong title={doc?.path}>{title}</strong><span role="status">{busy?'正在保存…':dirty?'未保存':'已保存到本地'}</span></div><div role="group" aria-label="笔记显示模式">{(['编辑','预览','分屏']as const).map(m=><button key={m} className={mode===m?'active':''} aria-pressed={mode===m} onClick={()=>setMode(m)}>{m}</button>)}</div></header>
     {doc?<><div className="knowledge-note-actions"><button className="primary" disabled={!dirty||busy} onClick={()=>void save()}><Save size={14}/>保存</button><button className="text-button" disabled={busy} onClick={()=>prepare('重命名笔记')}>重命名</button><button className="text-button" disabled={busy} onClick={()=>prepare('移动笔记')}>移动</button><button className="text-button" disabled={busy} onClick={()=>prepare('删除笔记')}>删除</button><button className="text-button" onClick={()=>{void invoke<string>('knowledge_open_in_obsidian',{vaultId:settings.vaultId,path:doc.path}).then(notify).catch(e=>notify(aiError(e)));}}><ArrowUpRight size={14}/>在Obsidian中打开</button></div><div className={mode==='分屏'?'knowledge-editor-split':'knowledge-editor-single'}>{mode!=='预览'&&<MarkdownEditor key={`${settings.vaultId}:${doc.path}:${editorVersion}`} value={text} onChange={setText} readOnly={busy} editorRef={editor}/ >}{mode!=='编辑'&&<MarkdownPreview value={text} vaultId={settings.vaultId} path={doc.path} onLink={(target,wiki)=>void link(target,wiki)} onExternal={url=>{void invoke('open_source',{url}).catch(e=>notify(aiError(e)));}} onVideo={onOpenVideo?(item,time)=>guard(()=>onOpenVideo(item,time)):undefined}/>}</div></>:<div className="knowledge-no-note"><FileText size={32}/><h3>从文件树打开笔记</h3><p>或新建一篇笔记，记录你的学习收获。</p></div>}
    </div>
-   {right&&<aside className="knowledge-info"><div className="knowledge-pane-title">笔记信息</div><h3>大纲</h3><nav aria-label="笔记大纲">{headings(text).map(h=><button key={h.id} style={{paddingLeft:8+(h.depth-1)*10}} onClick={()=>jump(h.id)}>{h.text}</button>)}</nav><h3>标签</h3><div className="knowledge-tags">{tags.length?tags.map(t=><button aria-pressed={tag===t} key={t} onClick={()=>{setTag(tag===t?'':t);setSearchPage(1);}}>#{t}</button>):<p className="help">暂无标签</p>}</div><h3>反向链接</h3>{backlinks?.items.map(b=><button className="knowledge-backlink" key={b.path} onClick={()=>openNote(b.path)}>{b.title}</button>)}{backlinks&&!backlinks.total&&<p className="help">暂无引用此笔记的内容</p>}{backlinks&&<Pages page={backlinkPage} total={backlinks.total} setPage={setBacklinkPage}/>}</aside>}
+   {right&&<aside className="knowledge-info"><div className="knowledge-pane-title">笔记信息</div><h3>大纲</h3><nav aria-label="笔记大纲">{outline.map(h=><button key={h.id} style={{paddingLeft:8+(h.depth-1)*10}} onClick={()=>jump(h.id)}>{h.text}</button>)}</nav>{text.length>MAX_OUTLINE_CHARACTERS&&<p className="help">笔记较大，暂不生成大纲，仍可编辑和搜索。</p>}<h3>标签</h3><div className="knowledge-tags">{tags.length?tags.map(t=><button aria-pressed={tag===t} key={t} onClick={()=>{setTag(tag===t?'':t);setSearchPage(1);}}>#{t}</button>):<p className="help">暂无标签</p>}</div><h3>反向链接</h3>{backlinks?.items.map(b=><button className="knowledge-backlink" key={b.path} onClick={()=>openNote(b.path)}>{b.title}</button>)}{backlinks&&!backlinks.total&&<p className="help">暂无引用此笔记的内容</p>}{backlinks&&<Pages page={backlinkPage} total={backlinks.total} setPage={setBacklinkPage}/>}</aside>}
   </div>
   {pending&&<LearningDialog title="未保存的修改" close={()=>setPending(null)} busy={busy}><p>当前笔记有未保存的内容，离开前如何处理？</p><footer><button className="secondary" onClick={()=>setPending(null)}>继续编辑</button><button className="secondary" onClick={()=>{const next=pending;setPending(null);next();}}>放弃修改</button><button className="primary" disabled={busy} onClick={()=>{void save().then(ok=>{if(ok){const next=pending;setPending(null);next();}});}}>保存后继续</button></footer></LearningDialog>}
   {conflict&&<LearningDialog title="文件已在其他程序中修改" close={()=>{setConflict(null);setPending(null);}} busy={busy}><p>磁盘版本已更新。你的编辑内容仍保留，请选择如何处理。</p><button className="text-button" onClick={()=>setExternalView(!externalView)}>查看外部版本</button>{externalView&&<pre className="knowledge-conflict-text">{conflict.text}</pre>}<footer><button className="secondary" onClick={()=>{setConflict(null);setPending(null);}}>继续编辑</button><button className="secondary" onClick={()=>{accept(conflict);setPending(null);}}>重新加载外部版本</button><button className="primary" disabled={busy} onClick={()=>{void save(conflict.hash).then(ok=>{if(ok&&pending){const next=pending;setPending(null);next();}});}}>以当前内容覆盖</button></footer></LearningDialog>}

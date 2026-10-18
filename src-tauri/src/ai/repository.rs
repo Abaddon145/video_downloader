@@ -5,7 +5,7 @@ use std::path::Path;
 pub struct Repository {
     pub(crate) conn: Connection,
 }
-const COLUMNS:&str="id,item_id,source_path,source_fingerprint,status,analysis_mode,model,prompt_version,language,duration_ms,progress,stage,summary_json,markdown_path,markdown_vault_id,error,created_at,updated_at,completed_at,options_json,transcript_done,keyframes_done,(SELECT title FROM series_items WHERE id=video_analyses.item_id)";
+const COLUMNS:&str="id,item_id,source_path,source_fingerprint,status,analysis_mode,model,prompt_version,language,duration_ms,progress,stage,summary_json,markdown_path,markdown_vault_id,error,created_at,updated_at,completed_at,options_json,transcript_done,keyframes_done,(SELECT title FROM series_items WHERE id=video_analyses.item_id),note_target_vault_id,note_warning";
 fn row(r: &rusqlite::Row<'_>) -> rusqlite::Result<VideoAnalysis> {
     let mode: String = r.get(5)?;
     let json: Option<String> = r.get(12)?;
@@ -29,6 +29,8 @@ fn row(r: &rusqlite::Row<'_>) -> rusqlite::Result<VideoAnalysis> {
     })?;
     Ok(VideoAnalysis {
         title: r.get(22)?,
+        note_target_vault_id: r.get(23)?,
+        note_warning: r.get(24)?,
         options,
         transcript_done: r.get(20)?,
         keyframes_done: r.get(21)?,
