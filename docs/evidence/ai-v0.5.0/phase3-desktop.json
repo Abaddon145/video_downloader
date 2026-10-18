@@ -1,0 +1,59 @@
+{
+  "mocked": false,
+  "run": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v050\\desktop-1792199924564",
+  "passed": 6,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "missing model is recoverable and no API key is needed for local transcription",
+      "passed": true,
+      "detail": {
+        "status": "failed",
+        "error": "需要先下载或导入语音识别模型"
+      }
+    },
+    {
+      "name": "real Base model download verifies fixed SHA256 before publication",
+      "passed": true,
+      "detail": {
+        "bytes": 147951465,
+        "status": "completed"
+      }
+    },
+    {
+      "name": "real model download cancellation and restart",
+      "passed": true,
+      "detail": {
+        "cancelled": "model-1792199933343-2",
+        "restarted": "model-1792199933461-3",
+        "bytes": 487601967
+      }
+    },
+    {
+      "name": "real local audio extraction transcription SQLite and source SHA",
+      "passed": true,
+      "detail": {
+        "segments": 1,
+        "sourceSha256Before": "59dfb9a4acb36fe2a2affc14bacbee2920ff435cb13cc314a08c13f66ba7860e",
+        "sourceSha256After": "59dfb9a4acb36fe2a2affc14bacbee2920ff435cb13cc314a08c13f66ba7860e",
+        "cleanedAudio": true
+      }
+    },
+    {
+      "name": "damaged model is rejected and importing verified local model repairs it",
+      "passed": true,
+      "detail": {
+        "damagedRejected": true,
+        "localImport": "base"
+      }
+    },
+    {
+      "name": "no-audio video completes local inspection without failing",
+      "passed": true,
+      "detail": {
+        "status": "completed",
+        "stage": "本地检查完成：无音轨，可进行画面分析"
+      }
+    }
+  ]
+}

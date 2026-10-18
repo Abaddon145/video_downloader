@@ -1,0 +1,56 @@
+{
+  "apiRequests": 0,
+  "mockedApi": false,
+  "realLocalMedia": true,
+  "records": [
+    {
+      "apiRequests": 0,
+      "keyframes": 1,
+      "noAudio": true,
+      "pathCharacters": 380,
+      "seconds": 10,
+      "sourceSha256After": "3bf95a081411729868ee3b93e05ed78e41a14fb78ec6de10078131c95066e473",
+      "sourceSha256Before": "3bf95a081411729868ee3b93e05ed78e41a14fb78ec6de10078131c95066e473",
+      "subtitleLanguages": [
+        "Chinese",
+        "English",
+        "mixed",
+        "Korean"
+      ],
+      "transcriptSegments": 4
+    },
+    {
+      "apiRequests": 0,
+      "keyframes": 1,
+      "noAudio": true,
+      "pathCharacters": 381,
+      "seconds": 600,
+      "sourceSha256After": "7e0ca7a0477f49ffb20dd9a24a8277f6b1dc651af9bd0974e6c6a7ed3ba4d956",
+      "sourceSha256Before": "7e0ca7a0477f49ffb20dd9a24a8277f6b1dc651af9bd0974e6c6a7ed3ba4d956",
+      "subtitleLanguages": [
+        "Chinese",
+        "English",
+        "mixed",
+        "Korean"
+      ],
+      "transcriptSegments": 4
+    },
+    {
+      "apiRequests": 0,
+      "keyframes": 1,
+      "noAudio": true,
+      "pathCharacters": 382,
+      "seconds": 3660,
+      "sourceSha256After": "e964f8b4694b192b00e05b6ed38a6f960b9789c382a71ec2577867e10f97578d",
+      "sourceSha256Before": "e964f8b4694b192b00e05b6ed38a6f960b9789c382a71ec2577867e10f97578d",
+      "subtitleLanguages": [
+        "Chinese",
+        "English",
+        "mixed",
+        "Korean"
+      ],
+      "transcriptSegments": 4
+    }
+  ],
+  "speechQualityTest": false
+}

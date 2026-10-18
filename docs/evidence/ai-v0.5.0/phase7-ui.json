@@ -1,0 +1,16 @@
+{
+  "mocked": true,
+  "passed": true,
+  "checks": [
+    "learning picker searches pages disables unavailable videos and preserves itemId",
+    "model download never submits paid analysis",
+    "both uploads disabled blocks AI",
+    "local transcription works without AI call",
+    "transcript is paged at 50",
+    "structured video question renders references",
+    "late event from old task cannot replace selected detail",
+    "interrupted or failed work resumes explicitly",
+    "880px responsive confirmation and keyboard escape"
+  ],
+  "consoleErrors": []
+}

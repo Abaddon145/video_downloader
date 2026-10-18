@@ -1,0 +1,7 @@
+   Compiling video-downloader v0.4.2 (C:\Users\14582\.codex\worktrees\content-updates\视频下载软件\src-tauri)
+warning: linker stdout: 正在创建库 C:/Users/14582/Documents/ChatGPT/视频下载软件/src-tauri/target\debug\deps\video_downloader_lib.dll.lib 和对象 C:/Users/14582/Documents/ChatGPT/视频下载软件/src-tauri/target\debug\deps\video_downloader_lib.dll.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `video-downloader` (lib) generated 1 warning
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 24.93s

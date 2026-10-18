@@ -1,6 +1,8 @@
-# 映流 · Windows 视频下载器
+# 映流 Yingliu · 本地视频学习与知识工作台
 
-基于官方 **yt-dlp** 的中文桌面下载器。Windows 10/11 x64，Tauri 2 + React + TypeScript。
+映流把视频下载、本地学习和 Markdown 知识整理放在一款 Windows 桌面应用中。下载基于官方 **yt-dlp**；学习媒体保留在本机，笔记使用普通 Markdown 文件。
+
+**v0.5.0 候选版本：AI视频学习与知识库。** AI分析从学习库课程进入，支持语音转录、课程总结、字幕、问答和笔记；知识库用于浏览、编辑、搜索及关联课程内容。自动下载分析默认关闭。版本状态、隐私边界和使用方法见[AI视频分析说明](docs/ai-video-analysis-v0.5.0.md)、[知识库说明](docs/knowledge-vault-v0.5.0.md)与[DeepSeek隐私说明](docs/deepseek-privacy-v0.5.0.md)。真实 DeepSeek 短片验收已通过；安装包和回归范围见[交付记录](docs/ai-video-analysis-delivery.md)。短韩语/拼接中英语音识别存在已记录的质量限制；PR 保持草稿，尚未发布正式 Release。
 
 **v0.4.2 学习播放**：内置 mpv，在映流内直接打开原视频，支持 WMV/MKV/AVI 等格式；保留倍速、字幕、笔记和学习进度。需要时可手动转换兼容视频。[使用与验收记录](docs/native-learning-playback-v0.4.2.md)。
 
@@ -28,7 +30,7 @@
 
 新建教程分类与系列，导入单个/多个本地视频或文件夹；下载播放列表时勾选“下载后加入学习库”即可建立完整课时目录。视频原路径保留，重复导入会去重。
 
-独立播放器提供字幕、七档倍速、断点续学、90% 自动完成和下一课倒计时。时间点笔记可一键跳转，搜索覆盖笔记与课程；支持收藏和检查系列新增课时。
+学习播放器提供字幕、七档倍速、断点续学、90% 自动完成和下一课倒计时。时间点笔记可一键跳转，搜索覆盖笔记与课程；支持收藏和检查系列新增课时。
 
 说明、数据备份和操作细节见[学习库说明](docs/learning-library.md)；测试范围及安装包见[交付与验收](docs/learning-library-delivery.md)。
 
@@ -59,12 +61,12 @@ npm run prepare:tools
 npm run tauri -- dev
 ```
 
-组件准备脚本从固定上游发行地址下载 yt-dlp、FFmpeg/ffprobe、Deno 和 mpv，**校验固定 SHA256 后才允许打包**。下载使用本机静态系统代理（若存在）；软件内的代理仍默认关闭。所有组件均固定发行地址和 SHA256；mpv 使用来源清单标明的 Windows 构建。校验不匹配时应停止并核对上游摘要。
+组件准备脚本从固定上游发行地址下载 yt-dlp、FFmpeg/ffprobe、Deno、mpv 和 whisper-cli，**校验固定 SHA256 后才允许打包**。下载使用本机静态系统代理（若存在）；软件内的代理仍默认关闭。所有组件均固定发行地址和 SHA256；mpv 使用来源清单标明的 Windows 构建。校验不匹配时应停止并核对上游摘要。
 
 ```powershell
 npm test
 npm run build
-cargo test --manifest-path src-tauri/Cargo.toml
+cargo test --manifest-path src-tauri/Cargo.toml --locked
 npm run tauri -- build --bundles nsis
 ```
 
@@ -76,8 +78,9 @@ npm run tauri -- build --bundles nsis
 
 保存目录中的 `.video-downloader` 存放每个任务的临时文件，用于暂停续传和保护已有文件。取消任务会保留已下载内容；确认不需要继续时可以自行清理对应临时目录。
 
-组件版本、来源与摘要：`src-tauri/resources/components.json`、生成的 `tools/binaries.json`；上游许可：`resources/licenses/`、`THIRD-PARTY-NOTICES.txt`。桌面界面源码采用 MIT；官方 yt-dlp 源码采用 Unlicense，捆绑的 PyInstaller 独立 exe 和 FFmpeg GPL 构建保留各自上游许可。
+组件版本、来源与摘要：`src-tauri/resources/components.json`、生成的 `src-tauri/resources/tools/binaries.json`；上游许可：`src-tauri/resources/licenses/`、`src-tauri/resources/THIRD-PARTY-NOTICES.txt`。桌面界面源码采用 MIT；官方 yt-dlp 源码采用 Unlicense，捆绑的 PyInstaller 独立 exe 和 FFmpeg GPL 构建保留各自上游许可。
 
-本地验收可以设置 `VIDEO_DOWNLOADER_DATA_DIR` 将测试数据与日常数据分开；默认无需设置。\n
+本地验收可以设置 `VIDEO_DOWNLOADER_DATA_DIR` 将测试数据与日常数据分开；默认无需设置。
+
 ## v0.3.0 · Media Pro
 新增可视化裁剪、压缩、媒体预设、下载完成动作、GPU回退、字幕、批处理、抽帧、联系表、封面与标签管理。详情见 [使用说明](docs/media-pro.md) 和 [交付验收](docs/media-pro-delivery.md)。

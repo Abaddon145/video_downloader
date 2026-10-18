@@ -375,7 +375,7 @@ impl Repository {
             )
             .map_err(db::error)?;
         let page = page.max(1).min(((total + 49) / 50).max(1) as u32);
-        let notes=self.rows("SELECT id,item_id,time_ms,content,created_at,updated_at FROM video_notes WHERE item_id=?1 ORDER BY time_ms,created_at,id LIMIT 50 OFFSET ?2",params![item,(page-1)*50],|r|Ok(VideoNote{id:r.get(0)?,item_id:r.get(1)?,time_ms:r.get(2)?,content:r.get(3)?,created_at:r.get(4)?,updated_at:r.get(5)?}))?;
+        let notes=self.rows("SELECT id,item_id,time_ms,content,created_at,updated_at,markdown_vault_id,markdown_path FROM video_notes WHERE item_id=?1 ORDER BY time_ms,created_at,id LIMIT 50 OFFSET ?2",params![item,(page-1)*50],|r|Ok(VideoNote{markdown_vault_id:r.get(6)?,markdown_path:r.get(7)?,id:r.get(0)?,item_id:r.get(1)?,time_ms:r.get(2)?,content:r.get(3)?,created_at:r.get(4)?,updated_at:r.get(5)?}))?;
         Ok(NotePage { notes, total, page })
     }
     pub fn save_note(&self, n: &NoteInput) -> AppResult<String> {
@@ -386,6 +386,20 @@ impl Repository {
         let content = text(&n.content, 4000, true)?;
         let id = n.id.clone().unwrap_or_else(id);
         if n.id.is_some() {
+            let linked: Option<String> = self
+                .conn
+                .query_row(
+                    "SELECT markdown_path FROM video_notes WHERE id=?1 AND item_id=?2",
+                    params![id, n.item_id],
+                    |r| r.get(0),
+                )
+                .optional()
+                .map_err(db::error)?
+                .flatten();
+            if linked.is_some() {
+                return Err("请在知识库中编辑此截图笔记".into());
+            }
+
             if self.conn.execute("UPDATE video_notes SET time_ms=?1,content=?2,updated_at=?3 WHERE id=?4 AND item_id=?5",params![n.time_ms,content,now(),id,n.item_id]).map_err(db::error)?==0{return Err("笔记不存在或不属于当前课程".into());}
         } else {
             self.conn.execute("INSERT INTO video_notes(id,item_id,time_ms,content,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?5)",params![id,n.item_id,n.time_ms,content,now()]).map_err(db::error)?;

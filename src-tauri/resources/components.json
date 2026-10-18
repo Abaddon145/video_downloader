@@ -32,5 +32,27 @@
     "extraFiles": [
       "mpv/fonts.conf"
     ]
+  },
+  "whisper": {
+    "version": "1.9.1",
+    "url": "https://github.com/ggml-org/whisper.cpp/releases/download/v1.9.1/whisper-bin-x64.zip",
+    "sha256": "7d8be46ecd31828e1eb7a2ecdd0d6b314feafd82163038ab6092594b0a063539",
+    "source": "https://github.com/ggml-org/whisper.cpp/tree/f049fff95a089aa9969deb009cdd4892b3e74916",
+    "license": "MIT",
+    "binaries": [
+      "whisper-cli.exe",
+      "whisper.dll",
+      "ggml.dll",
+      "ggml-base.dll",
+      "ggml-cpu-alderlake.dll",
+      "ggml-cpu-cannonlake.dll",
+      "ggml-cpu-cascadelake.dll",
+      "ggml-cpu-haswell.dll",
+      "ggml-cpu-icelake.dll",
+      "ggml-cpu-sandybridge.dll",
+      "ggml-cpu-skylakex.dll",
+      "ggml-cpu-sse42.dll",
+      "ggml-cpu-x64.dll"
+    ]
   }
 }

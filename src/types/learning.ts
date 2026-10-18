@@ -2,7 +2,7 @@ export interface LearningCategory{id:string;name:string;description:string|null;
 export interface LearningSeries{id:string;categoryId:string|null;title:string;description:string|null;coverPath:string|null;sourceType:string|null;sourceUrl:string|null;sourcePlaylistId:string|null;author:string|null;totalItems:number;completedItems:number;totalDurationMs:number;favorite:boolean;sortOrder:number;createdAt:number;updatedAt:number}
 export interface PlaybackProgress{itemId:string;positionMs:number;durationMs:number;completed:boolean;playbackRate:number;lastPlayedAt:number|null}
 export interface LearningItem{id:string;seriesId:string;title:string;filePath:string|null;sourceUrl:string|null;sourceVideoId:string|null;sourcePlaylistIndex:number|null;durationMs:number|null;sortOrder:number;thumbnailPath:string|null;thumbnailSource:string|null;sourceThumbnailUrl:string|null;thumbnailKey:string|null;downloadTaskId:string|null;available:boolean;downloadState:string;progress:PlaybackProgress}
-export interface VideoNote{id:string;itemId:string;timeMs:number;content:string;createdAt:number;updatedAt:number}
+export interface VideoNote{id:string;itemId:string;timeMs:number;content:string;markdownVaultId:string|null;markdownPath:string|null;createdAt:number;updatedAt:number}
 export interface LearningSettings{autoplayNext:boolean;completionThreshold:number;defaultPlaybackRate:number;restorePosition:boolean;autoSubtitles:boolean;playbackPreference:"auto"|"original"|"compatible";playbackCacheGb:number;playbackCacheDays:number}
 export interface SeriesDetail{series:LearningSeries;items:LearningItem[];page:number;total:number}
 export interface ContinueLearningItem{series:LearningSeries;item:LearningItem}
@@ -14,7 +14,7 @@ export interface ImportResult{seriesId:string;added:number;duplicates:number;err
 export interface LocalScan{paths:string[];suggestedTitle:string;duplicates:number;existingSeriesId:string|null}
 
 export interface PlayerSubtitle{label:string;path:string}
-export interface PlayerMedia{item:LearningItem;series:LearningSeries;settings:LearningSettings;previous:string|null;next:string|null;path:string;subtitles:PlayerSubtitle[];subtitleWarning:string|null;plan:PlaybackPlan;technical:string}
+export interface PlayerMedia{audioOnly?:boolean;item:LearningItem;series:LearningSeries;settings:LearningSettings;previous:string|null;next:string|null;path:string;subtitles:PlayerSubtitle[];subtitleWarning:string|null;plan:PlaybackPlan;technical:string}
 
 export interface NotePage{notes:VideoNote[];total:number;page:number}
 
@@ -29,3 +29,5 @@ export interface SeriesUpdate{series:LearningSeries;preview:MediaPreview;newEntr
 export interface PlaybackPlan{mode:'native'|'direct'|'remux'|'transcode';format:string;reason:string;cached:boolean}
 export interface PlaybackPreparation{session:string;itemId:string;mode:PlaybackPlan['mode']|null;state:string;percent:number|null;eta:number|null}
 export interface CacheInfo{playbackBytes:number;thumbnailBytes:number;subtitleBytes:number;removedBytes:number}
+
+export interface LearningOpenRequest{itemId:string;timeMs:number;version:number;action:"play"|"ai"}

@@ -7,6 +7,8 @@ use std::{
     path::{Path, PathBuf},
     time::UNIX_EPOCH,
 };
+// ponytail: one subtitle-cache lock per process; split by data directory if parallel libraries are added.
+pub(crate) static SUBTITLE_GUARD: std::sync::Mutex<()> = std::sync::Mutex::new(());
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FileStamp {
@@ -143,6 +145,23 @@ pub(crate) fn files(root: &Path) -> AppResult<Vec<(PathBuf, u64)>> {
     }
     Ok(out)
 }
+fn last_used(dir: &Path) -> u64 {
+    fs::read(dir.join("info.json"))
+        .ok()
+        .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
+        .and_then(|e| e["lastUsed"].as_u64())
+        .unwrap_or_else(|| {
+            fs::metadata(dir)
+                .and_then(|m| m.modified())
+                .ok()
+                .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+                .map(|t| t.as_millis() as u64)
+                .unwrap_or(crate::service::now())
+        })
+}
+fn expired(used: u64, days: u16, now: u64) -> bool {
+    days > 0 && now.saturating_sub(used) > days as u64 * 86_400_000
+}
 impl super::service::LearningService {
     pub fn cache_info(&self) -> AppResult<CacheInfo> {
         let bytes = |kind| -> AppResult<u64> {
@@ -172,7 +191,7 @@ impl super::service::LearningService {
             .into_iter()
             .filter_map(|p| fs::canonicalize(p).ok())
             .collect::<Vec<_>>();
-        let _sub = self.subtitle_guard.lock().map_err(|_| "字幕缓存暂不可用")?;
+        let _sub = SUBTITLE_GUARD.lock().map_err(|_| "字幕缓存暂不可用")?;
         let state = self.playback.lock().map_err(|_| "播放缓存暂不可用")?;
         let protected = state.protected();
         let mut removed = 0;
@@ -197,26 +216,14 @@ impl super::service::LearningService {
                     }
                     let selected = files(&p)?;
                     let size: u64 = selected.iter().map(|(_, n)| n).sum();
-                    let used = fs::read(p.join("info.json"))
-                        .ok()
-                        .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
-                        .and_then(|e| e["lastUsed"].as_u64())
-                        .unwrap_or_else(|| {
-                            fs::metadata(&p)
-                                .and_then(|m| m.modified())
-                                .ok()
-                                .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
-                                .map(|t| t.as_secs())
-                                .unwrap_or(crate::service::now())
-                        });
+                    let used = last_used(&p);
                     entries.push((used, p, selected, size));
                 }
                 entries.sort_by_key(|e| e.0);
                 let mut total = files(&root)?.iter().map(|(_, n)| n).sum::<u64>();
                 for (used, p, selected, size) in entries {
-                    let expired = settings.playback_cache_days > 0
-                        && crate::service::now().saturating_sub(used)
-                            > settings.playback_cache_days as u64 * 86400;
+                    let expired =
+                        expired(used, settings.playback_cache_days, crate::service::now());
                     let excess = total > settings.playback_cache_gb as u64 * 1024 * 1024 * 1024;
                     if manual || expired || excess {
                         for (file, n) in selected {
@@ -238,5 +245,38 @@ impl super::service::LearningService {
         let mut info = self.cache_info()?;
         info.removed_bytes = removed;
         Ok(info)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cache_expiration_keeps_fresh_subtitles_and_uses_full_days() {
+        let data = std::env::temp_dir().join(crate::ffmpeg::runner::new_id());
+        fs::create_dir(&data).unwrap();
+        let dir = directory(&data, "subtitles", &hash(b"ttl")).unwrap();
+        fs::write(dir.join("ai-subtitles.vtt"), b"WEBVTT\n").unwrap();
+        let now = crate::service::now();
+        assert!(
+            !expired(last_used(&dir), 30, now),
+            "fresh subtitle cache expired"
+        );
+        assert!(
+            expired(last_used(&dir), 30, now + 2_678_400_000),
+            "aged subtitle cache retained"
+        );
+        let used = 1_000_000_000_000_u64;
+        fs::write(dir.join("info.json"), br#"{"lastUsed":1000000000000}"#).unwrap();
+        assert_eq!(
+            last_used(&dir),
+            used,
+            "existing millisecond metadata changed"
+        );
+        assert!(!expired(last_used(&dir), 1, used + 86_400_000));
+        assert!(expired(last_used(&dir), 1, used + 86_400_001));
+        assert!(!expired(last_used(&dir), 0, used + 86_400_001));
+        fs::remove_dir_all(data).unwrap();
     }
 }

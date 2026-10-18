@@ -1,0 +1,18 @@
+{
+  "installed": true,
+  "version": "0.5.0",
+  "realWindows": true,
+  "realTauri": true,
+  "realMpv": true,
+  "liveApiResult": true,
+  "displayAssociationViaSqlFixture": true,
+  "aiRequestsDuringDisplay": 0,
+  "analysisId": "ai-1792283175301-2",
+  "courseItemId": "learn-1792284209871-6",
+  "credentialRemoved": true,
+  "sourceSha256Before": "84723dfb2ae93ad00509aa118a0bfaaa8914d7cf62b747a4c3e69afaac8b4fc4",
+  "sourceSha256After": "84723dfb2ae93ad00509aa118a0bfaaa8914d7cf62b747a4c3e69afaac8b4fc4",
+  "bundledBinaryHashesMatch": true,
+  "consoleErrors": [],
+  "passed": true
+}

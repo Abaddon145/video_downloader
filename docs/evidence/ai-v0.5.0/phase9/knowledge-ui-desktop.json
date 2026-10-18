@@ -1,0 +1,80 @@
+{
+  "mocked": false,
+  "realWindows": true,
+  "realFilesystem": true,
+  "aiRequests": 0,
+  "passed": 9,
+  "failed": 0,
+  "run": "C:\\Users\\14582\\AppData\\Local\\Temp\\knowledge-ui-desktop-fixtures\\knowledge-ui-1792222967921",
+  "checks": [
+    {
+      "name": "select fixture Vault via real Tauri IPC, without native dialogs",
+      "passed": true,
+      "detail": {
+        "vault": "C:\\Users\\14582\\AppData\\Local\\Temp\\knowledge-ui-desktop-fixtures\\knowledge-ui-1792222967921\\Vault 用户 #&",
+        "settingsUntouched": true
+      }
+    },
+    {
+      "name": "safe preview renders Wiki link and actual raster attachment, with raw HTML inert",
+      "passed": true,
+      "detail": {
+        "imageLoaded": true
+      }
+    },
+    {
+      "name": "backlinks show the real referring note",
+      "passed": true,
+      "detail": {
+        "backlinkVisible": true
+      }
+    },
+    {
+      "name": "Ctrl+S persists editor changes to actual Vault file",
+      "passed": true,
+      "detail": {
+        "savedToDisk": true
+      }
+    },
+    {
+      "name": "external edit conflicts and explicit overwrite updates disk",
+      "passed": true,
+      "detail": {
+        "externalChangeDetected": true,
+        "explicitOverwrite": true
+      }
+    },
+    {
+      "name": "rename and move dialogs mutate real files and keep selected note current",
+      "passed": true,
+      "detail": {
+        "renamedAndMoved": true
+      }
+    },
+    {
+      "name": "full text search and tag filter return real Vault notes",
+      "passed": true,
+      "detail": {
+        "search": true,
+        "tags": true
+      }
+    },
+    {
+      "name": "delete dialog moves the real note into Vault trash",
+      "passed": true,
+      "detail": {
+        "deletedFromSource": true,
+        "trashCreated": true
+      }
+    },
+    {
+      "name": "880px split view has no horizontal overflow",
+      "passed": true,
+      "detail": {
+        "width": 880,
+        "scrollWidth": 880
+      }
+    }
+  ],
+  "consoleErrors": []
+}

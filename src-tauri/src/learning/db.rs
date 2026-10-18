@@ -17,7 +17,7 @@ pub fn open(path: &Path) -> AppResult<Connection> {
     } else {
         0
     };
-    if version > 5 || version < 0 {
+    if version > 6 || version < 0 {
         return Err("学习库版本高于本软件或版本记录无效，请保留数据库并使用对应版本".into());
     }
     let tx = c.transaction().map_err(error)?;
@@ -49,7 +49,57 @@ pub fn open(path: &Path) -> AppResult<Connection> {
         tx.execute_batch(include_str!("schema-v5.sql"))
             .map_err(error)?;
     }
-    tx.execute_batch("PRAGMA user_version=5;").map_err(error)?;
+    if version < 6 {
+        tx.execute_batch(include_str!("schema-v6.sql"))
+            .map_err(error)?;
+    }
+    // Preserve databases written by the early v0.5 development builds.
+    let has_options = tx
+        .prepare("PRAGMA table_info(video_analyses)")
+        .map_err(error)?
+        .query_map([], |r| r.get::<_, String>(1))
+        .map_err(error)?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(error)?
+        .iter()
+        .any(|name| name == "options_json");
+    if !has_options {
+        tx.execute_batch(
+            "ALTER TABLE video_analyses ADD COLUMN options_json TEXT NOT NULL DEFAULT '{}';",
+        )
+        .map_err(error)?;
+    }
+    // Idempotently complete the unreleased v6 schema without changing paid analysis cache keys.
+    for (table, column) in [
+        ("video_analyses", "note_target_vault_id"),
+        ("video_analyses", "note_warning"),
+        ("video_notes", "markdown_vault_id"),
+        ("video_notes", "markdown_path"),
+    ] {
+        let columns = tx
+            .prepare(&format!("PRAGMA table_info({table})"))
+            .map_err(error)?
+            .query_map([], |r| r.get::<_, String>(1))
+            .map_err(error)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(error)?;
+        if !columns.iter().any(|name| name == column) {
+            tx.execute_batch(&format!("ALTER TABLE {table} ADD COLUMN {column} TEXT;"))
+                .map_err(error)?;
+        }
+    }
+    tx.execute_batch("PRAGMA user_version=6;").map_err(error)?;
     tx.commit().map_err(error)?;
+    enable_search(&c);
     Ok(c)
+}
+// Search is an optional acceleration; LIKE remains available on every build.
+pub(crate) fn enable_search(c: &Connection) -> bool {
+    let supported = c
+        .query_row("SELECT sqlite_compileoption_used('ENABLE_FTS5')", [], |r| {
+            r.get::<_, bool>(0)
+        })
+        .unwrap_or(false);
+    supported && c.execute_batch("CREATE VIRTUAL TABLE IF NOT EXISTS transcript_fts USING fts5(id UNINDEXED,analysis_id UNINDEXED,text);
+       CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_fts USING fts5(path UNINDEXED,title,content);").is_ok()
 }

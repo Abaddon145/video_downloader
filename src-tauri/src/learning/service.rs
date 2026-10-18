@@ -13,7 +13,6 @@ pub struct LearningService {
     pub(crate) data: PathBuf,
     pub(crate) native_player: Mutex<super::native_player::NativeRuntime>,
     pub(crate) playback: Mutex<super::player::PlaybackState>,
-    pub(crate) subtitle_guard: Mutex<()>,
     pub(crate) thumbnails: (Mutex<super::thumbnail::ThumbnailState>, std::sync::Condvar),
     pub(crate) thumbnail_guard: Mutex<()>,
 }
@@ -27,7 +26,6 @@ impl LearningService {
             data: data.into(),
             native_player: Mutex::new(Default::default()),
             playback: Mutex::new(Default::default()),
-            subtitle_guard: Mutex::new(()),
             thumbnails: (Mutex::new(Default::default()), std::sync::Condvar::new()),
             thumbnail_guard: Mutex::new(()),
         })

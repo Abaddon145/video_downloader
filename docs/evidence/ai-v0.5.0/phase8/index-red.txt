@@ -1,0 +1,184 @@
+   Compiling video-downloader v0.4.2 (C:\Users\14582\.codex\worktrees\content-updates\视频下载软件\src-tauri)
+error[E0583]: file not found for module `vault`
+ --> src\knowledge\mod.rs:5:1
+  |
+5 | pub mod vault;
+  | ^^^^^^^^^^^^^^
+  |
+  = help: to create the module `vault`, create file "src\knowledge\vault.rs" or "src\knowledge\vault\mod.rs"
+  = note: if there is a `mod vault` elsewhere in the crate already, import it with `use crate::...` instead
+
+error[E0425]: cannot find type `Connection` in this scope
+ --> src\knowledge\index.rs:4:30
+  |
+4 |  pub(crate) fn connection()->Connection {
+  |                              ^^^^^^^^^^ not found in this scope
+
+error[E0433]: cannot find type `Path` in this scope
+ --> src\knowledge\obsidian.rs:6:9
+  |
+6 |   let p=Path::new("C:/Vault 中文/a #&?.md"); let u=url::Url::parse(&uri(p).unwrap()).unwrap(); assert_eq!(u.query_pairs().find(|(k,_)...
+  |         ^^^^ use of undeclared type `Path`
+  |
+  = note: struct `crate::native::tests::Path` exists but is inaccessible
+help: consider importing this struct
+  |
+3 +  use std::path::Path;
+  |
+
+error[E0433]: cannot find type `Path` in this scope
+ --> src\knowledge\obsidian.rs:6:189
+  |
+6 | ...").unwrap().1,p.to_string_lossy()); assert!(uri(Path::new("relative.md")).is_err());
+  |                                                    ^^^^ use of undeclared type `Path`
+  |
+  = note: struct `crate::native::tests::Path` exists but is inaccessible
+help: consider importing this struct
+  |
+3 +  use std::path::Path;
+  |
+
+warning: unused import: `super::*`
+ --> src\knowledge\markdown.rs:3:6
+  |
+3 |  use super::*;
+  |      ^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `super::*`
+ --> src\knowledge\index.rs:3:6
+  |
+3 |  use super::*;
+  |      ^^^^^^^^
+
+warning: unused import: `super::*`
+ --> src\knowledge\links.rs:3:6
+  |
+3 |  use super::*;
+  |      ^^^^^^^^
+
+warning: unused import: `super::*`
+ --> src\knowledge\search.rs:3:6
+  |
+3 |  use super::*;
+  |      ^^^^^^^^
+
+warning: unused import: `super::*`
+ --> src\knowledge\obsidian.rs:3:6
+  |
+3 |  use super::*;
+  |      ^^^^^^^^
+
+error[E0425]: cannot find function `parse_note` in this scope
+ --> src\knowledge\markdown.rs:6:9
+  |
+6 |   let p=parse_note("f.md","---\ntitle: 'Title: 中文'\ntags: [rust, '#学习']\nitem_id: missing\n---\n[[Folder/Note#Head|Alias]] ![[ima...
+  |         ^^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `parse_note` in this scope
+ --> src\knowledge\markdown.rs:8:11
+  |
+8 |   let bad=parse_note("f.md","---\ntitle: [\n---\n# Actual\n[[Real]]"); assert_eq!(bad.title,"Actual"); assert!(!bad.warnings.is_empty...
+  |           ^^^^^^^^^^ not found in this scope
+
+error[E0433]: cannot find type `Connection` in this scope
+ --> src\knowledge\index.rs:5:9
+  |
+5 |   let c=Connection::open_in_memory().unwrap();
+  |         ^^^^^^^^^^ use of undeclared type `Connection`
+
+error[E0425]: cannot find function `upsert` in this scope
+  --> src\knowledge\index.rs:12:12
+   |
+12 |   assert!(!upsert(&mut c,&d).unwrap().is_empty()); d.text="# New\n[[New]] #new".into(); upsert(&mut c,&d).unwrap();
+   |            ^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `upsert` in this scope
+  --> src\knowledge\index.rs:12:89
+   |
+12 |   assert!(!upsert(&mut c,&d).unwrap().is_empty()); d.text="# New\n[[New]] #new".into(); upsert(&mut c,&d).unwrap();
+   |                                                                                         ^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `has_fts` in this scope
+  --> src\knowledge\index.rs:15:6
+   |
+15 |   if has_fts(&c) { assert_eq!(c.query_row("SELECT count(*) FROM knowledge_fts",[],|r|r.get::<_,i64>(0)).unwrap(),1); }
+   |      ^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `remove` in this scope
+  --> src\knowledge\index.rs:16:3
+   |
+16 |   remove(&mut c,"a.md").unwrap(); clear(&mut c).unwrap();
+   |   ^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `clear` in this scope
+  --> src\knowledge\index.rs:16:35
+   |
+16 |   remove(&mut c,"a.md").unwrap(); clear(&mut c).unwrap();
+   |                                   ^^^^^ not found in this scope
+
+error[E0425]: cannot find function `resolve` in this scope
+ --> src\knowledge\links.rs:8:14
+  |
+8 |   assert_eq!(resolve(&c,"a/Source.md","Note#Head|Alias").unwrap()[0].path,"a/Note.md"); assert_eq!(resolve(&c,"c/Source.md","Note").u...
+  |              ^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `resolve` in this scope
+ --> src\knowledge\links.rs:8:100
+  |
+8 |   assert_eq!(resolve(&c,"a/Source.md","Note#Head|Alias").unwrap()[0].path,"a/Note.md"); assert_eq!(resolve(&c,"c/Source.md","Note").u...
+  |                                                                                                    ^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `backlinks` in this scope
+  --> src\knowledge\links.rs:10:9
+   |
+10 |   let p=backlinks(&c,"a/Note.md",1).unwrap(); assert_eq!(p.total,1); assert_eq!(p.items[0].path,"a/Source.md"); assert!(resolve(&c,"...
+   |         ^^^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `resolve` in this scope
+  --> src\knowledge\links.rs:10:121
+   |
+10 | ...sert_eq!(p.items[0].path,"a/Source.md"); assert!(resolve(&c,"a/Source.md","../escape").unwrap().is_empty());
+   |                                                     ^^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `search` in this scope
+ --> src\knowledge\search.rs:8:9
+  |
+8 |   let p=search(&c,"中文",1,None).unwrap(); assert_eq!(p.total,2); assert!(p.items.iter().any(|h|h.start_ms==Some(1200)&&h.item_id.as_...
+  |         ^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `search` in this scope
+ --> src\knowledge\search.rs:9:14
+  |
+9 |   assert_eq!(search(&c,"中文",1,Some("学习")).unwrap().total,1); assert_eq!(search(&c,"\" OR *",1,None).unwrap().total,0); assert!(se...
+  |              ^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `search` in this scope
+ --> src\knowledge\search.rs:9:73
+  |
+9 |   assert_eq!(search(&c,"中文",1,Some("学习")).unwrap().total,1); assert_eq!(search(&c,"\" OR *",1,None).unwrap().total,0); assert!(se...
+  |                                                                             ^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `search` in this scope
+ --> src\knowledge\search.rs:9:128
+  |
+9 | ...h(&c,"\" OR *",1,None).unwrap().total,0); assert!(search(&c,"",1,None).unwrap().items.is_empty());
+  |                                                      ^^^^^^ not found in this scope
+
+error[E0425]: cannot find function `uri` in this scope
+ --> src\knowledge\obsidian.rs:6:67
+  |
+6 |   let p=Path::new("C:/Vault 中文/a #&?.md"); let u=url::Url::parse(&uri(p).unwrap()).unwrap(); assert_eq!(u.query_pairs().find(|(k,_)...
+  |                                                                     ^^^ not found in this scope
+
+error[E0425]: cannot find function `uri` in this scope
+ --> src\knowledge\obsidian.rs:6:185
+  |
+6 | ...=="path").unwrap().1,p.to_string_lossy()); assert!(uri(Path::new("relative.md")).is_err());
+  |                                                       ^^^ not found in this scope
+
+Some errors have detailed explanations: E0425, E0433, E0583.
+For more information about an error, try `rustc --explain E0425`.
+warning: `video-downloader` (lib test) generated 5 warnings
+error: could not compile `video-downloader` (lib test) due to 22 previous errors; 5 warnings emitted

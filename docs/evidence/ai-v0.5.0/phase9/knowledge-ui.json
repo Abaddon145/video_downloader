@@ -1,0 +1,22 @@
+{
+  "mocked": true,
+  "passed": true,
+  "checks": [
+    "existing Vault and lazy file tree open a plain Markdown note in CodeMirror",
+    "safe preview renders Wiki links and guarded local image, raw HTML never executes",
+    "a late Wiki resolution cannot replace a more recently opened note",
+    "Wiki link opens its guarded target",
+    "leaving a dirty note asks before discarding user edits",
+    "Ctrl+S writes with the expected source hash",
+    "external conflict preserves disk content until explicit hash-conditional overwrite",
+    "note creation refreshes tree and editor",
+    "rename and move refresh the selected note without a stale editor buffer",
+    "full text search and tag filters call paged backend search",
+    "delete requires confirmation and calls the guarded trash operation",
+    "current Vault file events refresh a clean note while old Vault events are ignored",
+    "external changes to a dirty note require a choice before resetting the editor",
+    "file tree recovers to page one when an external scan shrinks the directory",
+    "split editing and 880px layout remain within the window"
+  ],
+  "consoleErrors": []
+}

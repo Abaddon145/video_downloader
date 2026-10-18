@@ -1,0 +1,45 @@
+{
+  "mocked": false,
+  "realWindows": true,
+  "realFilesystem": true,
+  "aiRequests": 0,
+  "run": "C:\\Users\\14582\\AppData\\Local\\Temp\\learning-knowledge-routing\\phase10-1792239268735",
+  "passed": 3,
+  "failed": 1,
+  "checks": [
+    {
+      "name": "repeat analysis imports reuse the same real course records",
+      "passed": true,
+      "detail": {
+        "videoId": "learn-1792239276039-2",
+        "audioId": "learn-1792239276118-11",
+        "analysisCreated": false
+      }
+    },
+    {
+      "name": "existing matching SRT supplies transcript without Whisper or an analysis record",
+      "passed": true,
+      "detail": {
+        "source": "subtitle",
+        "total": 3,
+        "warning": null
+      }
+    },
+    {
+      "name": "generated WAV is classified as native audio only with no conversion work",
+      "passed": true,
+      "detail": {
+        "audioOnly": true,
+        "plan": "native",
+        "mediaJobs": 0
+      }
+    },
+    {
+      "name": "knowledge Markdown link opens native WMV player at its timestamp and exposes matching subtitle",
+      "passed": false,
+      "error": "TimeoutError: locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('complementary', { name: '课程学习面板' }).getByText(/已有字幕 · 3 段/) to be visible\u001b[22m\n",
+      "stack": "locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('complementary', { name: '课程学习面板' }).getByText(/已有字幕 · 3 段/) to be visible\u001b[22m\n\n    at C:\\Users\\14582\\.codex\\worktrees\\content-updates\\视频下载软件\\scripts\\qa\\verify-learning-knowledge-routing-desktop.mjs:34:159\n    at async check (C:\\Users\\14582\\.codex\\worktrees\\content-updates\\视频下载软件\\scripts\\qa\\verify-learning-knowledge-routing-desktop.mjs:18:48)\n    at async file:///C:/Users/14582/.codex/worktrees/content-updates/%E8%A7%86%E9%A2%91%E4%B8%8B%E8%BD%BD%E8%BD%AF%E4%BB%B6/scripts/qa/verify-learning-knowledge-routing-desktop.mjs:31:2"
+    }
+  ],
+  "consoleErrors": []
+}

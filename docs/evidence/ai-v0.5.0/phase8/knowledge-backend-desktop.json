@@ -1,0 +1,54 @@
+{
+  "realWindows": true,
+  "realFilesystem": true,
+  "aiRequests": 0,
+  "checks": [
+    {
+      "name": "system Documents default and existing Vault setup leave Obsidian settings intact",
+      "passed": true,
+      "detail": {
+        "selected": true,
+        "defaultFolder": "映流知识库"
+      }
+    },
+    {
+      "name": "plain Markdown persists, indexes, links and searches through real Tauri commands",
+      "passed": true,
+      "detail": {
+        "backlinks": 1,
+        "ordinaryText": true
+      }
+    },
+    {
+      "name": "external edits return a conflict and conditional merge preserves disk truth",
+      "passed": true,
+      "detail": {
+        "externalPreserved": true,
+        "merged": true
+      }
+    },
+    {
+      "name": "path escapes and protected directories are rejected by real IPC",
+      "passed": true,
+      "detail": {
+        "blocked": 6
+      }
+    },
+    {
+      "name": "rename is no-overwrite and delete preserves the note in Vault trash",
+      "passed": true,
+      "detail": {
+        "noOverwrite": true,
+        "trashPreserved": true
+      }
+    },
+    {
+      "name": "external file scanning updates search and a Vault switch invalidates old commands",
+      "passed": true,
+      "detail": {
+        "oldVaultPreserved": true,
+        "crossVaultBlocked": true
+      }
+    }
+  ]
+}

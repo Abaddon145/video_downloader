@@ -1,0 +1,200 @@
+映流 v0.5.0 Phase 0 — 未修改产品代码的 v0.4.2 基线
+Commit: 806fe45caa4a7ffa2981c63358e5accd786bbbb0
+Time: 2026-10-17T00:43:31.2562726Z
+
+Command: npm ci --ignore-scripts
+
+added 74 packages, and audited 75 packages in 11s
+
+11 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+Exit: 0
+
+Command: npm run prepare:tools
+
+> video-downloader@0.4.2 prepare:tools
+> node scripts/prepare-tools.mjs
+
+Verified all bundled download components.
+Exit: 0
+
+Command: npm test
+
+> video-downloader@0.4.2 test
+> node --test src/lib.test.ts src/media.test.ts src/features/learning/lib.test.ts
+
+✔ learning completion percentage handles empty and partial series (0.5165ms)
+✔ learning resume restores meaningful unfinished positions only (0.0922ms)
+✔ series edits send writable fields without computed counters (0.4583ms)
+✔ playlist learning opt-in preserves full preview and independent frozen download options (0.1841ms)
+✔ playback fallback is bounded and source preferences never loop (0.0846ms)
+✔ native_failure_never_silently_starts_full_transcode (0.0532ms)
+✔ only new Cookie failures are detected after import and old progress snapshots stay quiet (0.7987ms)
+✔ preset application copies all existing choices and naming without retaining mutable arrays (0.4532ms)
+✔ browser Cookie errors offer category-specific next steps without echoing secrets (0.2531ms)
+✔ Cookie statistics distinguish expiry from session-only files (11.2488ms)
+✔ selection survives progress events and removes only missing IDs (0.1543ms)
+✔ Shift selects a visible range and select all respects the filter (0.7083ms)
+✔ toolbar counts follow single buttons and confirmation preserves files (0.1906ms)
+✔ Escape closes preview or cancels parsing before clearing selection (0.0665ms)
+✔ extracts multiple share URLs without duplicates or surrounding Chinese punctuation (0.2825ms)
+✔ paginates 50 entries and safely clamps pages after deletion (0.1838ms)
+✔ explains Bilibili 412 without mistaking a bundled Python warning for the cause (0.1701ms)
+✔ media time accepts milliseconds and rejects invalid or reversed boundaries (0.9289ms)
+✔ media operation availability and all requests remain structured (0.2069ms)
+✔ late probe results are ignored and task updates preserve other records (0.4616ms)
+✔ source directory preserves normal and extended drive roots (0.0762ms)
+✔ v03 editor clamps ranges, preserves frame timing and pages thumbnails at exact intervals (0.2542ms)
+✔ v03 presets apply explicit encoding choices without changing source or time (0.1566ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 97.5006
+Exit: 0
+
+Command: npm run build
+
+> video-downloader@0.4.2 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 1782 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.41 kB │ gzip:   0.31 kB
+dist/assets/index-QmAGBxkS.css   51.09 kB │ gzip:  11.18 kB
+dist/assets/index-GzS06l3m.js   412.29 kB │ gzip: 126.08 kB
+✓ built in 2.21s
+Exit: 0
+
+Command: C:/Users/14582/.cargo/bin/cargo.exe test --manifest-path src-tauri/Cargo.toml --locked
+   Compiling video-downloader v0.4.2 (C:\Users\14582\.codex\worktrees\content-updates\视频下载软件\src-tauri)
+warning: linker stdout: 正在创建库 C:/Users/14582/Documents/ChatGPT/视频下载软件/src-tauri/target\debug\deps\video_downloader_lib.dll.lib 和对象 C:/Users/14582/Documents/ChatGPT/视频下载软件/src-tauri/target\debug\deps\video_downloader_lib.dll.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `video-downloader` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 20.26s
+     Running unittests src\lib.rs (C:/Users/14582/Documents/ChatGPT/视频下载软件/src-tauri/target\debug\deps\video_downloader_lib-2ae8079944d9a16b.exe)
+
+running 96 tests
+test engine::tests::automatic_check_only_produces_a_notice_and_never_an_install_action ... ok
+test domain::tests::progress_handles_unknown_values_without_fabricating_percent ... ok
+test domain::tests::legacy_settings_have_no_cookie_statistics_until_reimport ... ok
+test batch::tests::batch_matches_every_single_button_state_and_explains_skips ... ok
+test domain::tests::logs_never_expose_proxy_passwords_or_cookie_values ... ok
+test batch::tests::batch_validates_ids_and_schedules_once_with_per_item_failures ... ok
+test domain::tests::cookie_expiry_rejects_empty_bad_columns_and_timestamps_without_leaking_rows ... ok
+test batch::tests::repeated_pin_preserves_the_current_order_of_selected_and_other_tasks ... ok
+test engine::tests::automatic_update_due_uses_24_hours_and_respects_disabled_and_future_clock ... ok
+test engine::tests::checksums_require_exact_filename_and_valid_digest ... ok
+test domain::tests::cookie_expiry_parses_normal_comments_http_only_and_sessions_without_values ... ok
+test engine::tests::moved_subtitles_use_the_final_directory ... ok
+test engine::tests::old_settings_default_auto_check_without_changing_existing_preferences ... ok
+test domain::tests::accepts_only_supported_proxy_schemes ... ok
+test engine::tests::scheduler_respects_capacity_and_restart_requires_manual_resume ... ok
+test domain::tests::rejects_commands_local_files_and_credentials_as_video_urls ... ok
+test ffmpeg::capabilities::tests::encoder_parser_does_not_confuse_descriptions_with_names ... ok
+test engine::tests::download_preserves_url_as_literal_and_protects_existing_files ... ok
+test engine::tests::preview_distinguishes_codec_compatibility_and_playlist_urls ... ok
+test engine::tests::simultaneous_video_and_audio_have_separate_resumable_temporary_paths ... ok
+test batch::tests::pin_preserves_selected_order_and_old_records_keep_original_order ... ok
+test batch::tests::task_entering_processing_during_batch_is_skipped_without_pausing ... ok
+test ffmpeg::tests::learning_transcode_pads_odd_dimensions_for_h264_without_changing_media_tools ... ok
+test ffmpeg::tests::all_five_operations_are_structured_and_never_overwrite ... ok
+test ffmpeg::tests::container_check_includes_every_track_and_copy_rejects_transforms ... ok
+test ffmpeg::tests::local_paths_safe_names_and_recovery_are_strict ... ok
+test ffmpeg::tests::media_paths_reject_all_network_and_device_namespaces_before_io ... ok
+test ffmpeg::tests::invalid_times_paths_options_and_audio_copy_are_rejected ... ok
+test ffmpeg::tests::progress_uses_microseconds_and_allows_unknown_speed_and_eta ... ok
+test ffmpeg::tests::probe_reads_json_tracks_metadata_unknowns_and_rejects_invalid ... ok
+test ffmpeg::tests::v03_contact_labels_use_source_timestamps_before_resampling ... ok
+test ffmpeg::tests::v03_compressor_accepts_1440p_and_controlled_quality ... ok
+test ffmpeg::tests::v03_probe_accepts_subtitle_only_files_without_inventing_av_streams ... ok
+test ffmpeg::tests::v03_metadata_preserves_existing_artwork_and_rejects_incompatible_targets ... ok
+test learning::native_player::tests::native_input_routes_transport_keys_through_learning_controls ... ok
+test learning::native_player::tests::native_cancelled_claim_preserves_newer_owner ... ok
+test learning::native_player::tests::native_ipc_matches_response_and_ignores_events ... ok
+test ffmpeg::tests::v03_frames_contact_cover_metadata_have_bounded_structured_arguments ... ok
+test learning::native_player::tests::native_viewport_is_finite_and_bounded ... ok
+test learning::player::failed_publication_tests::failed_proxy_publication_allows_a_new_task_instead_of_reusing_bad_output ... ok
+test batch::tests::records_write_once_and_never_remove_downloads_or_temporary_files ... ok
+test learning::native_player::tests::native_rejects_unsafe_controls ... ok
+test ffmpeg::tests::v03_subtitles_accept_srt_ass_vtt_and_reject_unsafe_styles ... ok
+test learning::player::force_publication_tests::force_rebuild_shares_inflight_publication_but_rebuilds_a_published_proxy ... ok
+test learning::player::publication_tests::completed_proxy_stays_shared_while_finalization_is_paused ... ok
+test learning::tests::learning_hevc_depth_uses_pixel_format_when_ffprobe_omits_bits ... ok
+test learning::tests::learning_playback_leases_share_cancel_and_protect_cache ... ok
+test learning::tests::learning_playback_planner_uses_actual_codecs_and_browser_hevc_support ... ok
+test ffmpeg::tests::v03_nonempty_frame_directories_publish_without_overwriting ... ok
+test learning::tests::learning_remux_selects_only_playable_tracks_and_keeps_normal_remux_strict ... ok
+test learning::tests::learning_cache_keys_track_source_and_profile_and_reject_outside_files ... ok
+test learning::tests::learning_import_scans_in_natural_lesson_order_and_ignores_nonvideo ... ok
+test learning::tests::learning_thumbnail_retry_uses_accurate_output_seek_preserving_literal_paths ... ok
+test learning::tests::learning_thumbnails_sample_after_first_frame_and_use_one_queue_entry ... ok
+test learning::tests::learning_import_accepts_video_regardless_extension ... ok
+test ffmpeg::tests::output_publication_preserves_existing_files_and_source ... ok
+test learning::thumbnail::failure_memo_tests::unchanged_thumbnail_failure_is_not_rescheduled_forever ... ok
+test learning::thumbnail::worker_race_tests::relink_during_paused_thumbnail_work_requeues_latest_input_once ... ok
+test media::automation::tests::automatic_processing_only_accepts_new_completed_downloads ... ok
+test learning::tests::learning_corrupt_database_is_reported_without_overwriting_original ... ok
+test media::gpu::tests::gpu_declared_but_unusable_falls_back_cpu_and_available_hardware_is_selected ... ok
+test media::preset::tests::presets_validate_names_ids_and_exact_defaults ... ok
+test naming::tests::arguments_compile_a_structure_escape_percent_and_preserve_file_protection ... ok
+test naming::tests::author_directory_prefix_prevents_metadata_dot_and_reserved_paths ... ok
+test naming::tests::author_subdirectory_subtitles_resolve_to_the_final_output_directory ... ok
+test naming::tests::filename_templates_accept_only_controlled_variables_and_filter_literals ... ok
+test naming::tests::presets_limit_validate_existing_options_and_freeze_into_queued_requests ... ok
+test media::batch::tests::batch_folders_collect_supported_files_once_and_reject_remote ... ok
+test learning::tests::learning_cached_output_validates_stamp_and_metadata_without_touching_original ... ok
+test learning::tests::learning_scan_covers_all_required_formats ... ok
+test native::tests::dpapi_roundtrips_without_storing_plaintext ... ok
+test native::tests::corrupted_state_recovers_last_good_snapshot ... ok
+test native::tests::windows_quotes_preserve_spaces_quotes_and_trailing_backslashes ... ok
+test native::tests::engine_activation_failure_restores_previous_binary ... ok
+test learning::tests::learning_catalog_edits_and_deletes_categories_without_losing_series ... ok
+test learning::tests::learning_notes_edit_timestamp_search_and_cascade ... ok
+test learning::tests::learning_player_only_reads_registered_video_and_marks_missing_file ... ok
+test learning::tests::learning_reuses_earlier_download_without_matching_old_history ... ok
+test learning::tests::learning_import_deduplicates_paths_and_keeps_original_files ... ok
+test learning::tests::learning_playlist_keeps_source_order_deduplicates_ids_and_freezes_requests ... ok
+test learning::tests::learning_file_deletion_requires_confirmation_and_rejects_shared_references ... ok
+test learning::tests::learning_database_creates_versioned_tables_and_enforces_relations ... ok
+test learning::tests::learning_catalog_reorders_atomically_and_series_removal_only_cascades_records ... ok
+test learning::tests::learning_progress_persists_half_resume_rejects_stale_and_short_snapshots ... ok
+test learning::tests::learning_download_callback_before_binding_and_failure_recovery_are_idempotent ... ok
+test learning::tests::learning_thumbnail_cas_preserves_manual_choice_and_relinked_sources ... ok
+test learning::tests::learning_updates_only_add_new_source_ids_and_preserve_favorites ... ok
+test learning::tests::learning_player_neighbors_cross_page_boundary_in_user_order ... ok
+test learning::tests::learning_catalog_searches_all_content_and_counts_live_progress_with_paging ... ok
+test learning::tests::learning_notes_survive_reopen_with_original_item_and_timestamp ... ok
+test learning::tests::learning_progress_reopens_database_and_keeps_rate_and_completion ... ok
+test learning::tests::learning_database_migrates_v1_preserving_data_and_rejects_future_schema ... ok
+test learning::tests::learning_v4_upgrade_preserves_progress_notes_and_source_thumbnail ... ok
+test native::tests::cancelling_job_terminates_the_child_process_tree ... ok
+test native::tests::captures_utf8_stdout_without_mixing_stderr ... ok
+test learning::tests::learning_large_library_is_bounded_at_50_and_searches_10000_lessons ... ok
+
+test result: ok. 96 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.65s
+
+     Running unittests src\main.rs (C:/Users/14582/Documents/ChatGPT/视频下载软件/src-tauri/target\debug\deps\video_downloader-f2453df890fdff13.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests video_downloader_lib
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+Exit: 0
+Phase 0: PASS — baseline frozen before v0.5.0 product changes

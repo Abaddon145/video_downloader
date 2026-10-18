@@ -1,3 +1,3 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-export default defineConfig({ plugins: [react()], clearScreen: false, server: { port: 1432, strictPort: true } });
+export default defineConfig({ plugins: [react()], clearScreen: false, server: { port: 1432, strictPort: true, watch: { ignored: ['**/artifacts/**', '**/docs/evidence/**', '**/src-tauri/target/**'] } } });

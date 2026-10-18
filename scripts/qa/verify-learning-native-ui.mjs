@@ -71,6 +71,13 @@ await context.addInitScript(()=>{
   return invoke(command,args);
  };
 });
+// Existing download/media/native checks use an empty, typed AI state.
+await context.addInitScript(()=>{
+ const original=window.__TAURI_INTERNALS__.invoke;
+ const settings={model:'deepseek-flash',defaultMode:'standard',whisperModel:'base',allowTranscript:true,allowImages:true,cleanTemporaryFiles:true,autoGenerateNotes:true,autoAnalyzeDownloads:false,chunkConcurrency:1};
+ const empty={ai_get_settings:{settings,hasApiKey:false},ai_whisper_models:[],ai_model_download:null,ai_usage:{analyses:0,questions:0,models:[]},ai_cache_info:{bytes:0,clearableBytes:0},ai_item_statuses:{},ai_for_item:null,ai_item_analyses:{items:[],total:0,page:1},ai_course_transcript:{source:'none',analysisId:null,warning:null,nextStartMs:null,total:0,page:1,items:[]}};
+ window.__TAURI_INTERNALS__.invoke=async(command,args={})=>Object.hasOwn(empty,command)?structuredClone(empty[command]):original(command,args);
+});
 const page=await context.newPage(),checks=[],errors=[];page.on('pageerror',e=>errors.push(String(e)));
 async function check(name,fn){try{await fn();checks.push({name,passed:true});console.log('PASS '+name);}catch(e){checks.push({name,passed:false,error:String(e)});console.log('FAIL '+name+': '+e);}}
 async function start(){await page.goto(process.env.QA_BASE_URL??'http://127.0.0.1:5196');await page.getByRole('navigation',{name:'主导航'}).getByRole('button',{name:'学习库',exact:true}).click();await page.getByRole('button',{name:/播放器回归系列.*1课/}).click();await page.getByRole('button',{name:'播放 操作回归课',exact:true}).click();}

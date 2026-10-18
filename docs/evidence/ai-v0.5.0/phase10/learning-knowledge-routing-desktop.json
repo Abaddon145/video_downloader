@@ -1,0 +1,81 @@
+{
+  "mocked": false,
+  "realWindows": true,
+  "realFilesystem": true,
+  "aiRequests": 0,
+  "run": "C:\\Users\\14582\\AppData\\Local\\Temp\\learning-knowledge-routing\\phase10-1792239978261",
+  "passed": 7,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "repeat analysis imports reuse the same real course records",
+      "passed": true,
+      "detail": {
+        "videoId": "learn-1792239988109-4",
+        "audioId": "learn-1792239988217-13",
+        "analysisCreated": false
+      }
+    },
+    {
+      "name": "existing matching SRT supplies transcript without Whisper or an analysis record",
+      "passed": true,
+      "detail": {
+        "source": "subtitle",
+        "total": 3,
+        "warning": null
+      }
+    },
+    {
+      "name": "generated WAV is classified as native audio only with no conversion work",
+      "passed": true,
+      "detail": {
+        "audioOnly": true,
+        "plan": "native",
+        "mediaJobs": 0
+      }
+    },
+    {
+      "name": "knowledge Markdown link opens native WMV player at its timestamp and exposes matching subtitle",
+      "passed": true,
+      "detail": {
+        "startSeconds": 2.068,
+        "subtitleSeekSeconds": 6,
+        "progressBeforeLeaveMs": 0,
+        "progressAfterLeaveMs": 8041,
+        "saveFailureToast": false,
+        "source": "已有字幕",
+        "activeCue": "第二句"
+      }
+    },
+    {
+      "name": "knowledge audio link opens real mpv for the eight-second WAV without MediaPro tasks",
+      "passed": true,
+      "detail": {
+        "audioOnly": true,
+        "duration": 8,
+        "seekSeconds": 2.00656,
+        "mpvProcess": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\��Ƶ��������\\src-tauri\\target\\debug\\tools\\mpv.exe",
+        "mediaJobs": 0,
+        "layout880": {
+          "width": 880,
+          "scrollWidth": 880
+        }
+      }
+    },
+    {
+      "name": "all original and copied media fixtures remain byte-identical",
+      "passed": true,
+      "detail": {
+        "sourceHash": "3934e0daba8f29c0cd785389813399dbaab39efb31abe65121b1b7c5486870c9",
+        "videoHash": "3934e0daba8f29c0cd785389813399dbaab39efb31abe65121b1b7c5486870c9",
+        "srtHash": "4d0583110e105ab685346aaa21ffe1dc672505b5c3092792c204722c5a6da49f",
+        "audioHash": "fc4b4da839c18d24c32ffd667112445d859b3b55eeb98f122be1afd8dce86a4b"
+      }
+    },
+    {
+      "name": "no JavaScript exceptions",
+      "passed": true
+    }
+  ],
+  "consoleErrors": []
+}

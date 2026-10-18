@@ -1,0 +1,9 @@
+{
+  "mocked": true,
+  "passed": true,
+  "checks": [
+    "界面预览",
+    "v9.8.7",
+    "版本不可用"
+  ]
+}

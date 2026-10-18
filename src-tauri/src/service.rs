@@ -964,6 +964,7 @@ impl Service {
         }
     }
     fn finish_task(&self, id: &str, result: AppResult<()>) {
+        let mut newly_completed = false;
         let mut state = self.state.lock().unwrap();
         state.running.remove(id);
         if let Some(task) = state
@@ -975,6 +976,7 @@ impl Service {
             task.finished_at = Some(now());
             match result {
                 Ok(()) => {
+                    newly_completed = true;
                     task.status = TaskStatus::Completed;
                     task.phase = "下载完成".into();
                     task.progress.percent = Some(100.0);
@@ -1003,6 +1005,17 @@ impl Service {
             self.learning_update(&task);
         }
         if let Some(task) = completed {
+            if newly_completed {
+                if let (Some(ai), Some(learning)) = (
+                    self.app.try_state::<Arc<crate::ai::service::AiService>>(),
+                    self.app
+                        .try_state::<Arc<crate::learning::service::LearningService>>(),
+                ) {
+                    if let Err(error) = ai.inner().after_download(&task, learning.inner().clone()) {
+                        eprintln!("自动分析未入队：{}", domain::redact(&error));
+                    }
+                }
+            }
             if let Some(media) = self
                 .app
                 .try_state::<Arc<crate::ffmpeg::runner::MediaService>>()

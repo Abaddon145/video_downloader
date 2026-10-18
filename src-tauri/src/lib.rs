@@ -1,7 +1,9 @@
+pub mod ai;
 pub mod batch;
 pub mod domain;
 pub mod engine;
 pub mod ffmpeg;
+pub mod knowledge;
 pub mod learning;
 pub mod media;
 pub mod models;
@@ -9,7 +11,9 @@ pub mod naming;
 pub mod native;
 pub mod service;
 
+use ai::commands::*;
 use domain::AppResult;
+use knowledge::commands::*;
 use learning::commands::*;
 use models::*;
 use service::Service;
@@ -111,6 +115,7 @@ fn exit_app(app: tauri::AppHandle, service: AppService<'_>, media: AppMedia<'_>)
     app.state::<Arc<learning::service::LearningService>>()
         .flush_progress()?;
     media.shutdown()?;
+    app.state::<Arc<ai::service::AiService>>().shutdown();
     service.shutdown();
     app.exit(0);
     Ok(())
@@ -252,6 +257,7 @@ pub fn run() {
             learning_load_subtitle,
             learning_scan,
             learning_import,
+            learning_import_for_analysis,
             learning_relink,
             learning_delete_preview,
             learning_open_file,
@@ -278,6 +284,56 @@ pub fn run() {
             batch_task_action,
             preview_sources,
             cancel_preview,
+            ai_whisper_models,
+            ai_model_download,
+            ai_download_whisper_model,
+            ai_cancel_model_download,
+            ai_import_whisper_model,
+            ai_for_item,
+            ai_item_analyses,
+            ai_item_statuses,
+            ai_library_videos,
+            ai_usage,
+            ai_cache_info,
+            ai_clear_cache,
+            ai_delete_analysis,
+            ai_start_analysis,
+            ai_retry_analysis,
+            ai_ask_video,
+            ai_explain_segment,
+            ai_start_transcription,
+            ai_cancel_analysis,
+            ai_transcript,
+            ai_course_transcript,
+            ai_get_settings,
+            ai_save_settings,
+            ai_set_deepseek_key,
+            ai_clear_deepseek_key,
+            ai_test_deepseek,
+            ai_list_analyses,
+            ai_analysis,
+            knowledge_default_path,
+            knowledge_generate_analysis_note,
+            knowledge_analysis_note,
+            knowledge_plan_analysis_delete,
+            knowledge_delete_analysis_bundle,
+            learning_capture_note,
+            knowledge_get_settings,
+            knowledge_set_vault,
+            knowledge_tree,
+            knowledge_read,
+            knowledge_write,
+            knowledge_create,
+            knowledge_rename,
+            knowledge_move,
+            knowledge_delete,
+            knowledge_search,
+            knowledge_backlinks,
+            knowledge_resolve,
+            knowledge_tags,
+            knowledge_reindex,
+            knowledge_asset,
+            knowledge_open_in_obsidian,
             enqueue_downloads,
             control_task,
             remove_task,
@@ -304,6 +360,12 @@ pub fn run() {
                 &service.data,
                 media.clone(),
             ));
+            app.manage(ai::service::AiService::new(
+                app.handle().clone(),
+                &service.data,
+                &service.resources,
+            ));
+            app.manage(knowledge::service::KnowledgeService::new(&service.data));
             media.start();
             let show = MenuItem::with_id(app, "show", "打开视频下载器", true, None::<&str>)?;
             let exit = MenuItem::with_id(app, "exit", "保存任务并退出", true, None::<&str>)?;
@@ -325,6 +387,7 @@ pub fn run() {
                                 app.state::<Arc<ffmpeg::runner::MediaService>>().shutdown()
                             }) {
                             Ok(()) => {
+                                app.state::<Arc<ai::service::AiService>>().shutdown();
                                 app.state::<Arc<Service>>().shutdown();
                                 app.exit(0);
                             }
@@ -379,6 +442,7 @@ pub fn run() {
                 let _ = app
                     .state::<Arc<learning::service::LearningService>>()
                     .flush_progress();
+                app.state::<Arc<ai::service::AiService>>().shutdown();
                 let _ = app.state::<Arc<ffmpeg::runner::MediaService>>().shutdown();
                 app.state::<Arc<Service>>().shutdown();
             }
@@ -386,3 +450,8 @@ pub fn run() {
         Err(error) => native::message(&format!("软件启动失败：{error}")),
     }
 }
+
+// Link Tauri's existing Common Controls v6 manifest into the library test harness too.
+#[cfg(all(test, target_os = "windows"))]
+#[link(name = "resource", kind = "static")]
+extern "C" {}

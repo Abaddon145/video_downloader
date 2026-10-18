@@ -1,0 +1,9 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.33s
+     Running unittests src\lib.rs (C:/Users/14582/Documents/ChatGPT/视频下载软件/src-tauri/target\debug\deps\video_downloader_lib-1171c85c6bcfd429.exe)
+
+running 1 test
+REAL_SCREENSHOT time_ms=1250 jpeg=320x180 custom_attachments=true safe_vault=true source_sha256=7347bd5fd61bed3c0ab1d872b57824950fd5f84b7ce400ea13d61bb30e2bf3e0 source_unchanged=true
+test learning::capture::tests::real_screenshot_is_saved_through_safe_vault_with_custom_attachment_folder ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 177 filtered out; finished in 5.48s
+

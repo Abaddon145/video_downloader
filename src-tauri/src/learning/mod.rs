@@ -18,3 +18,5 @@ pub mod download;
 
 pub mod native_player;
 mod native_window;
+
+pub mod capture;

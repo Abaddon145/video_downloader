@@ -264,3 +264,37 @@ pub async fn learning_native_save_progress(
         .await
         .map_err(|_| "播放保存线程异常")?
 }
+
+#[tauri::command]
+pub async fn learning_import_for_analysis(
+    learning: Learning<'_>,
+    path: String,
+) -> AppResult<LearningItem> {
+    let l = learning.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || l.import_for_analysis(&path))
+        .await
+        .map_err(|_| "课程导入未完成，请重试")?
+}
+
+#[tauri::command]
+pub async fn learning_capture_note(
+    learning: Learning<'_>,
+    knowledge: State<'_, Arc<crate::knowledge::service::KnowledgeService>>,
+    item_id: String,
+    time_ms: i64,
+    vault_id: String,
+    content: String,
+    session: String,
+) -> AppResult<super::capture::ScreenshotNoteResult> {
+    let l = learning.inner().clone();
+    let k = knowledge.inner().clone();
+    let l_event = l.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        l.capture_note(&k, &item_id, time_ms, &vault_id, &content, &session)
+    })
+    .await
+    .map_err(|_| "截图笔记线程未完成")??;
+    use tauri::Emitter;
+    let _=l_event.app.emit("knowledge-file-changed",serde_json::json!({"id":result.reference.path,"vaultId":result.reference.vault_id,"kind":"create"}));
+    Ok(result)
+}

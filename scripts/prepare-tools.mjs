@@ -31,7 +31,7 @@ for (const [name, component] of Object.entries(components)) {
     execFileSync('curl.exe', ['-sS', '-L', '--fail', '--retry', '2', '--connect-timeout', '30', ...proxyArguments, component.url, '-o', archive], { stdio: 'inherit' });
   }
   if (digest(archive) !== component.sha256) throw new Error(`${name}: SHA256 verification failed. Refusing to bundle unverified component.`);
-  const binaries = name === 'ffmpeg' ? ['ffmpeg.exe', 'ffprobe.exe'] : [`${name}.exe`];
+  const binaries = component.binaries ?? (name === 'ffmpeg' ? ['ffmpeg.exe', 'ffprobe.exe'] : [`${name}.exe`]);
   let directory = cache;
   if (name !== 'yt-dlp') {
     directory = join(cache, `extracted-${name}-${component.sha256.slice(0, 12)}`);
@@ -60,6 +60,7 @@ mkdirSync(licenses, { recursive: true });
 const upstreamNotices = {
   'yt-dlp-Unlicense.txt': `https://raw.githubusercontent.com/yt-dlp/yt-dlp/${components['yt-dlp'].version}/LICENSE`,
   'yt-dlp-UPSTREAM-README.md': `https://raw.githubusercontent.com/yt-dlp/yt-dlp/${components['yt-dlp'].version}/README.md`,
+  'whisper-MIT.txt': 'https://raw.githubusercontent.com/ggml-org/whisper.cpp/f049fff95a089aa9969deb009cdd4892b3e74916/LICENSE',
   'Deno-MIT.txt': `https://raw.githubusercontent.com/denoland/deno/v${components.deno.version}/LICENSE.md`,
   'mpv-Copyright.txt': 'https://raw.githubusercontent.com/mpv-player/mpv/492bae0768/Copyright',
   'mpv-GPL-2.txt': 'https://raw.githubusercontent.com/mpv-player/mpv/492bae0768/LICENSE.GPL',

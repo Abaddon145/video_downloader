@@ -1,0 +1,18 @@
+{
+  "kind": "离线浏览器交互测试，模拟 Tauri IPC，不代表 Windows 下载实机验收",
+  "checks": [
+    "Shift range, progress selection, toolbar counts",
+    "confirmation and expanded per-item results",
+    "filtered select all and missing task removal",
+    "Ctrl+A in queue checkbox focus, Ctrl+L and Escape precedence",
+    "update notice enters existing guarded workflow without automatic installation",
+    "Cookie failure guide and expired file statistics hide all values",
+    "successful Cookie import dismisses old warnings while new failures and failed imports remain visible",
+    "create a preset in settings and apply all choices in preview",
+    "save preview choices, show rejected template in dialog, freeze playlist indices",
+    "editing presets preserves queued requests and 20 disables creation",
+    "preset quality absent from source formats remains visibly selected and frozen",
+    "small-window layout and keyboard focus stay inside preview",
+    "restart with imported Cookie does not revive historical warnings and still shows new failures"
+  ]
+}

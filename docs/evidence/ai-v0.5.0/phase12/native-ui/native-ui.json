@@ -1,0 +1,43 @@
+{
+  "passed": 9,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "native_request_is_default",
+      "passed": true
+    },
+    {
+      "name": "stale_native_events_are_ignored",
+      "passed": true
+    },
+    {
+      "name": "native_pause_seek_rate_persist_in_order",
+      "passed": true
+    },
+    {
+      "name": "modal_hides_native_surface",
+      "passed": true
+    },
+    {
+      "name": "native_error_does_not_start_transcode",
+      "passed": true
+    },
+    {
+      "name": "native_transport_shortcuts_cancel_autoplay_countdown",
+      "passed": true
+    },
+    {
+      "name": "native_fullscreen_escape_works_from_control_focus",
+      "passed": true
+    },
+    {
+      "name": "manual_compatibility_remains_available_after_native_failure",
+      "passed": true
+    },
+    {
+      "name": "no_browser_exceptions",
+      "passed": true
+    }
+  ],
+  "errors": []
+}

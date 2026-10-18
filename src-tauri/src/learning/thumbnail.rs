@@ -150,7 +150,7 @@ impl LearningService {
                     std::thread::sleep(Duration::from_millis(250));
                     continue;
                 }
-                if crate::service::now().saturating_sub(cleaned) > 3600 {
+                if crate::service::now().saturating_sub(cleaned) > 3_600_000 {
                     let _ = this.clean_cache("playback", false);
                     cleaned = crate::service::now();
                 }

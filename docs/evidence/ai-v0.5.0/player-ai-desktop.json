@@ -1,0 +1,52 @@
+{
+  "nativePlaybackReal": true,
+  "aiSummaryFixture": true,
+  "sourceSha256Before": "3934e0daba8f29c0cd785389813399dbaab39efb31abe65121b1b7c5486870c9",
+  "sourceSha256After": "3934e0daba8f29c0cd785389813399dbaab39efb31abe65121b1b7c5486870c9",
+  "run": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v050\\player-ai-1792217777988",
+  "passed": 5,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "real lesson AI button opens confirmation and native video hides behind the modal",
+      "passed": true,
+      "detail": {
+        "noKey": true,
+        "transcodeTasks": 0
+      }
+    },
+    {
+      "name": "real mpv remains beside the fixture summary and chapter click seeks the original WMV",
+      "passed": true,
+      "detail": {
+        "position": 2.002,
+        "ready": true,
+        "source": "WMV original",
+        "aiFixture": true
+      }
+    },
+    {
+      "name": "original time notes save from sidebar while native playback is paused",
+      "passed": true,
+      "detail": {
+        "saved": true,
+        "timeMs": 2000
+      }
+    },
+    {
+      "name": "native fullscreen keeps the video geometry and restores sidebar",
+      "passed": true,
+      "detail": {
+        "restored": true
+      }
+    },
+    {
+      "name": "AI page directly selects the actual imported learning video",
+      "passed": true,
+      "detail": {
+        "itemId": "learn-1792217783577-2",
+        "linked": true
+      }
+    }
+  ]
+}
