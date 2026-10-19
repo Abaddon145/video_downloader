@@ -1,0 +1,5 @@
+{
+  "potentialPlaintextApiKeys": [],
+  "filesScanned": 440,
+  "scope": "staging source/docs/scripts/dist and isolated desktop-test state JSON/log/text; no real user data or keys read"
+}

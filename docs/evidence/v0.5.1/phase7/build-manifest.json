@@ -1,0 +1,22 @@
+{
+  "version": "0.5.1",
+  "versions": {
+    "package.json": "0.5.1",
+    "package-lock.json": "0.5.1",
+    "src-tauri/tauri.conf.json": "0.5.1",
+    "Cargo.toml": "0.5.1",
+    "Cargo.lock": "0.5.1"
+  },
+  "application": {
+    "name": "video-downloader.exe",
+    "bytes": 22526976,
+    "sha256": "fea1e53283906e75c7bce6659a350055214cd674deb66b8094637171588c6c16"
+  },
+  "installer": {
+    "name": "视频下载器_0.5.1_x64-setup.exe",
+    "bytes": 187945852,
+    "sha256": "a85ea58c265bb31b832254f09d0b7fe67ad0e5759a0ce05cdf85b0cbdad010dd"
+  },
+  "published": false,
+  "installedOverUserApp": false
+}

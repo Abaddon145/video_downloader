@@ -1,0 +1,79 @@
+{
+  "realWindows": true,
+  "realFilesystem": true,
+  "realMpv": true,
+  "aiRequests": 0,
+  "run": "C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v051\\desktop\\run-1792405358465",
+  "checks": [
+    {
+      "name": "real release version and isolated empty-key state",
+      "passed": true,
+      "detail": {
+        "version": "0.5.1",
+        "hasApiKey": false
+      }
+    },
+    {
+      "name": "real Vault v8 history preserves original bytes and rejects conflicting writes",
+      "passed": true,
+      "detail": {
+        "versions": 1,
+        "sourceBytesPreserved": true,
+        "conflict": "rejected"
+      }
+    },
+    {
+      "name": "real favorites/history survive switching Vaults and source paths cannot escape",
+      "passed": true,
+      "detail": {
+        "crossVault": "isolated",
+        "traversal": "rejected"
+      }
+    },
+    {
+      "name": "real UI autosaves Markdown without a fake bridge",
+      "passed": true,
+      "detail": {
+        "realDiskWrite": true
+      }
+    },
+    {
+      "name": "real mpv plays MP4/WMV/HEVC originals and layout changes keep the session",
+      "passed": true,
+      "detail": {
+        "played": [
+          {
+            "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v051\\desktop\\run-1792405358465\\HEVC 课程.mkv",
+            "session": "learn-1792405363242-ba2jqxewv4i-n-tvzot67",
+            "seconds": 20
+          },
+          {
+            "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v051\\desktop\\run-1792405358465\\中文 课程（最终） # & Ω.mp4",
+            "session": "learn-1792405364409-lphxgyx3hvi-n-seh33lp",
+            "seconds": 20
+          },
+          {
+            "path": "\\\\?\\C:\\Users\\14582\\Documents\\ChatGPT\\视频下载软件\\artifacts\\v051\\desktop\\run-1792405358465\\原生 WMV.wmv",
+            "session": "learn-1792405365201-v1ek81m7fjk-n-nnmnfrf",
+            "seconds": 20
+          }
+        ],
+        "transcodeTasks": 0,
+        "sourceSha256": [
+          "c9d5fef724812ad83bdee50052a5421c503dab87fe26fa62fac6c0764b5c0b5c",
+          "637865cb430285793c889614162ee7bc5b64323adaf07da85c7b611b0ba951fb",
+          "3db1bc4dc2593e4084ccd091a719d3cdbb1d78921d23aa0bfb9e34dc1612bd29"
+        ]
+      }
+    },
+    {
+      "name": "real workspace controls persist across an application restart",
+      "passed": true,
+      "detail": {
+        "theme": "light",
+        "density": "compact",
+        "realRestart": true
+      }
+    }
+  ]
+}

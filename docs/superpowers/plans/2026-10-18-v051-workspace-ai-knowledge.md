@@ -123,3 +123,5 @@ Phase4用途模板已独立验证：Node49、Rust219/0/8ignored、build通过；
 Phase5全局工作区开发及验证完成：Node52、Rust222/0/8ignored、build通过；外观9组、持久化5种、学习布局及知识23项通过（模拟桥接与DPI）。知识栏位统一接线、真实原生文件框/物理DPI待人工，继续Phase6–7。
 
 Phase6知识工作台开发及自动验证完成：Node61、Rust238/0/8ignored、build通过；知识工具7组、会话5组、知识23项、课程35项、模板7组、右键7组模拟UI通过。独立审查3项主要问题已修复并复核，真实桌面/接口限制详见evidence/phase6，继续Phase7。
+
+Phase7完成实现交付与自动验收：版本0.5.1统一；Node61、Rust238/0/8ignored、NSIS通过；隔离release实机6组通过，源视频/测试.obsidian哈希一致，扫描无匹配明文Key。正式发布/覆盖安装未执行，人工限制详见docs/v0.5.1-delivery.md。不将未复测的真实API/Obsidian/DPI/网络平台项算通过。

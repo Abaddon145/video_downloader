@@ -1,0 +1,12 @@
+[
+  "package.json",
+  "package-lock.json",
+  "src-tauri/Cargo.toml",
+  "src-tauri/Cargo.lock",
+  "src-tauri/tauri.conf.json",
+  "README.md",
+  "docs/workspace-v0.5.1.md",
+  "docs/knowledge-workspace-v0.5.1.md",
+  "docs/v0.5.1-delivery.md",
+  "scripts/qa/verify-v051-desktop.mjs"
+]
