@@ -1,0 +1,38 @@
+✔ plain Markdown opens as editable and unchanged content remains byte-identical (7.3285ms)
+✔ edited supported content produces Markdown rather than JSON or HTML (0.4421ms)
+✖ bold and italic can be combined without discarding the changed text (0.857ms)
+✔ source fallback preserves CRLF, BOM, code, lists, and Obsidian syntax (3.1915ms)
+✔ unsupported rich document cannot be serialized into damaged Markdown (0.264ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 4
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 209.7762
+
+✖ failing tests:
+
+test at src\features\knowledge\MarkdownRoundTrip.test.ts:20:1
+✖ bold and italic can be combined without discarding the changed text (0.857ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + null
+  - '***组合输入***'
+  
+      at TestContext.<anonymous> (file:///C:/Users/14582/Documents/ChatGPT/%E8%A7%86%E9%A2%91%E4%B8%8B%E8%BD%BD%E8%BD%AF%E4%BB%B6/artifacts/v051/staging/src/features/knowledge/MarkdownRoundTrip.test.ts:23:55)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: '***组合输入***',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

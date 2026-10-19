@@ -63,6 +63,40 @@ fn time(time: i64, scope: &Scope<'_>) -> AppResult<()> {
         Ok(())
     }
 }
+pub(crate) fn validate_keypoint_shape(p: &KeyPoint) -> AppResult<()> {
+    string(&p.title, 200, true)?;
+    string(&p.content, 6000, true)?;
+    if !(1..=5).contains(&p.importance) || p.source_segment_ids.len() > 32 {
+        return Err("AI重点的来源或重要程度无效".into());
+    }
+    Ok(())
+}
+pub(crate) fn validate_keypoint(p: &KeyPoint, s: &Scope<'_>) -> AppResult<()> {
+    time(p.time_ms, s)?;
+    validate_keypoint_shape(p)?;
+    if p.source_segment_ids
+        .iter()
+        .any(|id| !s.segments.iter().any(|seg| &seg.id == id))
+    {
+        return Err("AI重点的来源或重要程度无效".into());
+    }
+    if p.source_segment_ids.is_empty() {
+        if !s
+            .frames
+            .iter()
+            .any(|f| f.time_ms.abs_diff(p.time_ms) <= 15000)
+        {
+            return Err("AI重点缺少可验证的字幕或画面来源".into());
+        }
+    } else if !s.segments.iter().any(|seg| {
+        p.source_segment_ids.contains(&seg.id)
+            && p.time_ms >= seg.start_ms
+            && p.time_ms <= seg.end_ms
+    }) {
+        return Err("AI重点时间与引用字幕不一致".into());
+    }
+    Ok(())
+}
 pub fn validate_result(r: &VideoAnalysisResult, s: &Scope<'_>) -> AppResult<()> {
     if s.start_ms < 0 || s.end_ms <= s.start_ms {
         return Err("分析的真实时间范围无效".into());
@@ -76,6 +110,8 @@ pub fn validate_result(r: &VideoAnalysisResult, s: &Scope<'_>) -> AppResult<()> 
     string(&r.overview, 20000, true)?;
     strings(&r.action_items, 100, 2000)?;
     strings(&r.tags, 32, 64)?;
+    strings(&r.warnings, 8, 200)?;
+    validate_sections(&r.sections, s)?;
     if r.chapters.len() > 200
         || r.key_points.len() > 200
         || r.tutorial_steps.len() > 200
@@ -83,11 +119,6 @@ pub fn validate_result(r: &VideoAnalysisResult, s: &Scope<'_>) -> AppResult<()> 
     {
         return Err("AI分析结果条目过多".into());
     }
-    let segments = s
-        .segments
-        .iter()
-        .map(|seg| seg.id.as_str())
-        .collect::<HashSet<_>>();
     let frames = s
         .frames
         .iter()
@@ -113,32 +144,7 @@ pub fn validate_result(r: &VideoAnalysisResult, s: &Scope<'_>) -> AppResult<()> 
         }
     }
     for p in &r.key_points {
-        time(p.time_ms, s)?;
-        string(&p.title, 200, true)?;
-        string(&p.content, 6000, true)?;
-        if !(1..=5).contains(&p.importance)
-            || p.source_segment_ids.len() > 32
-            || p.source_segment_ids
-                .iter()
-                .any(|id| !segments.contains(id.as_str()))
-        {
-            return Err("AI重点的来源或重要程度无效".into());
-        }
-        if p.source_segment_ids.is_empty() {
-            if !s
-                .frames
-                .iter()
-                .any(|f| (f.time_ms - p.time_ms).abs() <= 15000)
-            {
-                return Err("AI重点缺少可验证的字幕或画面来源".into());
-            }
-        } else if !s.segments.iter().any(|seg| {
-            p.source_segment_ids.contains(&seg.id)
-                && p.time_ms >= seg.start_ms
-                && p.time_ms <= seg.end_ms
-        }) {
-            return Err("AI重点时间与引用字幕不一致".into());
-        }
+        validate_keypoint(p, s)?;
     }
     let mut previous = s.start_ms;
     for (index, step) in r.tutorial_steps.iter().enumerate() {
@@ -158,13 +164,84 @@ pub fn validate_result(r: &VideoAnalysisResult, s: &Scope<'_>) -> AppResult<()> 
     }
     Ok(())
 }
+fn validate_sections(sections: &[PurposeSection], scope: &Scope<'_>) -> AppResult<()> {
+    let mut ids = HashSet::new();
+    let mut bytes = 0;
+    if sections.len() > 12 {
+        return Err("用途栏目超过12个".into());
+    }
+    for section in sections {
+        if !super::templates::valid_id(&section.id)
+            || !ids.insert(&section.id)
+            || section.items.len() > 20
+        {
+            return Err("用途栏目重复、无效或条目过多".into());
+        }
+        string(&section.title, 80, true)?;
+        for item in &section.items {
+            string(&item.title, 200, true)?;
+            string(&item.content, 2000, true)?;
+            bytes += item.title.len() + item.content.len();
+            if item.source_segment_ids.len() > 16
+                || item.keyframe_ids.len() > 6
+                || item.source_segment_ids.is_empty() && item.keyframe_ids.is_empty()
+            {
+                return Err("用途栏目缺少有界真实来源".into());
+            }
+            if item
+                .source_segment_ids
+                .iter()
+                .any(|id| !scope.segments.iter().any(|s| &s.id == id))
+                || item
+                    .keyframe_ids
+                    .iter()
+                    .any(|id| !scope.frames.iter().any(|f| &f.id == id))
+            {
+                return Err("用途栏目引用了未提供的来源".into());
+            }
+            if let Some(at) = item.time_ms {
+                time(at, scope)?;
+                if !scope.segments.iter().any(|s| {
+                    item.source_segment_ids.contains(&s.id) && at >= s.start_ms && at <= s.end_ms
+                }) && !scope
+                    .frames
+                    .iter()
+                    .any(|f| item.keyframe_ids.contains(&f.id) && at == f.time_ms)
+                {
+                    return Err("用途栏目时间与来源不一致".into());
+                }
+            }
+        }
+    }
+    if bytes > 96000 {
+        return Err("用途栏目总正文过长".into());
+    }
+    Ok(())
+}
 pub fn parse_result(text: &str, scope: &Scope<'_>) -> AppResult<VideoAnalysisResult> {
+    let (result, _) = parse_result_candidates(text, scope)?;
+    super::references::omit_unverified_keypoints(result, scope)
+}
+pub(crate) fn parse_result_candidates(
+    text: &str,
+    scope: &Scope<'_>,
+) -> AppResult<(VideoAnalysisResult, Vec<usize>)> {
     if text.len() > 1024 * 1024 {
         return Err("AI分析JSON过大".into());
     }
-    let result = serde_json::from_str(text).map_err(|_| "AI未返回符合约定的JSON结构，请重试")?;
+    let mut result: VideoAnalysisResult =
+        serde_json::from_str(text).map_err(|_| "AI未返回符合约定的JSON结构，请重试")?;
+    if result.key_points.len() > 200 {
+        return Err("AI分析结果条目过多".into());
+    }
+    let points = std::mem::take(&mut result.key_points);
     validate_result(&result, scope)?;
-    Ok(result)
+    for point in &points {
+        validate_keypoint_shape(point)?;
+    }
+    result.key_points = points;
+    let failed = super::references::normalize_keypoint_references(&mut result, scope);
+    Ok((result, failed))
 }
 pub fn build_chunks(
     id: &str,
@@ -354,7 +431,7 @@ impl super::service::AiService {
         let analysis = self.analysis(id)?;
         self.check_consent(&analysis.options)?;
         let (segments, frames) = self.with(|r| Ok((r.all_transcript(id)?, r.keyframes(id)?)))?;
-        let chunks = build_chunks(
+        let mut chunks = build_chunks(
             id,
             analysis.duration_ms.ok_or("缺少真实媒体时长")?,
             analysis.analysis_mode,
@@ -363,6 +440,12 @@ impl super::service::AiService {
             analysis.options.allow_transcript,
             analysis.options.allow_images,
         )?;
+        if let Some(template) = &analysis.template_snapshot {
+            let hash = super::templates::snapshot_hash(template)?;
+            for chunk in &mut chunks {
+                chunk.id.push_str(&format!("-{}", &hash[..16]));
+            }
+        }
         self.owned(id, control, |r| r.prepare_chunks(id, &chunks))?;
         let concurrency = self.settings()?.settings.chunk_concurrency as usize;
         for batch in chunks.chunks(concurrency) {
@@ -406,9 +489,15 @@ impl super::service::AiService {
         Self::check_source(source, &analysis.source_fingerprint)?;
         self.owned(id, control, |r| r.chunk_status(&chunk.id, "running", None))?;
         let key = self.key()?;
-        let body = messages(&chunk, &self.data.join("ai/cache").join(id))?;
+        let mut body = messages(&chunk, &self.data.join("ai/cache").join(id))?;
+        super::templates::attach_purpose(&mut body, analysis.template_snapshot.as_ref())?;
         let reply = control
-            .reply(client.chat(key.as_bytes(), &analysis.model, body))
+            .reply(client.chat_for(
+                key.as_bytes(),
+                &analysis.model,
+                body,
+                super::client::RequestPurpose::Chunk,
+            ))
             .await;
         let result = match reply {
             Ok(reply) => {
@@ -416,9 +505,20 @@ impl super::service::AiService {
                 self.with(|r| r.record_usage(Some(id), "chunk", &reply.model, &reply.usage))?;
                 control.check()?;
                 Self::check_source(source, &analysis.source_fingerprint)?;
-                reply
-                    .checked_content()
-                    .and_then(|text| parse_result(text, &chunk.scope()))
+                match reply.checked_content() {
+                    Ok(text) => {
+                        self.parse_result_with_repair(
+                            id,
+                            analysis,
+                            text,
+                            &chunk.scope(),
+                            control,
+                            client,
+                        )
+                        .await
+                    }
+                    Err(error) => Err(error),
+                }
             }
             Err(error) => Err(error),
         };

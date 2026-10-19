@@ -5,6 +5,25 @@ use std::time::Duration;
 pub const API_BASE: &str = "https://api.deepseek.com";
 pub const RETRY_DELAYS: [u64; 2] = [1, 3];
 pub const MAX_RESPONSE: usize = 2 * 1024 * 1024;
+#[derive(Clone, Copy)]
+pub enum RequestPurpose {
+    Chunk,
+    Summary,
+    Question,
+    ReferenceRepair,
+    NoteOrganize,
+}
+impl RequestPurpose {
+    fn output_tokens(self) -> u32 {
+        match self {
+            Self::Chunk => 8192,
+            Self::Summary => 16384,
+            Self::Question => 2048,
+            Self::ReferenceRepair => 2048,
+            Self::NoteOrganize => 8192,
+        }
+    }
+}
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TokenUsage {
@@ -16,6 +35,7 @@ pub struct TokenUsage {
 }
 #[derive(Debug)]
 pub struct ChatReply {
+    pub truncated: bool,
     pub error: Option<String>,
     pub content: String,
     pub model: String,
@@ -64,6 +84,15 @@ impl DeepSeekClient {
             .user_agent(concat!("Yingliu/", env!("CARGO_PKG_VERSION")))
     }
     async fn request(&self, key: &[u8], path: &str, body: Option<&Value>) -> AppResult<Value> {
+        self.request_checked(key, path, body, &|| Ok(())).await
+    }
+    async fn request_checked(
+        &self,
+        key: &[u8],
+        path: &str,
+        body: Option<&Value>,
+        check: &(dyn Fn() -> AppResult<()> + Sync),
+    ) -> AppResult<Value> {
         let mut auth =
             reqwest::header::HeaderValue::from_bytes(&[b"Bearer ".as_slice(), key].concat())
                 .map_err(|_| "API密钥格式无效")?;
@@ -79,6 +108,7 @@ impl DeepSeekClient {
             } else {
                 self.http.get(&url)
             };
+            check()?;
             let mut response = req
                 .header(reqwest::header::AUTHORIZATION, auth.clone())
                 .send()
@@ -126,13 +156,35 @@ impl DeepSeekClient {
         }
         Ok("连接成功，所选模型可用；未发送视频内容".into())
     }
+    #[cfg(test)]
     pub async fn chat(
         &self,
         key: &[u8],
         model: &str,
         messages: Vec<Value>,
     ) -> AppResult<ChatReply> {
-        let v=self.request(key,"/chat/completions",Some(&json!({"model":model,"messages":messages,"response_format":{"type":"json_object"},"max_tokens":8192,"stream":false,"thinking":{"type":"disabled"}}))).await?;
+        self.chat_for(key, model, messages, RequestPurpose::Chunk)
+            .await
+    }
+    pub async fn chat_for(
+        &self,
+        key: &[u8],
+        model: &str,
+        messages: Vec<Value>,
+        purpose: RequestPurpose,
+    ) -> AppResult<ChatReply> {
+        self.chat_for_checked(key, model, messages, purpose, &|| Ok(()))
+            .await
+    }
+    pub(crate) async fn chat_for_checked(
+        &self,
+        key: &[u8],
+        model: &str,
+        messages: Vec<Value>,
+        purpose: RequestPurpose,
+        check: &(dyn Fn() -> AppResult<()> + Sync),
+    ) -> AppResult<ChatReply> {
+        let v=self.request_checked(key,"/chat/completions",Some(&json!({"model":model,"messages":messages,"response_format":{"type":"json_object"},"max_tokens":purpose.output_tokens(),"stream":false,"thinking":{"type":"disabled"}})),check).await?;
         let text = v
             .pointer("/choices/0/message/content")
             .and_then(Value::as_str);
@@ -181,6 +233,7 @@ impl DeepSeekClient {
             return Err("DeepSeek用量数据无效".into());
         }
         Ok(ChatReply {
+            truncated,
             error,
             content,
             model: v

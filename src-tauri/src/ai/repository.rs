@@ -5,8 +5,27 @@ use std::path::Path;
 pub struct Repository {
     pub(crate) conn: Connection,
 }
-const COLUMNS:&str="id,item_id,source_path,source_fingerprint,status,analysis_mode,model,prompt_version,language,duration_ms,progress,stage,summary_json,markdown_path,markdown_vault_id,error,created_at,updated_at,completed_at,options_json,transcript_done,keyframes_done,(SELECT title FROM series_items WHERE id=video_analyses.item_id),note_target_vault_id,note_warning";
+const COLUMNS:&str="id,item_id,source_path,source_fingerprint,status,analysis_mode,model,prompt_version,language,duration_ms,progress,stage,summary_json,markdown_path,markdown_vault_id,error,created_at,updated_at,completed_at,options_json,transcript_done,keyframes_done,(SELECT title FROM series_items WHERE id=video_analyses.item_id),note_target_vault_id,note_warning,template_id,template_version,template_snapshot,template_warning";
 fn row(r: &rusqlite::Row<'_>) -> rusqlite::Result<VideoAnalysis> {
+    let snapshot: Option<String> = r.get(27)?;
+    let template_id: String = r.get(25)?;
+    let template_version: u32 = r.get(26)?;
+    let template_snapshot = snapshot
+        .map(|raw| {
+            if raw.len() > super::templates::MAX_TEMPLATE_BYTES {
+                return Err(rusqlite::Error::InvalidQuery);
+            }
+            let t: super::templates::AnalysisTemplate =
+                serde_json::from_str(&raw).map_err(|_| rusqlite::Error::InvalidQuery)?;
+            if t.id != template_id || t.version != template_version || t.validate().is_err() {
+                return Err(rusqlite::Error::InvalidQuery);
+            }
+            Ok(t)
+        })
+        .transpose()?;
+    if template_snapshot.is_none() && (template_id != "general" || template_version != 0) {
+        return Err(rusqlite::Error::InvalidQuery);
+    }
     let mode: String = r.get(5)?;
     let json: Option<String> = r.get(12)?;
     let summary = json
@@ -28,6 +47,10 @@ fn row(r: &rusqlite::Row<'_>) -> rusqlite::Result<VideoAnalysis> {
         rusqlite::Error::FromSqlConversionFailure(19, rusqlite::types::Type::Text, Box::new(e))
     })?;
     Ok(VideoAnalysis {
+        template_id,
+        template_version,
+        template_snapshot,
+        template_warning: r.get(28)?,
         title: r.get(22)?,
         note_target_vault_id: r.get(23)?,
         note_warning: r.get(24)?,
@@ -269,7 +292,12 @@ impl Repository {
             .map_err(db::error)?
             .flatten();
         value
-            .map(|json| super::analysis::parse_result(&json, &chunk.scope()))
+            .map(|json| {
+                let result = super::analysis::parse_result(&json, &chunk.scope())?;
+                let analysis = self.get(&chunk.analysis_id)?;
+                super::templates::validate_output(&result, analysis.template_snapshot.as_ref())?;
+                Ok(result)
+            })
             .transpose()
     }
     pub fn chunk_status(

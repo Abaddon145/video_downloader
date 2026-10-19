@@ -27,8 +27,23 @@ pub(crate) fn optional(s: &Option<String>, max: usize) -> AppResult<Option<Strin
         .transpose()
         .map(|s| s.filter(|s| !s.is_empty()))
 }
-const SERIES_COLS:&str="s.id,s.category_id,s.title,s.description,s.cover_path,s.source_type,s.source_url,s.source_playlist_id,s.author,(SELECT COUNT(*) FROM series_items i WHERE i.series_id=s.id),(SELECT COUNT(*) FROM series_items i JOIN playback_progress p ON p.item_id=i.id WHERE i.series_id=s.id AND p.completed=1),(SELECT COALESCE(SUM(duration_ms),0) FROM series_items i WHERE i.series_id=s.id),s.favorite,s.sort_order,s.created_at,s.updated_at";
-const ITEM_COLS:&str="i.id,i.series_id,i.title,i.file_path,i.source_url,i.source_video_id,i.source_playlist_index,i.duration_ms,i.sort_order,i.thumbnail_path,i.download_task_id,i.available,i.download_state,COALESCE(p.position_ms,0),COALESCE(p.duration_ms,i.duration_ms,0),COALESCE(p.completed,0),COALESCE(p.playback_rate,1.0),p.last_played_at,i.thumbnail_source,i.source_thumbnail_url,i.thumbnail_key";
+pub(crate) const SERIES_CTE: &str = "WITH latest_analysis AS (
+ SELECT a.item_id,a.status,a.updated_at,ROW_NUMBER() OVER(PARTITION BY a.item_id ORDER BY a.created_at DESC,a.id DESC) AS rank
+ FROM video_analyses a JOIN series_items i ON i.id=a.item_id AND i.file_path=a.source_path
+ WHERE json_extract(a.options_json,'$.localOnly')=0
+), series_aggregates AS (
+ SELECT i.series_id,COUNT(*) AS items,SUM(COALESCE(p.completed,0)) AS completed,
+ SUM(COALESCE(i.duration_ms,p.duration_ms,0)) AS duration,SUM(i.available) AS available,
+ SUM(a.status='completed') AS ai_completed,
+ SUM(a.status IN ('queued','extracting_audio','transcribing','extracting_keyframes','analyzing_chunks','finalizing','writing_note')) AS ai_active,
+ SUM(a.status IN ('failed','interrupted')) AS ai_failed,MAX(p.last_played_at) AS last_played,
+ MAX(MAX(i.updated_at,COALESCE(p.updated_at,0),COALESCE(a.updated_at,0))) AS updated
+ FROM series_items i LEFT JOIN playback_progress p ON p.item_id=i.id
+ LEFT JOIN latest_analysis a ON a.item_id=i.id AND a.rank=1 GROUP BY i.series_id
+)";
+pub(crate) const SERIES_FROM: &str = "series s LEFT JOIN series_aggregates g ON g.series_id=s.id";
+pub(crate) const SERIES_COLS:&str="s.id,s.category_id,s.title,s.description,s.cover_path,s.source_type,s.source_url,s.source_playlist_id,s.author,COALESCE(g.items,0),COALESCE(g.completed,0),COALESCE(g.duration,0),s.favorite,s.sort_order,s.created_at,MAX(s.updated_at,COALESCE(g.updated,0)),COALESCE(g.available,0),COALESCE(g.ai_completed,0),COALESCE(g.ai_active,0),COALESCE(g.ai_failed,0),g.last_played";
+pub(crate) const ITEM_COLS:&str="i.id,i.series_id,i.title,i.file_path,i.source_url,i.source_video_id,i.source_playlist_index,i.duration_ms,i.sort_order,i.thumbnail_path,i.download_task_id,i.available,i.download_state,COALESCE(p.position_ms,0),COALESCE(p.duration_ms,i.duration_ms,0),COALESCE(p.completed,0),COALESCE(p.playback_rate,1.0),p.last_played_at,i.thumbnail_source,i.source_thumbnail_url,i.thumbnail_key";
 fn category_row(r: &Row) -> rusqlite::Result<LearningCategory> {
     Ok(LearningCategory {
         id: r.get(0)?,
@@ -40,26 +55,34 @@ fn category_row(r: &Row) -> rusqlite::Result<LearningCategory> {
     })
 }
 fn series_row(r: &Row) -> rusqlite::Result<LearningSeries> {
+    series_row_at(r, 0)
+}
+pub(crate) fn series_row_at(r: &Row, offset: usize) -> rusqlite::Result<LearningSeries> {
     Ok(LearningSeries {
-        id: r.get(0)?,
-        category_id: r.get(1)?,
-        title: r.get(2)?,
-        description: r.get(3)?,
-        cover_path: r.get(4)?,
-        source_type: r.get(5)?,
-        source_url: r.get(6)?,
-        source_playlist_id: r.get(7)?,
-        author: r.get(8)?,
-        total_items: r.get(9)?,
-        completed_items: r.get(10)?,
-        total_duration_ms: r.get(11)?,
-        favorite: r.get(12)?,
-        sort_order: r.get(13)?,
-        created_at: r.get(14)?,
-        updated_at: r.get(15)?,
+        id: r.get(offset + 0)?,
+        category_id: r.get(offset + 1)?,
+        title: r.get(offset + 2)?,
+        description: r.get(offset + 3)?,
+        cover_path: r.get(offset + 4)?,
+        source_type: r.get(offset + 5)?,
+        source_url: r.get(offset + 6)?,
+        source_playlist_id: r.get(offset + 7)?,
+        author: r.get(offset + 8)?,
+        total_items: r.get(offset + 9)?,
+        completed_items: r.get(offset + 10)?,
+        total_duration_ms: r.get(offset + 11)?,
+        favorite: r.get(offset + 12)?,
+        sort_order: r.get(offset + 13)?,
+        created_at: r.get(offset + 14)?,
+        updated_at: r.get(offset + 15)?,
+        available_items: r.get(offset + 16)?,
+        ai_completed_items: r.get(offset + 17)?,
+        ai_active_items: r.get(offset + 18)?,
+        ai_failed_items: r.get(offset + 19)?,
+        last_played_at: r.get(offset + 20)?,
     })
 }
-fn item_row(r: &Row) -> rusqlite::Result<LearningItem> {
+pub(crate) fn item_row(r: &Row) -> rusqlite::Result<LearningItem> {
     let id: String = r.get(0)?;
     Ok(LearningItem {
         progress: PlaybackProgress {
@@ -189,7 +212,7 @@ impl Repository {
     pub fn get_series(&self, id: &str) -> AppResult<LearningSeries> {
         self.conn
             .query_row(
-                &format!("SELECT {SERIES_COLS} FROM series s WHERE s.id=?1"),
+                &format!("{SERIES_CTE} SELECT {SERIES_COLS} FROM {SERIES_FROM} WHERE s.id=?1"),
                 [id],
                 series_row,
             )
@@ -204,6 +227,27 @@ impl Repository {
         page: u32,
         favorite: bool,
     ) -> AppResult<(Vec<LearningSeries>, i64)> {
+        self.list_series_sorted(query, category, page, favorite, "manual")
+    }
+    pub fn list_series_sorted(
+        &self,
+        query: &str,
+        category: Option<&str>,
+        page: u32,
+        favorite: bool,
+        sort: &str,
+    ) -> AppResult<(Vec<LearningSeries>, i64)> {
+        let order = match sort {
+            "manual" => "s.sort_order,s.created_at DESC,s.id",
+            "title" => "s.title COLLATE NOCASE,s.id",
+            "updated" => "MAX(s.updated_at,COALESCE(g.updated,0)) DESC,s.id",
+            "lastPlayed" => "g.last_played DESC,s.id",
+            "progress" => {
+                "CAST(COALESCE(g.completed,0) AS REAL)/MAX(COALESCE(g.items,0),1) DESC,s.id"
+            }
+            "duration" => "COALESCE(g.duration,0) DESC,s.id",
+            _ => return Err("资料库排序方式无效".into()),
+        };
         let query = text(query, 240, false)?;
         let filter="(?1 IS NULL OR COALESCE(s.category_id,'')=?1) AND (?2=0 OR s.favorite=1) AND (?3='' OR instr(lower(s.title),lower(?3))>0 OR EXISTS(SELECT 1 FROM categories c WHERE c.id=s.category_id AND instr(lower(c.name),lower(?3))>0) OR EXISTS(SELECT 1 FROM series_items i WHERE i.series_id=s.id AND (instr(lower(i.title),lower(?3))>0 OR EXISTS(SELECT 1 FROM video_notes n WHERE n.item_id=i.id AND instr(lower(n.content),lower(?3))>0))))";
         let total: i64 = self
@@ -215,7 +259,7 @@ impl Repository {
             )
             .map_err(db::error)?;
         let page = page.max(1).min(((total + 49) / 50).max(1) as u32);
-        let list=self.rows(&format!("SELECT {SERIES_COLS} FROM series s WHERE {filter} ORDER BY s.sort_order,s.created_at DESC,s.id LIMIT 50 OFFSET ?4"),params![category,favorite,query,(page-1)*50],series_row)?;
+        let list=self.rows(&format!("{SERIES_CTE} SELECT {SERIES_COLS} FROM {SERIES_FROM} WHERE {filter} ORDER BY {order} LIMIT 50 OFFSET ?4"),params![category,favorite,query,(page-1)*50],series_row)?;
         Ok((list, total))
     }
     pub fn item(&self, id: &str) -> AppResult<LearningItem> {
@@ -269,6 +313,32 @@ impl Repository {
             return Err("课程不存在".into());
         }
         Ok(())
+    }
+    pub fn move_item_to_series(&mut self, id: &str, series_id: &str) -> AppResult<()> {
+        let previous = self.item(id)?.series_id;
+        self.get_series(series_id)?;
+        if previous == series_id {
+            return Ok(());
+        }
+        let tx = self.conn.transaction().map_err(db::error)?;
+        let order: i64 = tx
+            .query_row(
+                "SELECT COALESCE(MAX(sort_order),-1)+1 FROM series_items WHERE series_id=?1",
+                [series_id],
+                |row| row.get(0),
+            )
+            .map_err(db::error)?;
+        tx.execute(
+            "UPDATE series_items SET series_id=?1,sort_order=?2,updated_at=?3 WHERE id=?4",
+            params![series_id, order, now(), id],
+        )
+        .map_err(db::error)?;
+        tx.execute(
+            "UPDATE series SET updated_at=?1 WHERE id IN (?2,?3)",
+            params![now(), previous, series_id],
+        )
+        .map_err(db::error)?;
+        tx.commit().map_err(db::error)
     }
     pub fn move_entry(
         &mut self,

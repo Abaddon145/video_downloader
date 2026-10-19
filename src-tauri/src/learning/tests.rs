@@ -2,12 +2,80 @@ use super::db;
 use rusqlite::Connection;
 use std::path::Path;
 #[test]
+fn moving_course_preserves_identity_progress_and_notes_and_rejects_missing_target() {
+    let mut r = super::repository::Repository::open(Path::new(":memory:")).unwrap();
+    r.conn.execute_batch("INSERT INTO series(id,title,created_at,updated_at) VALUES('a','原系列',0,0),('b','新系列',0,0);
+        INSERT INTO series_items(id,series_id,title,file_path,created_at,updated_at) VALUES('i','a','课程','C:/只读.mp4',0,0);
+        INSERT INTO playback_progress(item_id,position_ms,duration_ms,completed,updated_at) VALUES('i',42000,60000,0,0);
+        INSERT INTO video_notes(id,item_id,time_ms,content,created_at,updated_at) VALUES('n','i',42000,'保留笔记',0,0);").unwrap();
+    assert!(r.move_item_to_series("i", "missing").is_err());
+    assert_eq!(r.item("i").unwrap().series_id, "a");
+    r.move_item_to_series("i", "b").unwrap();
+    let item = r.item("i").unwrap();
+    assert_eq!(item.series_id, "b");
+    assert_eq!(item.file_path.as_deref(), Some("C:/只读.mp4"));
+    assert_eq!(item.progress.position_ms, 42000);
+    assert_eq!(
+        r.conn
+            .query_row(
+                "SELECT content FROM video_notes WHERE item_id='i'",
+                [],
+                |row| row.get::<_, String>(0)
+            )
+            .unwrap(),
+        "保留笔记"
+    );
+    assert_eq!(r.get_series("a").unwrap().total_items, 0);
+    assert_eq!(r.get_series("b").unwrap().total_items, 1);
+    assert!(r.move_item_to_series("missing", "b").is_err());
+}
+#[test]
+fn library_sort_precedes_pagination_and_aggregates_latest_analysis_per_item() {
+    let r = super::repository::Repository::open(Path::new(":memory:")).unwrap();
+    for n in 0..51 {
+        r.conn.execute("INSERT INTO series(id,title,sort_order,created_at,updated_at) VALUES(?1,?2,?3,0,?3)",rusqlite::params![format!("s{n:02}"),format!("课程{:02}",50-n),n]).unwrap();
+    }
+    r.conn.execute_batch(r#"INSERT INTO series_items(id,series_id,title,file_path,duration_ms,available,created_at,updated_at) VALUES('i','s50','最后导入','current.mp4',90000,1,0,72);
+      INSERT INTO playback_progress(item_id,position_ms,duration_ms,last_played_at,completed,updated_at) VALUES('i',5000,90000,123,1,0);
+      INSERT INTO video_analyses(id,item_id,source_path,source_fingerprint,status,analysis_mode,model,prompt_version,options_json,created_at,updated_at) VALUES
+       ('a','i','current.mp4','f','failed','quick','m','v','{"localOnly":false}',1,1),
+       ('b','i','current.mp4','f','completed','quick','m','v','{"localOnly":false}',2,2),
+       ('c','i','current.mp4','f','failed','quick','m','v','{"localOnly":true}',3,3),
+       ('d','i','old.mp4','f','failed','quick','m','v','{"localOnly":false}',4,4),
+       ('e','i','current.mp4','f','failed','quick','m','v','{}',5,5);"#).unwrap();
+    let (series, total) = r.list_series_sorted("", None, 1, false, "title").unwrap();
+    assert_eq!(total, 51);
+    assert_eq!(series.len(), 50);
+    assert_eq!(series[0].id, "s50");
+    let s = &series[0];
+    assert_eq!(s.total_duration_ms, 90000);
+    assert_eq!(s.available_items, 1);
+    assert_eq!(s.ai_completed_items, 1);
+    assert_eq!(s.ai_failed_items, 0);
+    assert_eq!(s.last_played_at, Some(123));
+    assert_eq!(s.updated_at, 72);
+    assert_eq!(
+        r.list_series_sorted("", None, 1, false, "lastPlayed")
+            .unwrap()
+            .0[0]
+            .id,
+        "s50"
+    );
+    assert_eq!(
+        r.list_series_sorted("", None, 2, false, "title").unwrap().0[0].id,
+        "s00"
+    );
+    assert!(r
+        .list_series_sorted("", None, 1, false, "DROP TABLE series")
+        .is_err());
+}
+#[test]
 fn learning_database_creates_versioned_tables_and_enforces_relations() {
     let c = db::open(Path::new(":memory:")).unwrap();
     let version: i64 = c
         .query_row("SELECT version FROM schema_version", [], |r| r.get(0))
         .expect("schema must exist");
-    assert_eq!(version, 6);
+    assert_eq!(version, 8);
     for table in [
         "categories",
         "series",
@@ -15,6 +83,9 @@ fn learning_database_creates_versioned_tables_and_enforces_relations() {
         "playback_progress",
         "video_notes",
         "learning_settings",
+        "knowledge_note_metadata",
+        "knowledge_note_versions",
+        "knowledge_attachments",
     ] {
         assert_eq!(
             c.query_row(
@@ -27,6 +98,69 @@ fn learning_database_creates_versioned_tables_and_enforces_relations() {
         );
     }
     assert!(c.execute("INSERT INTO series_items(id,series_id,title,created_at,updated_at) VALUES('a','missing','A',0,0)",[]).is_err());
+}
+
+#[test]
+fn learning_v8_upgrades_v7_and_rolls_back_an_incomplete_migration() {
+    let dir = std::env::temp_dir().join(crate::ffmpeg::runner::new_id());
+    std::fs::create_dir(&dir).unwrap();
+    let path = dir.join("learning.db");
+    {
+        let c = db::open(&path).unwrap();
+        c.execute_batch("INSERT INTO learning_settings VALUES('v7','preserved'); DROP TABLE knowledge_note_metadata; DROP TABLE knowledge_note_versions; DROP TABLE knowledge_attachments; UPDATE schema_version SET version=7; PRAGMA user_version=7;").unwrap();
+    }
+    {
+        let c = db::open(&path).unwrap();
+        assert_eq!(
+            c.query_row(
+                "SELECT value FROM learning_settings WHERE key='v7'",
+                [],
+                |r| r.get::<_, String>(0)
+            )
+            .unwrap(),
+            "preserved"
+        );
+        assert_eq!(
+            c.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            8
+        );
+        for table in [
+            "knowledge_note_metadata",
+            "knowledge_note_versions",
+            "knowledge_attachments",
+        ] {
+            assert_eq!(
+                c.query_row(
+                    &format!("SELECT count(*) FROM pragma_foreign_key_list('{table}')"),
+                    [],
+                    |r| r.get::<_, i64>(0)
+                )
+                .unwrap(),
+                0
+            );
+        }
+        c.execute_batch("DROP TABLE knowledge_note_metadata; DROP TABLE knowledge_note_versions; DROP TABLE knowledge_attachments; CREATE TABLE knowledge_note_versions(incompatible TEXT); UPDATE schema_version SET version=7; PRAGMA user_version=7;").unwrap();
+    }
+    assert!(db::open(&path).is_err());
+    let c = Connection::open(&path).unwrap();
+    assert_eq!(
+        c.query_row("SELECT version FROM schema_version", [], |r| r
+            .get::<_, i64>(0))
+            .unwrap(),
+        7
+    );
+    assert_eq!(
+        c.query_row(
+            "SELECT count(*) FROM sqlite_master WHERE name='knowledge_note_metadata'",
+            [],
+            |r| r.get::<_, i64>(0)
+        )
+        .unwrap(),
+        0
+    );
+    drop(c);
+    std::fs::remove_dir_all(dir).unwrap();
 }
 #[test]
 fn learning_database_migrates_v1_preserving_data_and_rejects_future_schema() {
@@ -716,7 +850,7 @@ fn learning_v4_upgrade_preserves_progress_notes_and_source_thumbnail() {
         r.conn
             .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
             .unwrap(),
-        6
+        8
     );
     let item = r.item("i").unwrap();
     assert_eq!(item.progress.position_ms, 450000);
@@ -1107,7 +1241,7 @@ fn ai_v6_migrates_actual_v5_and_preserves_learning_data() {
         assert_eq!(
             c.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
                 .unwrap(),
-            6
+            8
         );
         assert_eq!(
             c.query_row("SELECT position_ms FROM playback_progress", [], |r| r

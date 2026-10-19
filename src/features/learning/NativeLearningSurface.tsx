@@ -21,7 +21,7 @@ export function NativeLearningSurface(props:Props){
   const viewport=()=>{
    const r=root.current?.getBoundingClientRect();
    return {left:r?.left??0,top:r?.top??0,width:r?.width??0,height:r?.height??0,
-    visible:!!r&&!document.hidden&&!document.querySelector('dialog[open],[role="dialog"][aria-modal="true"]')};
+    visible:!!r&&!document.hidden&&!document.querySelector('dialog[open],[role="dialog"][aria-modal="true"],[data-native-overlay="true"]')};
   };
   const events=listen<NativeSnapshot>('learning-native-updated',e=>accept(e.payload));
   const shortcuts=listen<{session:string;itemId:string;action:string}>('learning-native-shortcut',e=>{
@@ -55,7 +55,7 @@ export function NativeLearningSurface(props:Props){
    frame=requestAnimationFrame(()=>{frame=0;const rect=viewport(),key=JSON.stringify(rect);if(key===lastRect)return;lastRect=key;void invoke('learning_native_viewport',{session,viewport:rect}).catch(fail);});
   }
   const resize=new ResizeObserver(geometry);if(root.current)resize.observe(root.current);
-  const mutation=new MutationObserver(geometry);mutation.observe(document.body,{subtree:true,attributes:true,attributeFilter:['open','class','style','aria-modal'],childList:true});
+  const mutation=new MutationObserver(geometry);mutation.observe(document.body,{subtree:true,attributes:true,attributeFilter:['open','class','style','aria-modal','data-native-overlay'],childList:true});
   window.addEventListener('resize',geometry);window.addEventListener('scroll',geometry,true);document.addEventListener('visibilitychange',geometry);
   void start.catch(fail);
   return()=>{

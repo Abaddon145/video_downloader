@@ -1,0 +1,7 @@
+PASS real release version and isolated empty-key state
+PASS real Vault v8 history preserves original bytes and rejects conflicting writes
+PASS real favorites/history survive switching Vaults and source paths cannot escape
+PASS real UI autosaves Markdown without a fake bridge
+PASS real mpv plays MP4/WMV/HEVC originals and layout changes keep the session
+PASS real workspace controls persist across an application restart
+PASS 6 real desktop groups

@@ -1,0 +1,12 @@
+warn: could not canonicalize path C:\Users\14582
+   Compiling video-downloader v0.5.0 (C:\Users\14582\Documents\ChatGPT\视频下载软件\artifacts\v051\staging\src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.96s
+     Running unittests src\lib.rs (artifacts\v051\staging\src-tauri\target\debug\deps\video_downloader_lib-305ad3679f5cc789.exe)
+
+running 3 tests
+test ai::client::response_limit_tests::truncated_outputs_preserve_usage_and_oversized_responses_are_rejected ... ok
+test ai::client::tests::mocked_http_auth_balance_rate_retry_and_sanitization ... ok
+test ai::client::tests::mocked_http_invalid_json_timeout_disconnect_redirect_and_usage ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 237 filtered out; finished in 2.25s
+

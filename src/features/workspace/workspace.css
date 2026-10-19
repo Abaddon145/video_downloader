@@ -1,0 +1,41 @@
+.workspace-loading{padding:40px;color:var(--muted)}
+.workspace-save-error{position:fixed;z-index:300;bottom:18px;left:50%;transform:translateX(-50%);width:min(520px,calc(100vw - 36px));padding:18px;border:1px solid #8c6550;border-radius:10px;background:var(--panel,#191d23);box-shadow:0 12px 35px #0008;font-size:13px;line-height:1.7}
+.workspace-save-error p{margin:8px 0;overflow-wrap:anywhere}.workspace-save-error summary{cursor:pointer}.workspace-save-error>div{display:flex;gap:12px;justify-content:flex-end;margin-top:10px}
+
+/* These tokens extend existing colors; original dark values remain CSS fallbacks. */
+:root[data-theme]{--text:#e9edf3;--cyan:var(--workspace-accent-ink,#38bdf8);--accent:var(--workspace-accent,#38bdf8)}
+:root[data-theme=light]{color-scheme:light;color:#172332;background:#f3f5f8;--bg:#f3f5f8;--panel:#fff;--border:#c6d0dd;--text:#172332;--muted:#4b5e74;--faint:#596c82;--green:#167450;--theme-text:#172332;--theme-muted:#4b5e74;--theme-input:#f8fafc;--theme-panel:#fff;--theme-raised:#e9eef5;--theme-border:#c6d0dd;--theme-accent-bg:#e5f2fc;--theme-danger:#a0223e;--theme-danger-bg:#fff0f2;--theme-success:#116b4a;--theme-success-bg:#e7f5ee;--theme-warning:#815015;--theme-warning-bg:#fff5df}
+:root .app-shell{grid-template-columns:var(--workspace-sidebar-width,194px) minmax(0,1fr)}
+:root .primary{background:var(--workspace-accent,#38bdf8);color:var(--workspace-on-accent,#071119);border-color:var(--workspace-accent,#38bdf8)}
+:root .progress-track>span,:root .ai-progress-track>span{background:var(--workspace-accent,#38bdf8)}
+:root .main{min-width:0}:root .sidebar{min-width:0;overflow:auto}
+:root .brand span{white-space:normal;line-height:1.6}:root .brand strong{overflow-wrap:anywhere}
+:root nav[aria-label="主导航"] button{min-height:45px;height:auto;padding-top:12px;padding-bottom:12px}
+:root[data-motion=reduced] *,:root[data-motion=reduced] *::before,:root[data-motion=reduced] *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+:root[data-motion=reduced] .indeterminate>span{transform:none;width:100%!important;opacity:.6}
+.workspace-preferences-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px 22px;margin:18px 0}
+.workspace-preferences-grid>label{display:flex;flex-direction:column;gap:9px;font-size:calc(12px * var(--workspace-font-scale,1));color:var(--muted);min-width:0}
+.workspace-preferences-grid input,.workspace-preferences-grid select{width:100%;min-width:0}
+.workspace-preferences-grid input[type=color]{height:40px;padding:4px}
+.workspace-preferences-grid input[type=range]{padding:0;accent-color:var(--workspace-accent,#38bdf8)}
+.workspace-preferences-grid output{font-variant-numeric:tabular-nums}
+.workspace-preferences-grid .workspace-check{flex-direction:row;align-items:center}.workspace-check input{width:16px}
+.workspace-panel-controls{margin:20px 0;border-top:1px solid var(--border);padding-top:18px;font-size:calc(12px * var(--workspace-font-scale,1))}.workspace-panel-controls summary{cursor:pointer;color:var(--muted)}
+.workspace-preset-controls{border-block:1px solid var(--border);padding:20px 0;margin-bottom:18px}.workspace-preset-controls h3{font-size:calc(13px * var(--workspace-font-scale,1));margin-bottom:8px}
+.workspace-action-row{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}
+/* Density alters spacing across the existing modules, never their data or controllers. */
+:root .task-row{padding-block:var(--workspace-row-padding,12px)}
+:root .media-queue-list>article,:root .media-task-row{padding-block:var(--workspace-row-padding,12px)}
+:root .knowledge-file-tree button,:root .knowledge-search-results>button{padding-block:var(--workspace-row-padding,12px)}
+:root .library-series-table td,:root .library-series-table th{padding-block:var(--workspace-row-padding,12px)}
+:root .learning-lesson{padding-block:var(--workspace-row-padding,12px)}
+:root .library-series-list{gap:var(--workspace-density-space,14px)}
+:root .knowledge-file-tree button{min-height:32px}
+:root .knowledge-layout{grid-template-columns:var(--knowledge-tree-width,240px) 8px minmax(0,1fr) 8px var(--knowledge-info-width,280px)}
+:root .knowledge-layout.without-tree{grid-template-columns:minmax(0,1fr) 8px var(--knowledge-info-width,280px)}
+:root .knowledge-layout.without-info{grid-template-columns:var(--knowledge-tree-width,240px) 8px minmax(0,1fr)}
+:root .knowledge-layout.without-tree.without-info{grid-template-columns:minmax(0,1fr)}
+@media(max-width:1200px){:root .knowledge-layout,:root .knowledge-layout.without-info{grid-template-columns:min(var(--knowledge-tree-width,240px),220px) 8px minmax(0,1fr)}:root .knowledge-layout.without-tree,:root .knowledge-layout.without-tree.without-info{grid-template-columns:minmax(0,1fr)}:root .knowledge-layout>.resize-handle[aria-label="知识信息栏宽度"]{display:none}}
+@media(max-width:760px){:root .knowledge-layout,:root .knowledge-layout.without-info{grid-template-columns:minmax(0,1fr)}:root .knowledge-layout>.resize-handle{display:none}}
+@media(max-width:1050px){:root .app-shell{grid-template-columns:minmax(160px,min(var(--workspace-sidebar-width,194px),22vw)) minmax(0,1fr)}.workspace-preferences-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.workspace-settings{padding:18px 14px;gap:10px}.workspace-action-row .secondary{white-space:normal}}
+@media(max-width:700px){.workspace-preferences-grid{grid-template-columns:minmax(0,1fr)}}

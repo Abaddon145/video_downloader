@@ -10,6 +10,7 @@ pub mod models;
 pub mod naming;
 pub mod native;
 pub mod service;
+pub mod workspace;
 
 use ai::commands::*;
 use domain::AppResult;
@@ -109,16 +110,8 @@ async fn update_engine(service: AppService<'_>) -> AppResult<EngineInfo> {
         .map_err(|e| e.to_string())?
 }
 #[tauri::command]
-fn exit_app(app: tauri::AppHandle, service: AppService<'_>, media: AppMedia<'_>) -> AppResult<()> {
-    app.state::<Arc<learning::service::LearningService>>()
-        .native_shutdown();
-    app.state::<Arc<learning::service::LearningService>>()
-        .flush_progress()?;
-    media.shutdown()?;
-    app.state::<Arc<ai::service::AiService>>().shutdown();
-    service.shutdown();
-    app.exit(0);
-    Ok(())
+fn exit_app(app: tauri::AppHandle, confirm_pending: Option<bool>) -> AppResult<()> {
+    request_exit(&app, confirm_pending.unwrap_or(false))
 }
 
 type AppMedia<'a> = State<'a, Arc<ffmpeg::runner::MediaService>>;
@@ -147,6 +140,10 @@ fn cancel_media_task(media: AppMedia<'_>, id: String) -> AppResult<()> {
 #[tauri::command]
 fn retry_media_task(media: AppMedia<'_>, id: String) -> AppResult<()> {
     media.retry(&id)
+}
+#[tauri::command]
+fn remove_media_records(media: AppMedia<'_>, ids: Vec<String>) -> AppResult<()> {
+    media.remove_records(ids)
 }
 #[tauri::command]
 fn open_media_output(media: AppMedia<'_>, id: String, folder: bool) -> AppResult<()> {
@@ -224,6 +221,33 @@ fn show_main(app: &tauri::AppHandle) {
     }
 }
 
+fn request_exit(app: &tauri::AppHandle, confirm_pending: bool) -> AppResult<()> {
+    if !confirm_pending
+        && app
+            .state::<Arc<knowledge::service::KnowledgeService>>()
+            .pending_edits()
+    {
+        use tauri::Emitter;
+        show_main(app);
+        app.emit("knowledge-exit-requested", ())
+            .map_err(|_| "无法显示未保存笔记提示")?;
+        return Ok(());
+    }
+    save_and_exit(app)
+}
+fn save_and_exit(app: &tauri::AppHandle) -> AppResult<()> {
+    app.state::<Arc<learning::service::LearningService>>()
+        .native_shutdown();
+    app.state::<Arc<learning::service::LearningService>>()
+        .flush_progress()?;
+    app.state::<Arc<ffmpeg::runner::MediaService>>()
+        .shutdown()?;
+    app.state::<Arc<ai::service::AiService>>().shutdown();
+    app.state::<Arc<Service>>().shutdown();
+    app.exit(0);
+    Ok(())
+}
+
 pub fn run() {
     let _instance = match native::single_instance() {
         Ok(Some(handle)) => handle,
@@ -236,6 +260,10 @@ pub fn run() {
     let application = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            workspace::workspace_get,
+            workspace::workspace_save,
+            workspace::workspace_import,
+            workspace::workspace_export,
             learning_check_updates,
             learning_enqueue_downloads,
             learning_download_item,
@@ -279,6 +307,7 @@ pub fn run() {
             create_media_task,
             cancel_media_task,
             retry_media_task,
+            remove_media_records,
             open_media_output,
             save_download_presets,
             batch_task_action,
@@ -298,6 +327,12 @@ pub fn run() {
             ai_clear_cache,
             ai_delete_analysis,
             ai_start_analysis,
+            ai_list_templates,
+            ai_template_versions,
+            ai_save_template,
+            ai_copy_template,
+            ai_set_template_favorite,
+            ai_delete_template,
             ai_retry_analysis,
             ai_ask_video,
             ai_explain_segment,
@@ -306,6 +341,8 @@ pub fn run() {
             ai_transcript,
             ai_course_transcript,
             ai_get_settings,
+            ai::note_organize::ai_organize_note,
+            ai::note_organize::ai_cancel_note_organize,
             ai_save_settings,
             ai_set_deepseek_key,
             ai_clear_deepseek_key,
@@ -319,6 +356,17 @@ pub fn run() {
             knowledge_delete_analysis_bundle,
             learning_capture_note,
             knowledge_get_settings,
+            knowledge_set_pending_edits,
+            knowledge_note_metadata,
+            knowledge_set_note_metadata,
+            knowledge_note_collection,
+            knowledge_note_versions,
+            knowledge_note_version,
+            knowledge_restore_note_version,
+            knowledge_import_attachment,
+            knowledge_attachments,
+            knowledge_delete_attachment,
+            knowledge_export_attachment,
             knowledge_set_vault,
             knowledge_tree,
             knowledge_read,
@@ -327,6 +375,7 @@ pub fn run() {
             knowledge_rename,
             knowledge_move,
             knowledge_delete,
+            knowledge_delete_empty_directory,
             knowledge_search,
             knowledge_backlinks,
             knowledge_resolve,
@@ -334,6 +383,13 @@ pub fn run() {
             knowledge_reindex,
             knowledge_asset,
             knowledge_open_in_obsidian,
+            knowledge_obsidian_connection,
+            knowledge_configure_obsidian,
+            knowledge_confirm_obsidian,
+            knowledge_obsidian_manager,
+            knowledge_open_vault_folder,
+            knowledge_open_entry_folder,
+            knowledge_export_note,
             enqueue_downloads,
             control_task,
             remove_task,
@@ -348,6 +404,7 @@ pub fn run() {
         .setup(|app| {
             let service = Service::new(app.handle().clone()).map_err(std::io::Error::other)?;
             app.manage(service.clone());
+            app.manage(workspace::WorkspaceStore::new(&service.data));
             let media = ffmpeg::runner::MediaService::new(
                 app.handle().clone(),
                 &service.data,
@@ -378,20 +435,8 @@ pub fn run() {
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => show_main(app),
                     "exit" => {
-                        app.state::<Arc<learning::service::LearningService>>()
-                            .native_shutdown();
-                        match app
-                            .state::<Arc<learning::service::LearningService>>()
-                            .flush_progress()
-                            .and_then(|_| {
-                                app.state::<Arc<ffmpeg::runner::MediaService>>().shutdown()
-                            }) {
-                            Ok(()) => {
-                                app.state::<Arc<ai::service::AiService>>().shutdown();
-                                app.state::<Arc<Service>>().shutdown();
-                                app.exit(0);
-                            }
-                            Err(error) => native::message(&error),
+                        if let Err(error) = request_exit(app, false) {
+                            native::message(&error);
                         }
                     }
                     _ => {}

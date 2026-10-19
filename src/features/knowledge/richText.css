@@ -1,0 +1,10 @@
+.knowledge-rich-editor,.knowledge-rich-fallback{min-height:420px;min-width:0;height:100%}
+.knowledge-rich-toolbar{display:flex;gap:4px;padding:8px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.knowledge-rich-toolbar button{min-width:32px;padding:5px 8px;border:1px solid var(--border);border-radius:5px;background:var(--panel);color:var(--text);cursor:pointer}
+.knowledge-rich-toolbar button:disabled{opacity:.5;cursor:default}
+.knowledge-rich-content{min-height:360px;padding:16px;overflow:auto}
+.knowledge-rich-content .tiptap{min-height:320px;outline:none;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}
+.knowledge-rich-content .tiptap:focus-visible{outline:2px solid var(--cyan);outline-offset:4px}
+.knowledge-rich-content h1,.knowledge-rich-content h2{line-height:1.3;margin:1em 0 .5em}
+.knowledge-rich-content p{margin:.65em 0}
+.knowledge-rich-fallback>p{margin:0;padding:8px 12px;color:var(--muted);font-size:12px}

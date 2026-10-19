@@ -1,0 +1,26 @@
+warn: could not canonicalize path C:\Users\14582
+    Blocking waiting for file lock on build directory
+   Compiling video-downloader v0.5.0 (C:\Users\14582\Documents\ChatGPT\视频下载软件\artifacts\v051\staging\src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.55s
+     Running unittests src\lib.rs (artifacts\v051\staging\src-tauri\target\debug\deps\video_downloader_lib-305ad3679f5cc789.exe)
+
+running 1 test
+test ai::note_organize_tests::organize_requires_note_consent_and_reads_only_supplied_text ... FAILED
+
+failures:
+
+---- ai::note_organize_tests::organize_requires_note_consent_and_reads_only_supplied_text stdout ----
+
+thread 'ai::note_organize_tests::organize_requires_note_consent_and_reads_only_supplied_text' (12292) panicked at src\ai\note_organize_tests.rs:6:5:
+assertion `left == right` failed
+  left: Null
+ right: false
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    ai::note_organize_tests::organize_requires_note_consent_and_reads_only_supplied_text
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 232 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`

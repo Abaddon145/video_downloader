@@ -1,0 +1,49 @@
+
+> video-downloader@0.5.0 test
+> node --test src/lib.test.ts src/media.test.ts src/features/learning/lib.test.ts src/features/ai/lib.test.ts src/features/knowledge/lib.test.ts
+
+✔ AI actions keep completed jobs distinct from interrupted work (0.8306ms)
+✔ AI snapshots ignore old IDs and stale timestamps (0.1785ms)
+✔ AI price estimates are ranges and never hide unknown usage (0.1409ms)
+✔ player AI events cannot leak a previous course or overwrite a newer analysis (0.1887ms)
+✔ course badges distinguish queued, active, failed and interrupted analyses (0.1519ms)
+✔ subtitle follow requests a new page only across actual cue page boundaries (0.1343ms)
+✔ Markdown relative paths remain inside Vault, including encoded traversal (0.707ms)
+✔ outline skips metadata and fenced code and gives duplicate headings distinct ids (5.165ms)
+✔ Wiki AST transform preserves code and emits guarded internal links and assets (0.1195ms)
+✔ heading fragments reject malformed escapes and preserve duplicate heading ids (0.1954ms)
+✔ preview hides only closed leading YAML metadata (0.1208ms)
+✔ preview links allow supported protocols and reject executable and absolute paths (0.2395ms)
+✔ outline labels and preview anchors use rendered Markdown text, including video and Wiki links (2.7667ms)
+✔ large notes skip synchronous outline parsing without changing their content (0.3369ms)
+✔ learning completion percentage handles empty and partial series (0.4849ms)
+✔ learning resume restores meaningful unfinished positions only (0.0918ms)
+✔ series edits send writable fields without computed counters (0.455ms)
+✔ playlist learning opt-in preserves full preview and independent frozen download options (0.173ms)
+✔ playback fallback is bounded and source preferences never loop (0.0732ms)
+✔ native_failure_never_silently_starts_full_transcode (0.056ms)
+✔ only new Cookie failures are detected after import and old progress snapshots stay quiet (0.7646ms)
+✔ preset application copies all existing choices and naming without retaining mutable arrays (0.4906ms)
+✔ browser Cookie errors offer category-specific next steps without echoing secrets (0.2513ms)
+✔ Cookie statistics distinguish expiry from session-only files (10.0108ms)
+✔ selection survives progress events and removes only missing IDs (0.1606ms)
+✔ Shift selects a visible range and select all respects the filter (0.16ms)
+✔ toolbar counts follow single buttons and confirmation preserves files (0.656ms)
+✔ Escape closes preview or cancels parsing before clearing selection (0.0861ms)
+✔ extracts multiple share URLs without duplicates or surrounding Chinese punctuation (0.2765ms)
+✔ paginates 50 entries and safely clamps pages after deletion (0.1913ms)
+✔ explains Bilibili 412 without mistaking a bundled Python warning for the cause (0.1682ms)
+✔ media time accepts milliseconds and rejects invalid or reversed boundaries (0.8016ms)
+✔ media operation availability and all requests remain structured (0.1946ms)
+✔ late probe results are ignored and task updates preserve other records (0.4486ms)
+✔ source directory preserves normal and extended drive roots (0.0812ms)
+✔ v03 editor clamps ranges, preserves frame timing and pages thumbnails at exact intervals (0.194ms)
+✔ v03 presets apply explicit encoding choices without changing source or time (0.6169ms)
+ℹ tests 37
+ℹ suites 0
+ℹ pass 37
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 193.1959

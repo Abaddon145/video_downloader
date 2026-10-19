@@ -1,0 +1,61 @@
+
+> video-downloader@0.5.0 test
+> node --test src/lib.test.ts src/media.test.ts src/features/learning/lib.test.ts src/features/ai/lib.test.ts src/features/knowledge/lib.test.ts src/features/workspace/defaults.test.ts src/features/workspace/pending.test.ts src/components/resize.test.ts src/components/contextMenu.test.ts src/downloadContextActions.test.ts src/components/media/mediaContextActions.test.ts src/features/ai/templates.test.ts
+
+✔ menu keyboard navigation skips disabled items and wraps (0.9051ms)
+✔ menus stay inside small viewports and editable targets keep native context menus (0.9672ms)
+✔ right click preserves selection only for a selected media task (1.3139ms)
+✔ batch input uses playable outputs or source files, deduplicated (0.4473ms)
+✔ resize clamps pointer movement and keyboard boundaries (0.7853ms)
+✔ a context menu uses selected tasks only when the clicked row is selected (0.8015ms)
+✔ AI actions keep completed jobs distinct from interrupted work (0.9393ms)
+✔ AI snapshots ignore old IDs and stale timestamps (0.1756ms)
+✔ AI price estimates are ranges and never hide unknown usage (0.1324ms)
+✔ player AI events cannot leak a previous course or overwrite a newer analysis (0.1685ms)
+✔ course badges distinguish queued, active, failed and interrupted analyses (0.1805ms)
+✔ subtitle follow requests a new page only across actual cue page boundaries (0.1242ms)
+✔ template labels retain frozen identity and treat legacy records explicitly (0.4737ms)
+✔ custom template form bounds section names and Markdown placeholders (0.7108ms)
+✔ Markdown relative paths remain inside Vault, including encoded traversal (0.5903ms)
+✔ outline skips metadata and fenced code and gives duplicate headings distinct ids (5.9232ms)
+✔ Wiki AST transform preserves code and emits guarded internal links and assets (0.128ms)
+✔ heading fragments reject malformed escapes and preserve duplicate heading ids (0.2086ms)
+✔ preview hides only closed leading YAML metadata (0.1339ms)
+✔ preview links allow supported protocols and reject executable and absolute paths (0.2642ms)
+✔ outline labels and preview anchors use rendered Markdown text, including video and Wiki links (2.4358ms)
+✔ large notes skip synchronous outline parsing without changing their content (0.401ms)
+✔ learning completion percentage handles empty and partial series (0.5318ms)
+✔ learning resume restores meaningful unfinished positions only (0.0991ms)
+✔ series edits send writable fields without computed counters (0.4605ms)
+✔ playlist learning opt-in preserves full preview and independent frozen download options (0.21ms)
+✔ playback fallback is bounded and source preferences never loop (0.111ms)
+✔ native_failure_never_silently_starts_full_transcode (0.0903ms)
+✔ workspace accepts valid table layouts and rejects future, corrupt and out of range data (0.921ms)
+✔ workspace save queue continues after an error and reports it (1.6849ms)
+✔ workspace saves serialize pending changes and keep the newest layout (8.5696ms)
+✔ pending workspace survives restart and an older save acknowledgement cannot erase the latest layout (0.8815ms)
+✔ only new Cookie failures are detected after import and old progress snapshots stay quiet (0.8202ms)
+✔ preset application copies all existing choices and naming without retaining mutable arrays (0.4691ms)
+✔ browser Cookie errors offer category-specific next steps without echoing secrets (0.322ms)
+✔ Cookie statistics distinguish expiry from session-only files (10.933ms)
+✔ selection survives progress events and removes only missing IDs (0.2207ms)
+✔ Shift selects a visible range and select all respects the filter (0.2028ms)
+✔ toolbar counts follow single buttons and confirmation preserves files (0.187ms)
+✔ Escape closes preview or cancels parsing before clearing selection (0.0691ms)
+✔ extracts multiple share URLs without duplicates or surrounding Chinese punctuation (0.3468ms)
+✔ paginates 50 entries and safely clamps pages after deletion (0.1889ms)
+✔ explains Bilibili 412 without mistaking a bundled Python warning for the cause (0.1833ms)
+✔ media time accepts milliseconds and rejects invalid or reversed boundaries (0.9511ms)
+✔ media operation availability and all requests remain structured (0.2013ms)
+✔ late probe results are ignored and task updates preserve other records (0.4834ms)
+✔ source directory preserves normal and extended drive roots (0.0817ms)
+✔ v03 editor clamps ranges, preserves frame timing and pages thumbnails at exact intervals (0.1895ms)
+✔ v03 presets apply explicit encoding choices without changing source or time (0.1457ms)
+ℹ tests 49
+ℹ suites 0
+ℹ pass 49
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 252.8568

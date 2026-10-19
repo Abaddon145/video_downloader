@@ -6,13 +6,23 @@ pub mod client;
 pub mod commands;
 pub mod jobs;
 pub mod keyframes;
+mod materials;
 pub mod models;
+pub mod note_organize;
+#[cfg(test)]
+mod note_organize_tests;
 pub mod prompts;
 pub mod qa;
+#[cfg(test)]
+mod reference_tests;
+pub mod references;
 pub mod repository;
 pub mod service;
 pub mod settings;
 pub mod summary;
+#[cfg(test)]
+mod template_tests;
+pub mod templates;
 #[cfg(test)]
 mod tests;
 pub mod transcription;

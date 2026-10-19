@@ -10,8 +10,15 @@ pub fn learning_home(
     category: Option<String>,
     page: u32,
     favorite: bool,
+    sort: Option<String>,
 ) -> AppResult<LibraryHome> {
-    learning.home(&query, category.as_deref(), page, favorite)
+    learning.home(
+        &query,
+        category.as_deref(),
+        page,
+        favorite,
+        sort.as_deref().unwrap_or("manual"),
+    )
 }
 #[tauri::command]
 pub fn learning_series(learning: Learning<'_>, id: String, page: u32) -> AppResult<SeriesDetail> {

@@ -10,6 +10,7 @@ import {AnalysisProgress} from './AnalysisProgress';
 import {VideoSummary} from './VideoSummary';
 import {VideoAsk} from './VideoAsk';
 import {Transcript} from './Transcript';
+import {templateLabel} from './templates';
 import {LearningDialog} from '../learning/Editors';
 import {acceptCourseAnalysis,activeStatuses,aiError,modeLabels,statusLabels} from './lib';
 
@@ -34,7 +35,8 @@ export function PlayerAiSidebar({itemId,source,currentMs,onSeek,notes,requestVer
   }).then(stop=>alive?stops.push(stop):stop()).catch(e=>{if(alive)setError(aiError(e));});
   return()=>{alive=false;stops.forEach(stop=>stop());};},[itemId,source.path]);
  useEffect(()=>{if(requestVersion&&requestVersion!==requested.current&&loaded){requested.current=requestVersion;setTab('summary');
-  if(requestAction==='ai-regenerate'&&analysis?.summary)setPending('regenerate');
+  if(requestAction==='ai-template'){setForce(false);setConfirm(true);}
+  else if(requestAction==='ai-regenerate'&&analysis?.summary)setPending('regenerate');
   else if(requestAction==='ai-full'){setForce(true);setConfirm(true);}
   else if(!analysis||analysis.options.localOnly){setForce(false);setConfirm(true);}
  }},[requestVersion,requestAction,loaded,analysis]);
@@ -70,13 +72,14 @@ export function PlayerAiSidebar({itemId,source,currentMs,onSeek,notes,requestVer
      {(!analysis.summary||running)&&<AnalysisProgress analysis={analysis}/>}
      {analysis.error&&<p className="error-text" role="alert">{analysis.error}</p>}
      <div className="ai-actions">{running?<button type="button" className="secondary" disabled={busy} onClick={()=>void action('cancel')}>取消分析</button>:['failed','interrupted','cancelled'].includes(analysis.status)?<button type="button" className="secondary" disabled={busy} onClick={()=>void action('retry')}>继续分析</button>:null}</div>
-     {analysis.summary?<VideoSummary result={analysis.summary} onSeek={onSeek}/>:!running&&<p className="help">{analysis.options.localOnly?'语音转录已保存在“字幕”页。开始分析可提取章节与知识点。':'该任务尚未生成总结，可以继续分析。'}</p>}
+     {!analysis.options.localOnly&&<p className="ai-template-current">{templateLabel(analysis)}</p>}{analysis.templateWarning&&<p className="help" role="status">{analysis.templateWarning}</p>}
+     {analysis.summary?<VideoSummary result={analysis.summary} onSeek={onSeek} showTimes={analysis.templateSnapshot?.timeReferences!==false}/>:!running&&<p className="help">{analysis.options.localOnly?'语音转录已保存在“字幕”页。开始分析可提取章节与知识点。':'该任务尚未生成总结，可以继续分析。'}</p>}
      {analysis.summary&&!running&&<button type="button" className="text-button" disabled={busy} onClick={()=>setPending('regenerate')}>重新生成总结</button>}
     </>}
     {loaded&&!analysis&&<div className="ai-empty"><Sparkles size={27} aria-hidden="true"/><h3>还没有生成视频总结</h3><p>在本地提取语音和关键画面，使用 DeepSeek 整理总结、章节与知识点。原视频不会上传。</p><button type="button" className="primary" onClick={()=>{setForce(false);setConfirm(true);}}>开始分析</button></div>}
     <details className="course-analysis-history" onToggle={e=>setHistoryOpen(e.currentTarget.open)}><summary>本课程分析记录</summary>{historyOpen&&history&&<>
      {!history.total&&<p className="help">这节课程还没有分析记录。</p>}
-     {history.items.map(a=><button type="button" className="course-analysis-record" key={a.id} aria-pressed={analysis?.id===a.id} onClick={()=>setAnalysis(a)}><span>{modeLabels[a.analysisMode]} · {a.options.localOnly?'本地转录 · ':''}{statusLabels[a.status]??a.status}</span><small>{new Date(a.createdAt).toLocaleString('zh-CN')}</small></button>)}
+     {history.items.map(a=><button type="button" className="course-analysis-record" key={a.id} aria-pressed={analysis?.id===a.id} onClick={()=>setAnalysis(a)}><span>{modeLabels[a.analysisMode]} · {a.options.localOnly?'本地转录':templateLabel(a)} · {statusLabels[a.status]??a.status}</span><small>{new Date(a.createdAt).toLocaleString('zh-CN')}</small></button>)}
      {history.total>50&&<div className="pagination"><button type="button" className="secondary" disabled={page<=1} onClick={()=>setPage(page-1)}>上一页记录</button><span>{history.page} / {Math.ceil(history.total/50)}</span><button type="button" className="secondary" disabled={page*50>=history.total} onClick={()=>setPage(page+1)}>下一页记录</button></div>}
     </>}{analysis&&!running&&<button type="button" className="text-button" disabled={busy} onClick={()=>{setPending('delete');setJointDelete(false);setDeletePlan(null);setError('');}}>删除当前分析记录</button>}</details>
    </div>
@@ -85,7 +88,7 @@ export function PlayerAiSidebar({itemId,source,currentMs,onSeek,notes,requestVer
    <div role="tabpanel" id="course-panel-notes" aria-labelledby="course-tab-notes" hidden={tab!=='notes'}>{notes}</div>
    {analysis?.summary&&!running&&<div hidden={tab!=='summary'&&tab!=='notes'}><AnalysisNoteActions key={analysis.id} analysis={analysis} onOpenKnowledge={onOpenKnowledge} onKnowledgeSetup={onKnowledgeSetup}/></div>}
   </div>
-  {confirm&&<AnalysisConfirm source={{...source,force}} close={()=>setConfirm(false)} onSettings={()=>{setConfirm(false);if(onSettings)onSettings();else notify('请在主导航“设置”中配置AI服务');}} onStarted={a=>{setAnalysis(a);setLoaded(true);setTab('summary');setRefresh(v=>v+1);notify(a.status==='completed'?'已复用这节课程的分析':'课程已加入分析队列，完成后会显示在视频旁');}}/>}
+  {confirm&&<AnalysisConfirm source={{...source,force,reuseAnalysisId:force?null:analysis?.id,templateId:analysis?.templateId,templateVersion:analysis?.templateVersion}} close={()=>setConfirm(false)} onSettings={()=>{setConfirm(false);if(onSettings)onSettings();else notify('请在主导航“设置”中配置AI服务');}} onStarted={a=>{setAnalysis(a);setLoaded(true);setTab('summary');setRefresh(v=>v+1);notify(a.templateWarning||(a.status==='completed'?'已复用这节课程的分析':'课程已加入分析队列，完成后会显示在视频旁'));}}/>}
   {pending&&<LearningDialog title={deletePlan?'确认删除生成笔记':pending==='delete'?'删除课程分析记录':'重新生成课程总结'} close={()=>setPending(null)} busy={busy}><p className="ai-confirm-message">{deletePlan?'请再次确认。仅删除下列生成文件及分析记录，源视频和其他用户文件会保留。':pending==='delete'?'删除本地转录、AI结果和该分析的临时缓存，保留源视频、Markdown知识笔记和原始用量统计。':'复用本地转录和画面，重新请求AI整理；这会产生新的API用量。'}</p>{pending==='delete'&&!deletePlan&&<label className="course-delete-notes"><input type="checkbox" checked={jointDelete} disabled={busy} onChange={e=>setJointDelete(e.target.checked)}/>同时删除生成的知识笔记</label>}{deletePlan&&<><ul className="course-delete-files">{deletePlan.files.map(file=><li key={file.path}>{file.path}</li>)}</ul>{deletePlan.warning&&<p className="help" role="status">{deletePlan.warning}</p>}</>}{error&&<p className="error-text" role="alert">{error}</p>}<footer><button type="button" className="secondary" disabled={busy} onClick={()=>setPending(null)}>取消</button><button type="button" className={deletePlan?'danger-button':'primary'} disabled={busy} onClick={()=>void(deletePlan?deleteBundle():pending==='delete'&&jointDelete?planDelete():action(pending))}>{deletePlan?'确认删除这些笔记和分析记录':pending==='delete'?(jointDelete?'预览将删除的笔记':'删除分析记录'):'确认重新生成'}</button></footer></LearningDialog>}
  </aside>;
 }

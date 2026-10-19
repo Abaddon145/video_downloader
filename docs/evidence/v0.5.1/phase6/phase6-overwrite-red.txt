@@ -1,0 +1,31 @@
+✔ serial autosave acknowledges only its snapshot and preserves edits made during a write (2.0986ms)
+✔ Vault identity isolates same-name tabs and conflicts stop autosave without losing either version (362.8548ms)
+✔ failed saves retain drafts, stable open never resets them, and moving requires drained queues (0.5368ms)
+✖ a failed conflict overwrite cannot publish an external hash with old document text (0.7484ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 3
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 443.1267
+
+✖ failing tests:
+
+test at src\features\knowledge\NoteSessions.test.ts:28:1
+✖ a failed conflict overwrite cannot publish an external hash with old document text (0.7484ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'hashB' !== 'hashA'
+  
+      at TestContext.<anonymous> (file:///C:/Users/14582/Documents/ChatGPT/%E8%A7%86%E9%A2%91%E4%B8%8B%E8%BD%BD%E8%BD%AF%E4%BB%B6/artifacts/v051/staging/src/features/knowledge/NoteSessions.test.ts:31:55)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'hashB',
+    expected: 'hashA',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

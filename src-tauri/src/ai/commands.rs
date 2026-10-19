@@ -4,6 +4,63 @@ use std::sync::Arc;
 use tauri::State;
 type Ai<'a> = State<'a, Arc<AiService>>;
 #[tauri::command]
+pub async fn ai_list_templates(ai: Ai<'_>) -> AppResult<Vec<super::templates::AnalysisTemplate>> {
+    let ai = ai.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || ai.templates())
+        .await
+        .map_err(|_| "读取模板失败")?
+}
+#[tauri::command]
+pub async fn ai_template_versions(
+    ai: Ai<'_>,
+    id: String,
+) -> AppResult<Vec<super::templates::AnalysisTemplate>> {
+    let ai = ai.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || ai.template_versions(&id))
+        .await
+        .map_err(|_| "读取模板版本失败")?
+}
+#[tauri::command]
+pub async fn ai_save_template(
+    ai: Ai<'_>,
+    template: super::templates::AnalysisTemplate,
+    expected_version: Option<u32>,
+) -> AppResult<super::templates::AnalysisTemplate> {
+    let ai = ai.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || ai.save_template(template, expected_version))
+        .await
+        .map_err(|_| "保存模板失败")?
+}
+#[tauri::command]
+pub async fn ai_copy_template(
+    ai: Ai<'_>,
+    id: String,
+    version: Option<u32>,
+) -> AppResult<super::templates::AnalysisTemplate> {
+    let ai = ai.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || ai.copy_template(&id, version))
+        .await
+        .map_err(|_| "复制模板失败")?
+}
+#[tauri::command]
+pub async fn ai_set_template_favorite(
+    ai: Ai<'_>,
+    id: String,
+    favorite: bool,
+) -> AppResult<super::templates::AnalysisTemplate> {
+    let ai = ai.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || ai.favorite_template(&id, favorite))
+        .await
+        .map_err(|_| "收藏模板失败")?
+}
+#[tauri::command]
+pub async fn ai_delete_template(ai: Ai<'_>, id: String, expected_version: u32) -> AppResult<()> {
+    let ai = ai.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || ai.delete_template(&id, expected_version))
+        .await
+        .map_err(|_| "删除模板失败")?
+}
+#[tauri::command]
 pub async fn ai_list_analyses(
     ai: Ai<'_>,
     status: Option<String>,

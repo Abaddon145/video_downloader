@@ -1,0 +1,37 @@
+import {createRequire} from 'node:module';
+import {mkdirSync,writeFileSync} from 'node:fs';
+import assert from 'node:assert/strict';
+import {installKnowledgeFixture} from './fixtures/knowledge.mjs';
+import {installGeneralTemplateFixture} from './fixtures/general-template.mjs';
+const require=createRequire(import.meta.url),{chromium}=require(process.env.PLAYWRIGHT_MODULE??'playwright');
+const out=process.env.QA_OUTPUT_DIR??'artifacts/v051/note-sessions';mkdirSync(out,{recursive:true});
+const browser=await chromium.launch({executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true});
+const checks=[];
+try{
+ const context=await browser.newContext({viewport:{width:1440,height:1000}});await context.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
+ await context.addInitScript(installKnowledgeFixture);await context.addInitScript(installGeneralTemplateFixture);
+ await context.addInitScript(()=>{const original=window.__TAURI_INTERNALS__.invoke;window.qaWriteDelay=600;window.qaWrites=[];
+  window.__TAURI_INTERNALS__.invoke=async(command,args={})=>{if(command==='knowledge_write'){window.qaWrites.push(structuredClone(args));await new Promise(r=>setTimeout(r,window.qaWriteDelay));if(window.qaWriteError)throw Error('模拟磁盘写入失败');}return original(command,args);};});
+ const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(10000);await page.goto(process.env.QA_BASE_URL??'http://127.0.0.1:5260');
+ await page.getByRole('navigation',{name:'主导航'}).getByRole('button',{name:'知识库',exact:true}).click();await page.getByRole('button',{name:'选择已有知识库',exact:true}).click();
+ await page.getByRole('button',{name:'展开文件夹 映流',exact:true}).click();await page.getByRole('button',{name:'打开笔记 课程总结.md',exact:true}).click();
+ const editor=page.getByRole('textbox',{name:'Markdown正文',exact:true});
+ const type=async text=>{await editor.click();await page.keyboard.press('Control+a');await page.keyboard.insertText(text);};
+ await type('# 第一份草稿');await page.waitForFunction(()=>window.qaWrites.length===1);await type('# 保存中继续输入');
+ assert.equal(await editor.getAttribute('contenteditable'),'true');await page.getByRole('button',{name:'打开笔记 第三.md',exact:true}).click();await type('# 另一篇草稿');
+ await page.getByRole('tab',{name:/课程总结.md/}).click();assert.equal(await editor.innerText(),'# 保存中继续输入');
+ await page.waitForFunction(()=>window.kb.notes['映流/课程总结.md']==='# 保存中继续输入'&&window.kb.notes['映流/第三.md']==='# 另一篇草稿');
+ checks.push('editing stays enabled during autosave; two tabs save serial snapshots independently and retain later edits');
+ await page.evaluate(()=>{window.qaWriteDelay=0;window.qaWriteError=true;});await type('# 磁盘失败仍保留');await page.getByText('保存失败，草稿保留',{exact:true}).waitFor();
+ await page.getByRole('tab',{name:/第三.md/}).click();await page.getByRole('tab',{name:/课程总结.md/}).click();assert.equal(await editor.innerText(),'# 磁盘失败仍保留');
+ await page.getByRole('navigation',{name:'主导航'}).getByRole('button',{name:'下载',exact:true}).click();const leave=page.getByRole('dialog',{name:'未保存的修改',exact:true});await leave.waitFor();await leave.getByRole('button',{name:'继续编辑',exact:true}).click();
+ checks.push('failed autosave keeps the draft across tab changes and guards leaving all open documents');
+ await page.waitForFunction(()=>window.calls.some(c=>c.command==='knowledge_set_pending_edits'&&c.args.pending));
+ await page.evaluate(()=>window.emitAI({},'knowledge-exit-requested'));const exit=page.getByRole('dialog',{name:'未保存的修改',exact:true});await exit.waitFor();assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.command==='exit_app').length),0);await exit.getByRole('button',{name:'继续编辑',exact:true}).click();checks.push('tray exit with pending edits asks before shutdown and keeps failed drafts');
+ await page.evaluate(()=>{window.qaWriteError=false;window.kb.notes['映流/课程总结.md']='# Obsidian 外部修改';window.emitAI({id:'映流/课程总结.md',vaultId:'vault-test'},'knowledge-file-changed');});
+ const conflict=page.getByRole('dialog',{name:'文件已在其他程序中修改',exact:true});await conflict.waitFor();assert.equal(await editor.innerText(),'# 磁盘失败仍保留');assert.equal(await page.evaluate(()=>window.kb.notes['映流/课程总结.md']),'# Obsidian 外部修改');
+ await conflict.getByRole('button',{name:'重新加载外部版本',exact:true}).click();assert.equal(await editor.innerText(),'# Obsidian 外部修改');checks.push('external changes pause autosave and preserve both versions until explicit resolution');
+ await page.getByRole('button',{name:'关闭笔记 映流/第三.md',exact:true}).click();assert.equal(await page.getByRole('tab',{name:/第三.md/}).count(),0);
+ await page.screenshot({animations:'disabled',path:`${out}/multi-note-1440.png`});await page.setViewportSize({width:880,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({animations:'disabled',path:`${out}/multi-note-880.png`});
+ checks.push('closing a saved tab and 880px layout remain usable');assert.deepEqual(errors,[]);writeFileSync(`${out}/checks.json`,JSON.stringify({mocked:true,passed:true,checks},null,2));console.log(`PASS ${checks.length} multi-note/autosave UI groups`);
+}finally{await browser.close();}

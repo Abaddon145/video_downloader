@@ -65,6 +65,3 @@ try{
  await check('removing the current lesson stops playback and skips progress against the deleted row',async()=>{await start();await page.waitForFunction(()=>document.querySelector('.learning-video video')?.readyState>=2);await page.locator('.learning-video video').evaluate(v=>v.play());await page.getByRole('button',{name:'课程操作 操作回归课',exact:true}).click();await page.getByRole('button',{name:'移除课程 操作回归课',exact:true}).click();await page.getByRole('button',{name:'确认移除',exact:true}).click();await page.getByRole('region',{name:'学习播放器',exact:true}).waitFor({state:'hidden',timeout:2500});await page.waitForTimeout(100);assert.equal(await page.evaluate(()=>window.testCalls.slice(window.deletedAt).filter(c=>['learning_live_progress','learning_save_progress'].includes(c.command)).length),0);assert.ok(await page.evaluate(()=>window.testCalls.some(c=>c.command==='learning_cancel_player')));});
  assert.deepEqual(errors,[]);const failed=checks.filter(c=>!c.passed).length;writeFileSync(out+'/final-review-ui.json',JSON.stringify({passed:checks.length-failed,failed,checks,errors},null,2));console.log(JSON.stringify({passed:checks.length-failed,failed}));process.exitCode=failed?1:0;
 }finally{await browser.close();}
-
-
-

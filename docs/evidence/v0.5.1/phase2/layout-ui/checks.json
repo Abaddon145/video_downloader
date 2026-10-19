@@ -1,0 +1,18 @@
+{
+  "mocked": true,
+  "passed": true,
+  "nativeStarts": 1,
+  "noteLoads": 2,
+  "checks": [
+    "three views share series actions",
+    "sort passed to backend before paging",
+    "continue toggle",
+    "columns/width/category collapse reload",
+    "four layouts retain native session and notes",
+    "panel collapse retains tab",
+    "keyboard boundaries and pointer resize",
+    "fullscreen retains native session",
+    "native overlay hide and restore",
+    "880px no overflow"
+  ]
+}

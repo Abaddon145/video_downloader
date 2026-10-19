@@ -24,6 +24,16 @@ pub struct LearningSeries {
     pub total_items: i64,
     pub completed_items: i64,
     pub total_duration_ms: i64,
+    #[serde(default)]
+    pub available_items: i64,
+    #[serde(default)]
+    pub ai_completed_items: i64,
+    #[serde(default)]
+    pub ai_active_items: i64,
+    #[serde(default)]
+    pub ai_failed_items: i64,
+    #[serde(default)]
+    pub last_played_at: Option<i64>,
     pub favorite: bool,
     pub sort_order: i64,
     pub created_at: i64,
@@ -186,6 +196,10 @@ pub enum LearningChange {
     RenameItem {
         id: String,
         title: String,
+    },
+    MoveItem {
+        id: String,
+        series_id: String,
     },
     DeleteItem {
         id: String,

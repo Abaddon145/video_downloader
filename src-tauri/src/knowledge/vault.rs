@@ -111,6 +111,13 @@ fn raster(path: &str) -> bool {
             .contains(&extension.to_ascii_lowercase().as_str())
     })
 }
+fn attachment_limit(path: &str) -> usize {
+    if raster(path) {
+        8 * 1024 * 1024
+    } else {
+        20 * 1024 * 1024
+    }
+}
 fn fs_error(error: std::io::Error) -> String {
     format!(
         "知识库文件操作失败：{}",
@@ -855,10 +862,22 @@ impl Vault {
         }
     }
     pub fn create_raster(&self, rel: &str, bytes: &[u8]) -> AppResult<()> {
+        if !raster(rel) {
+            return Err("图片附件类型无效".into());
+        }
+        self.create_attachment(rel, bytes)
+    }
+    pub fn read_attachment(&self, rel: &str) -> AppResult<Vec<u8>> {
         let _lock = self.mutation.lock().map_err(|_| "知识库暂时不可用")?;
         let path = validate_relative(rel, false)?;
-        if !raster(&path) || bytes.is_empty() || bytes.len() > 8 * 1024 * 1024 {
-            return Err("图片附件类型或大小无效".into());
+        let (_parent, mut file) = self.open_document(&path)?;
+        read_bytes_from(&mut file, attachment_limit(&path))
+    }
+    pub fn create_attachment(&self, rel: &str, bytes: &[u8]) -> AppResult<()> {
+        let _lock = self.mutation.lock().map_err(|_| "知识库暂时不可用")?;
+        let path = validate_relative(rel, false)?;
+        if (raster(&path) && bytes.is_empty()) || bytes.len() > attachment_limit(&path) {
+            return Err("附件大小无效（图片最多8MiB，其他文件最多20MiB）".into());
         }
         let parent = self.parent(&path)?;
         let temporary = format!(".yingliu-new-{}.tmp", crate::ffmpeg::runner::new_id());
@@ -924,12 +943,27 @@ impl Vault {
         rename(&file, target.handle(), &target.name, false)
     }
     pub fn trash(&self, rel: &str, expected_hash: &str) -> AppResult<String> {
-        self.trash_kind(rel, expected_hash, false)
+        self.trash_kind(rel, expected_hash, false, false)
     }
     pub fn trash_raster(&self, rel: &str, expected_hash: &str) -> AppResult<String> {
-        self.trash_kind(rel, expected_hash, true)
+        if !raster(rel) {
+            return Err("附件不是允许的图片类型".into());
+        }
+        self.trash_kind(rel, expected_hash, true, false)
     }
-    fn trash_kind(&self, rel: &str, expected_hash: &str, allow_raster: bool) -> AppResult<String> {
+    pub fn trash_attachment(&self, rel: &str, expected_hash: &str) -> AppResult<String> {
+        self.trash_kind(rel, expected_hash, true, false)
+    }
+    pub fn delete_empty_directory(&self, rel: &str) -> AppResult<String> {
+        self.trash_kind(rel, "", false, true)
+    }
+    fn trash_kind(
+        &self,
+        rel: &str,
+        expected_hash: &str,
+        allow_raster: bool,
+        empty_only: bool,
+    ) -> AppResult<String> {
         let _lock = self.mutation.lock().map_err(|_| "知识库暂时不可用")?;
         let path = validate_relative(rel, false)?;
         let parent = self.parent(&path)?;
@@ -943,18 +977,37 @@ impl Vault {
             None,
         )?;
         if info(&file)?.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY != 0 {
+            if allow_raster {
+                return Err("附件操作不接受目录".into());
+            }
+            if empty_only && !names(&file)?.is_empty() {
+                return Err("笔记本中仍有文件，请先移动其中内容".into());
+            }
+            if empty_only {
+                // Windows rechecks emptiness atomically; a racing external write must not be moved or deleted.
+                let disposition = FILE_DISPOSITION_INFO { DeleteFile: true };
+                unsafe {
+                    checked(SetFileInformationByHandle(
+                        file.as_raw_handle(),
+                        FileDispositionInfo,
+                        (&disposition as *const FILE_DISPOSITION_INFO).cast(),
+                        size_of::<FILE_DISPOSITION_INFO>() as u32,
+                    ))?;
+                }
+                return Ok(path);
+            }
             if !expected_hash.is_empty() {
                 return Err("目录回收不接受文件内容哈希".into());
             }
             preflight(&file, 0, &mut 0)?;
         } else {
+            if empty_only {
+                return Err("仅能删除空笔记本".into());
+            }
             if allow_raster {
-                if !raster(&path) {
-                    return Err("附件不是允许的图片类型".into());
-                }
                 if format!(
                     "{:x}",
-                    Sha256::digest(read_bytes_from(&mut file, 8 * 1024 * 1024)?)
+                    Sha256::digest(read_bytes_from(&mut file, attachment_limit(&path))?)
                 ) != expected_hash
                 {
                     return Err("附件已变化，请重新确认".into());
@@ -981,6 +1034,9 @@ impl Vault {
         Ok(format!("{TRASH}/{destination}"))
     }
     pub fn list(&self, parent: &str, page: u32) -> AppResult<TreePage> {
+        self.list_sorted(parent, page, false)
+    }
+    pub fn list_sorted(&self, parent: &str, page: u32, reverse: bool) -> AppResult<TreePage> {
         let _lock = self.mutation.lock().map_err(|_| "知识库暂时不可用")?;
         let path = validate_relative(parent, true)?;
         let mut chain = vec![self.root_handle()?];
@@ -1031,10 +1087,18 @@ impl Vault {
             });
         }
         items.sort_by(|a, b| {
-            b.directory
-                .cmp(&a.directory)
-                .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
-                .then_with(|| a.name.cmp(&b.name))
+            b.directory.cmp(&a.directory).then_with(|| {
+                let order = a
+                    .name
+                    .to_lowercase()
+                    .cmp(&b.name.to_lowercase())
+                    .then_with(|| a.name.cmp(&b.name));
+                if reverse {
+                    order.reverse()
+                } else {
+                    order
+                }
+            })
         });
         let total = items.len() as u64;
         let page = page.max(1);

@@ -50,9 +50,10 @@ impl LearningService {
         category: Option<&str>,
         page: u32,
         favorite: bool,
+        sort: &str,
     ) -> AppResult<LibraryHome> {
         let home = self.with(|r| {
-            let (series, total) = r.list_series(query, category, page, favorite)?;
+            let (series, total) = r.list_series_sorted(query, category, page, favorite, sort)?;
             Ok(LibraryHome {
                 categories: r.categories()?,
                 series,
@@ -119,6 +120,10 @@ impl LearningService {
             }
             LearningChange::RenameItem { id, title } => {
                 r.rename_item(&id, &title)?;
+                Ok(id)
+            }
+            LearningChange::MoveItem { id, series_id } => {
+                r.move_item_to_series(&id, &series_id)?;
                 Ok(id)
             }
             LearningChange::DeleteItem {

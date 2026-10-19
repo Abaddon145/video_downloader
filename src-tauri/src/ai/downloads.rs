@@ -57,6 +57,10 @@ impl AiService {
                         return Ok(());
                     }
                     ai.start_analysis(AnalysisRequest {
+                        template_id: None,
+                        template_version: None,
+                        reuse_analysis_id: None,
+                        auto_generate_note: None,
                         path: source.to_string_lossy().into_owned(),
                         item_id: Some(item.id),
                         mode: view.settings.default_mode,

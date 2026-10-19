@@ -1,0 +1,21 @@
+
+> video-downloader@0.5.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 2114 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                              0.41 kB │ gzip:   0.30 kB
+dist/assets/KnowledgePage-Tps7jEGl.css       7.81 kB │ gzip:   1.93 kB
+dist/assets/index-DBouO1sP.css              81.47 kB │ gzip:  16.40 kB
+dist/assets/AiTemplateManager-fUhAJBpH.js    6.65 kB │ gzip:   2.72 kB
+dist/assets/index-DNhBNjkK.js              498.48 kB │ gzip: 154.18 kB
+dist/assets/KnowledgePage-DQJZrxxq.js      817.26 kB │ gzip: 274.36 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 3.37s

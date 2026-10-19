@@ -56,6 +56,10 @@ fn live_deepseek_video_acceptance() {
     let before = digest(&source);
     let analysis = ai
         .start_analysis(AnalysisRequest {
+            template_id: None,
+            template_version: None,
+            reuse_analysis_id: None,
+            auto_generate_note: None,
             force: false,
             path: source.to_string_lossy().into_owned(),
             item_id: None,

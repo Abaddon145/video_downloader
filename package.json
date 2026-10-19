@@ -1,13 +1,13 @@
 {
   "name": "video-downloader",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.5.1",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "node --test src/lib.test.ts src/media.test.ts src/features/learning/lib.test.ts src/features/ai/lib.test.ts src/features/knowledge/lib.test.ts",
+    "test": "node --test src/lib.test.ts src/media.test.ts src/features/learning/lib.test.ts src/features/ai/lib.test.ts src/features/knowledge/lib.test.ts src/features/workspace/defaults.test.ts src/features/workspace/pending.test.ts src/components/resize.test.ts src/components/contextMenu.test.ts src/downloadContextActions.test.ts src/components/media/mediaContextActions.test.ts src/features/ai/templates.test.ts src/features/workspace/presets.test.ts src/features/workspace/appearance.test.ts src/features/knowledge/NoteSessions.test.ts src/features/knowledge/MarkdownRoundTrip.test.ts",
     "tauri": "tauri",
     "prepare:tools": "node scripts/prepare-tools.mjs"
   },
@@ -15,6 +15,9 @@
     "@codemirror/lang-markdown": "6.5.2",
     "@tauri-apps/api": "^2.11.0",
     "@tauri-apps/plugin-dialog": "^2.7.0",
+    "@tiptap/pm": "3.32.0",
+    "@tiptap/react": "3.32.0",
+    "@tiptap/starter-kit": "3.32.0",
     "@uiw/react-codemirror": "4.25.12",
     "lucide-react": "^0.577.0",
     "react": "^19.2.0",

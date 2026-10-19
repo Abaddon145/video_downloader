@@ -175,6 +175,52 @@ fn local_paths_safe_names_and_recovery_are_strict() {
 }
 
 #[test]
+fn removing_media_records_requires_terminal_tasks_and_preserves_files() {
+    use super::runner;
+    let dir = std::env::temp_dir().join(format!("media-record-remove-{}", runner::new_id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("source.mp4");
+    let output = dir.join("result.mp4");
+    std::fs::write(&source, b"source").unwrap();
+    std::fs::write(&output, b"result").unwrap();
+    let task = |id: &str, status| MediaTask {
+        id: id.into(),
+        kind: MediaOperation::Transcode,
+        input_path: source.to_string_lossy().into_owned(),
+        output_path: Some(output.to_string_lossy().into_owned()),
+        request: request(MediaOperation::Transcode, OutputFormat::Mp4),
+        status,
+        phase: String::new(),
+        progress: None,
+        speed: None,
+        processed_time: None,
+        total_duration: None,
+        eta: None,
+        error: None,
+        logs: vec![],
+        created_at: 0,
+        finished_at: None,
+    };
+    let tasks = vec![
+        task("done", MediaTaskStatus::Completed),
+        task("active", MediaTaskStatus::Processing),
+    ];
+    assert!(
+        runner::records_after_removal(&tasks, &["done".into(), "active".into()], None).is_err()
+    );
+    assert!(runner::records_after_removal(&tasks, &["done".into()], Some("done")).is_err());
+    assert_eq!(
+        runner::records_after_removal(&tasks, &["done".into()], None)
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(std::fs::read(&source).unwrap(), b"source");
+    assert_eq!(std::fs::read(&output).unwrap(), b"result");
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn media_paths_reject_all_network_and_device_namespaces_before_io() {
     for path in [
         r"\\?\unc\server\share\a.mp4",
