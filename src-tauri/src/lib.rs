@@ -110,16 +110,8 @@ async fn update_engine(service: AppService<'_>) -> AppResult<EngineInfo> {
         .map_err(|e| e.to_string())?
 }
 #[tauri::command]
-fn exit_app(app: tauri::AppHandle, service: AppService<'_>, media: AppMedia<'_>) -> AppResult<()> {
-    app.state::<Arc<learning::service::LearningService>>()
-        .native_shutdown();
-    app.state::<Arc<learning::service::LearningService>>()
-        .flush_progress()?;
-    media.shutdown()?;
-    app.state::<Arc<ai::service::AiService>>().shutdown();
-    service.shutdown();
-    app.exit(0);
-    Ok(())
+fn exit_app(app: tauri::AppHandle, confirm_pending: Option<bool>) -> AppResult<()> {
+    request_exit(&app, confirm_pending.unwrap_or(false))
 }
 
 type AppMedia<'a> = State<'a, Arc<ffmpeg::runner::MediaService>>;
@@ -229,6 +221,33 @@ fn show_main(app: &tauri::AppHandle) {
     }
 }
 
+fn request_exit(app: &tauri::AppHandle, confirm_pending: bool) -> AppResult<()> {
+    if !confirm_pending
+        && app
+            .state::<Arc<knowledge::service::KnowledgeService>>()
+            .pending_edits()
+    {
+        use tauri::Emitter;
+        show_main(app);
+        app.emit("knowledge-exit-requested", ())
+            .map_err(|_| "无法显示未保存笔记提示")?;
+        return Ok(());
+    }
+    save_and_exit(app)
+}
+fn save_and_exit(app: &tauri::AppHandle) -> AppResult<()> {
+    app.state::<Arc<learning::service::LearningService>>()
+        .native_shutdown();
+    app.state::<Arc<learning::service::LearningService>>()
+        .flush_progress()?;
+    app.state::<Arc<ffmpeg::runner::MediaService>>()
+        .shutdown()?;
+    app.state::<Arc<ai::service::AiService>>().shutdown();
+    app.state::<Arc<Service>>().shutdown();
+    app.exit(0);
+    Ok(())
+}
+
 pub fn run() {
     let _instance = match native::single_instance() {
         Ok(Some(handle)) => handle,
@@ -322,6 +341,8 @@ pub fn run() {
             ai_transcript,
             ai_course_transcript,
             ai_get_settings,
+            ai::note_organize::ai_organize_note,
+            ai::note_organize::ai_cancel_note_organize,
             ai_save_settings,
             ai_set_deepseek_key,
             ai_clear_deepseek_key,
@@ -335,6 +356,17 @@ pub fn run() {
             knowledge_delete_analysis_bundle,
             learning_capture_note,
             knowledge_get_settings,
+            knowledge_set_pending_edits,
+            knowledge_note_metadata,
+            knowledge_set_note_metadata,
+            knowledge_note_collection,
+            knowledge_note_versions,
+            knowledge_note_version,
+            knowledge_restore_note_version,
+            knowledge_import_attachment,
+            knowledge_attachments,
+            knowledge_delete_attachment,
+            knowledge_export_attachment,
             knowledge_set_vault,
             knowledge_tree,
             knowledge_read,
@@ -403,20 +435,8 @@ pub fn run() {
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => show_main(app),
                     "exit" => {
-                        app.state::<Arc<learning::service::LearningService>>()
-                            .native_shutdown();
-                        match app
-                            .state::<Arc<learning::service::LearningService>>()
-                            .flush_progress()
-                            .and_then(|_| {
-                                app.state::<Arc<ffmpeg::runner::MediaService>>().shutdown()
-                            }) {
-                            Ok(()) => {
-                                app.state::<Arc<ai::service::AiService>>().shutdown();
-                                app.state::<Arc<Service>>().shutdown();
-                                app.exit(0);
-                            }
-                            Err(error) => native::message(&error),
+                        if let Err(error) = request_exit(app, false) {
+                            native::message(&error);
                         }
                     }
                     _ => {}

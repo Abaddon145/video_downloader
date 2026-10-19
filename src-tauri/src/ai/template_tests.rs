@@ -8,7 +8,7 @@ fn template_migration_preserves_legacy_analysis_and_adds_snapshot_storage() {
         .conn
         .query_row("SELECT version FROM schema_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(version, 7);
+    assert_eq!(version, 8);
     repo.conn.execute("INSERT INTO video_analyses(id,source_path,source_fingerprint,status,analysis_mode,model,prompt_version,created_at,updated_at) VALUES('old','keep.mp4','fp','completed','standard','deepseek-flash','v0.5.0-1',1,1)", []).unwrap();
     let saved: (String, u32, Option<String>) = repo.conn.query_row("SELECT template_id,template_version,template_snapshot FROM video_analyses WHERE id='old'", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
     assert_eq!(saved, ("general".into(), 0, None));
@@ -199,7 +199,7 @@ fn template_migration_from_real_v6_preserves_paid_results_and_future_schema() {
             .unwrap();
         assert_eq!(raw, summary);
         repo.conn
-            .execute("UPDATE schema_version SET version=8", [])
+            .execute("UPDATE schema_version SET version=9", [])
             .unwrap();
     }
     assert!(Repository::open(&path).is_err());
@@ -208,7 +208,7 @@ fn template_migration_from_real_v6_preserves_paid_results_and_future_schema() {
         conn.query_row("SELECT version FROM schema_version", [], |r| r
             .get::<_, i64>(0))
             .unwrap(),
-        8
+        9
     );
     drop(conn);
     std::fs::remove_dir_all(dir).unwrap();

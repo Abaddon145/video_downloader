@@ -14,6 +14,7 @@ pub struct AiService {
     pub(crate) runtime: Mutex<super::jobs::AiRuntime>,
     pub(crate) models: Mutex<super::whisper_models::ModelRuntime>,
     pub(crate) question_busy: std::sync::atomic::AtomicBool,
+    pub(crate) note_organize: Mutex<Option<(String, Arc<super::jobs::Control>)>>,
 }
 impl AiService {
     pub fn new(app: tauri::AppHandle, data: &Path, resources: &Path) -> Arc<Self> {
@@ -38,6 +39,7 @@ impl AiService {
             runtime: Mutex::new(Default::default()),
             models: Mutex::new(Default::default()),
             question_busy: std::sync::atomic::AtomicBool::new(false),
+            note_organize: Mutex::new(None),
         })
     }
     pub(crate) fn with<R>(&self, f: impl FnOnce(&mut Repository) -> AppResult<R>) -> AppResult<R> {
@@ -85,7 +87,18 @@ impl AiService {
         {
             let mut s = self.settings.lock().map_err(|_| "AI设置暂时不可用")?;
             super::settings::save_settings(&self.data, &settings)?;
+            let revoke_notes = !settings.allow_note_text;
             *s = Ok(settings);
+            if revoke_notes {
+                if let Some((_, control)) = self
+                    .note_organize
+                    .lock()
+                    .map_err(|_| "笔记整理状态不可用")?
+                    .as_ref()
+                {
+                    control.cancel();
+                }
+            }
         }
         self.settings()
     }

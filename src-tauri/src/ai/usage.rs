@@ -14,6 +14,7 @@ impl Repository {
             "question",
             "explain",
             "reference_repair",
+            "note_organize",
         ]
         .contains(&operation)
             || model.len() > 128
@@ -51,6 +52,7 @@ pub struct UsageModel {
 pub struct UsageView {
     pub analyses: u64,
     pub questions: u64,
+    pub note_requests: u64,
     pub models: Vec<UsageModel>,
 }
 impl super::service::AiService {
@@ -62,7 +64,8 @@ impl super::service::AiService {
    let (analyses,questions)=r.conn.query_row("SELECT count(DISTINCT CASE WHEN operation IN ('chunk','summary') THEN analysis_id END),COALESCE(sum(CASE WHEN operation IN ('question','explain') THEN 1 ELSE 0 END),0) FROM ai_usage WHERE created_at>=?1 AND created_at<?2",rusqlite::params![from_ms,to_ms],|r|Ok((r.get(0)?,r.get(1)?))).map_err(db::error)?;
    let mut statement=r.conn.prepare("SELECT model,COALESCE(sum(input_tokens),0),COALESCE(sum(output_tokens),0),COALESCE(sum(cached_tokens),0),sum(CASE WHEN input_tokens IS NULL OR output_tokens IS NULL OR cached_tokens IS NULL THEN 1 ELSE 0 END) FROM ai_usage WHERE created_at>=?1 AND created_at<?2 GROUP BY model ORDER BY model").map_err(db::error)?;
    let models=statement.query_map(rusqlite::params![from_ms,to_ms],|r|Ok(UsageModel{model:r.get(0)?,input_tokens:r.get(1)?,output_tokens:r.get(2)?,cached_tokens:r.get(3)?,unknown_requests:r.get(4)?})).map_err(db::error)?.collect::<Result<Vec<_>,_>>().map_err(db::error)?;
-   Ok(UsageView{analyses,questions,models})
+   let note_requests=r.conn.query_row("SELECT count(*) FROM ai_usage WHERE operation='note_organize' AND created_at>=?1 AND created_at<?2",rusqlite::params![from_ms,to_ms],|r|r.get(0)).map_err(db::error)?;
+   Ok(UsageView{analyses,questions,note_requests,models})
   })
     }
 }

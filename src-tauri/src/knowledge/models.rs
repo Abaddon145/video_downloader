@@ -126,3 +126,60 @@ pub struct KnowledgeAsset {
     pub mime: String,
     pub base64: String,
 }
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteMetadata {
+    pub path: String,
+    pub favorite: bool,
+    pub template: bool,
+    pub available: bool,
+}
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteMetadataPage {
+    pub items: Vec<NoteMetadata>,
+    pub total: u64,
+    pub page: u32,
+}
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteVersion {
+    pub id: String,
+    pub path: String,
+    pub hash: String,
+    pub bytes: u64,
+    pub created_at: i64,
+}
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteVersionPage {
+    pub items: Vec<NoteVersion>,
+    pub total: u64,
+    pub page: u32,
+}
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteVersionContent {
+    #[serde(flatten)]
+    pub version: NoteVersion,
+    pub text: String,
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteAttachment {
+    pub path: String,
+    pub name: String,
+    pub hash: String,
+    pub bytes: u64,
+    pub imported_at: i64,
+    pub state: String,
+}
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteAttachmentPage {
+    pub items: Vec<NoteAttachment>,
+    pub total: u64,
+    pub page: u32,
+}

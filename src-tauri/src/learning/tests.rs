@@ -75,7 +75,7 @@ fn learning_database_creates_versioned_tables_and_enforces_relations() {
     let version: i64 = c
         .query_row("SELECT version FROM schema_version", [], |r| r.get(0))
         .expect("schema must exist");
-    assert_eq!(version, 7);
+    assert_eq!(version, 8);
     for table in [
         "categories",
         "series",
@@ -83,6 +83,9 @@ fn learning_database_creates_versioned_tables_and_enforces_relations() {
         "playback_progress",
         "video_notes",
         "learning_settings",
+        "knowledge_note_metadata",
+        "knowledge_note_versions",
+        "knowledge_attachments",
     ] {
         assert_eq!(
             c.query_row(
@@ -95,6 +98,69 @@ fn learning_database_creates_versioned_tables_and_enforces_relations() {
         );
     }
     assert!(c.execute("INSERT INTO series_items(id,series_id,title,created_at,updated_at) VALUES('a','missing','A',0,0)",[]).is_err());
+}
+
+#[test]
+fn learning_v8_upgrades_v7_and_rolls_back_an_incomplete_migration() {
+    let dir = std::env::temp_dir().join(crate::ffmpeg::runner::new_id());
+    std::fs::create_dir(&dir).unwrap();
+    let path = dir.join("learning.db");
+    {
+        let c = db::open(&path).unwrap();
+        c.execute_batch("INSERT INTO learning_settings VALUES('v7','preserved'); DROP TABLE knowledge_note_metadata; DROP TABLE knowledge_note_versions; DROP TABLE knowledge_attachments; UPDATE schema_version SET version=7; PRAGMA user_version=7;").unwrap();
+    }
+    {
+        let c = db::open(&path).unwrap();
+        assert_eq!(
+            c.query_row(
+                "SELECT value FROM learning_settings WHERE key='v7'",
+                [],
+                |r| r.get::<_, String>(0)
+            )
+            .unwrap(),
+            "preserved"
+        );
+        assert_eq!(
+            c.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            8
+        );
+        for table in [
+            "knowledge_note_metadata",
+            "knowledge_note_versions",
+            "knowledge_attachments",
+        ] {
+            assert_eq!(
+                c.query_row(
+                    &format!("SELECT count(*) FROM pragma_foreign_key_list('{table}')"),
+                    [],
+                    |r| r.get::<_, i64>(0)
+                )
+                .unwrap(),
+                0
+            );
+        }
+        c.execute_batch("DROP TABLE knowledge_note_metadata; DROP TABLE knowledge_note_versions; DROP TABLE knowledge_attachments; CREATE TABLE knowledge_note_versions(incompatible TEXT); UPDATE schema_version SET version=7; PRAGMA user_version=7;").unwrap();
+    }
+    assert!(db::open(&path).is_err());
+    let c = Connection::open(&path).unwrap();
+    assert_eq!(
+        c.query_row("SELECT version FROM schema_version", [], |r| r
+            .get::<_, i64>(0))
+            .unwrap(),
+        7
+    );
+    assert_eq!(
+        c.query_row(
+            "SELECT count(*) FROM sqlite_master WHERE name='knowledge_note_metadata'",
+            [],
+            |r| r.get::<_, i64>(0)
+        )
+        .unwrap(),
+        0
+    );
+    drop(c);
+    std::fs::remove_dir_all(dir).unwrap();
 }
 #[test]
 fn learning_database_migrates_v1_preserving_data_and_rejects_future_schema() {
@@ -784,7 +850,7 @@ fn learning_v4_upgrade_preserves_progress_notes_and_source_thumbnail() {
         r.conn
             .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
             .unwrap(),
-        7
+        8
     );
     let item = r.item("i").unwrap();
     assert_eq!(item.progress.position_ms, 450000);
@@ -1175,7 +1241,7 @@ fn ai_v6_migrates_actual_v5_and_preserves_learning_data() {
         assert_eq!(
             c.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
                 .unwrap(),
-            7
+            8
         );
         assert_eq!(
             c.query_row("SELECT position_ms FROM playback_progress", [], |r| r

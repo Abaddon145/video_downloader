@@ -11,6 +11,7 @@ pub enum RequestPurpose {
     Summary,
     Question,
     ReferenceRepair,
+    NoteOrganize,
 }
 impl RequestPurpose {
     fn output_tokens(self) -> u32 {
@@ -19,6 +20,7 @@ impl RequestPurpose {
             Self::Summary => 16384,
             Self::Question => 2048,
             Self::ReferenceRepair => 2048,
+            Self::NoteOrganize => 8192,
         }
     }
 }
@@ -82,6 +84,15 @@ impl DeepSeekClient {
             .user_agent(concat!("Yingliu/", env!("CARGO_PKG_VERSION")))
     }
     async fn request(&self, key: &[u8], path: &str, body: Option<&Value>) -> AppResult<Value> {
+        self.request_checked(key, path, body, &|| Ok(())).await
+    }
+    async fn request_checked(
+        &self,
+        key: &[u8],
+        path: &str,
+        body: Option<&Value>,
+        check: &(dyn Fn() -> AppResult<()> + Sync),
+    ) -> AppResult<Value> {
         let mut auth =
             reqwest::header::HeaderValue::from_bytes(&[b"Bearer ".as_slice(), key].concat())
                 .map_err(|_| "API密钥格式无效")?;
@@ -97,6 +108,7 @@ impl DeepSeekClient {
             } else {
                 self.http.get(&url)
             };
+            check()?;
             let mut response = req
                 .header(reqwest::header::AUTHORIZATION, auth.clone())
                 .send()
@@ -161,7 +173,18 @@ impl DeepSeekClient {
         messages: Vec<Value>,
         purpose: RequestPurpose,
     ) -> AppResult<ChatReply> {
-        let v=self.request(key,"/chat/completions",Some(&json!({"model":model,"messages":messages,"response_format":{"type":"json_object"},"max_tokens":purpose.output_tokens(),"stream":false,"thinking":{"type":"disabled"}}))).await?;
+        self.chat_for_checked(key, model, messages, purpose, &|| Ok(()))
+            .await
+    }
+    pub(crate) async fn chat_for_checked(
+        &self,
+        key: &[u8],
+        model: &str,
+        messages: Vec<Value>,
+        purpose: RequestPurpose,
+        check: &(dyn Fn() -> AppResult<()> + Sync),
+    ) -> AppResult<ChatReply> {
+        let v=self.request_checked(key,"/chat/completions",Some(&json!({"model":model,"messages":messages,"response_format":{"type":"json_object"},"max_tokens":purpose.output_tokens(),"stream":false,"thinking":{"type":"disabled"}})),check).await?;
         let text = v
             .pointer("/choices/0/message/content")
             .and_then(Value::as_str);

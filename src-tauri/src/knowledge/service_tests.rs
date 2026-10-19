@@ -1,6 +1,237 @@
 use super::{service::KnowledgeService, vault::WriteOutcome};
+
+#[test]
+fn pending_edits_default_and_toggle_without_database_state() {
+    let (root, service, _) = setup();
+    assert!(!service.pending_edits());
+    service.set_pending_edits(true);
+    assert!(service.pending_edits());
+    service.set_pending_edits(false);
+    assert!(!service.pending_edits());
+    drop(service);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn workspace_write_checkpoints_exact_bytes_before_replacement() {
+    let (root, s, vault) = setup();
+    let id = s
+        .set_vault(vault.to_str().unwrap(), false)
+        .unwrap()
+        .vault_id
+        .unwrap();
+    let original = "\u{feff}---\r\ntags: [中文]\r\n---\r\n[[Wiki]]\r\n- [ ] task\r\n```rust\r\nfn main() {}\r\n```\r\n";
+    s.create(&id, "映流/history.md", original, false).unwrap();
+    let old = s.read(&id, "映流/history.md").unwrap().data;
+    s.write(&id, &old.path, "# New", &old.hash).unwrap();
+    let db = crate::learning::db::open(&root.join("data/learning.db")).unwrap();
+    let saved: (String, String) = db
+        .query_row(
+            "SELECT text,content_hash FROM knowledge_note_versions WHERE vault_id=?1 AND path=?2",
+            rusqlite::params![id, old.path],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(saved, (original.into(), old.hash));
+    let current = s.read(&id, &old.path).unwrap().data;
+    s.write(&id, &old.path, &current.text, &current.hash)
+        .unwrap();
+    assert_eq!(
+        db.query_row("SELECT count(*) FROM knowledge_note_versions", [], |r| r
+            .get::<_, i64>(0))
+            .unwrap(),
+        1
+    );
+    drop(db);
+    drop(s);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn workspace_history_failure_blocks_write_and_conflict_adds_no_version() {
+    let (root, s, vault) = setup();
+    let id = s
+        .set_vault(vault.to_str().unwrap(), false)
+        .unwrap()
+        .vault_id
+        .unwrap();
+    s.create(&id, "映流/history.md", "original", false).unwrap();
+    let old = s.read(&id, "映流/history.md").unwrap().data;
+    let db = crate::learning::db::open(&root.join("data/learning.db")).unwrap();
+    db.execute_batch("CREATE TRIGGER fail_history BEFORE INSERT ON knowledge_note_versions BEGIN SELECT RAISE(ABORT,'history unavailable'); END;").unwrap();
+    assert!(s.write(&id, &old.path, "new", &old.hash).is_err());
+    assert_eq!(fs::read(vault.join(&old.path)).unwrap(), b"original");
+    db.execute_batch("DROP TRIGGER fail_history;").unwrap();
+    assert!(matches!(
+        s.write(&id, &old.path, "new", "stale").unwrap().outcome,
+        WriteOutcome::Conflict(_)
+    ));
+    assert_eq!(
+        db.query_row("SELECT count(*) FROM knowledge_note_versions", [], |r| r
+            .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+    drop(db);
+    drop(s);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn workspace_metadata_and_history_survive_index_clear_and_restore_is_guarded() {
+    let (root, s, vault) = setup();
+    let id = s
+        .set_vault(vault.to_str().unwrap(), false)
+        .unwrap()
+        .vault_id
+        .unwrap();
+    s.create(
+        &id,
+        "映流/template.md",
+        "---\ntags: [保留]\n---\n[[Wiki]]",
+        false,
+    )
+    .unwrap();
+    s.set_note_metadata(&id, "映流/template.md", true, true)
+        .unwrap();
+    let first = s.read(&id, "映流/template.md").unwrap().data;
+    s.write(&id, &first.path, "new", &first.hash).unwrap();
+    let version = s
+        .note_versions(&id, &first.path, 1)
+        .unwrap()
+        .data
+        .items
+        .remove(0);
+    let other = root.join("other");
+    fs::create_dir(&other).unwrap();
+    let other_id = s
+        .set_vault(other.to_str().unwrap(), false)
+        .unwrap()
+        .vault_id
+        .unwrap();
+    s.create(&other_id, &first.path, "other", false).unwrap();
+    assert!(
+        !s.note_metadata(&other_id, &first.path)
+            .unwrap()
+            .data
+            .favorite
+    );
+    assert!(s
+        .note_versions(&other_id, &first.path, 1)
+        .unwrap()
+        .data
+        .items
+        .is_empty());
+    assert!(s.write(&id, &first.path, "bad", &first.hash).is_err());
+    s.set_vault(vault.to_str().unwrap(), false).unwrap();
+    let metadata = s.note_collection(&id, "templates", 1).unwrap().data;
+    assert_eq!(metadata.total, 1);
+    assert!(
+        metadata.items[0].favorite && metadata.items[0].template && metadata.items[0].available
+    );
+    assert!(s.note_collection(&id, "DROP TABLE", 1).is_err());
+    assert!(s.note_version(&id, "映流/else.md", &version.id).is_err());
+    assert!(matches!(
+        s.restore_note_version(&id, &first.path, &version.id, "stale")
+            .unwrap()
+            .outcome,
+        WriteOutcome::Conflict(_)
+    ));
+    let current = s.read(&id, &first.path).unwrap().data;
+    s.restore_note_version(&id, &first.path, &version.id, &current.hash)
+        .unwrap();
+    assert_eq!(s.read(&id, &first.path).unwrap().data.text, first.text);
+    assert_eq!(s.note_versions(&id, &first.path, 1).unwrap().data.total, 2);
+    s.create(&id, "映流/from-template.md", &first.text, false)
+        .unwrap();
+    assert_eq!(
+        s.read(&id, "映流/from-template.md").unwrap().data.text,
+        first.text
+    );
+    assert!(s
+        .create(&id, "映流/from-template.md", "overwrite", false)
+        .is_err());
+    assert!(
+        !s.note_metadata(&id, "映流/from-template.md")
+            .unwrap()
+            .data
+            .template
+    );
+    drop(s);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn workspace_move_migrates_metadata_history_and_attachments_and_compensates_sql_failure() {
+    let (root, s, vault) = setup();
+    let id = s
+        .set_vault(vault.to_str().unwrap(), false)
+        .unwrap()
+        .vault_id
+        .unwrap();
+    s.create(&id, "映流/folder/n.md", "old", false).unwrap();
+    s.set_note_metadata(&id, "映流/folder/n.md", true, true)
+        .unwrap();
+    let doc = s.read(&id, "映流/folder/n.md").unwrap().data;
+    s.write(&id, &doc.path, "new", &doc.hash).unwrap();
+    let db = crate::learning::db::open(&root.join("data/learning.db")).unwrap();
+    db.execute(
+        "INSERT INTO knowledge_attachments VALUES(?1,'映流/folder/a.pdf','a.pdf','hash',4,1)",
+        [&id],
+    )
+    .unwrap();
+    db.execute(
+        "INSERT INTO knowledge_note_metadata VALUES(?1,'映流/folder-sibling/n.md',1,0)",
+        [&id],
+    )
+    .unwrap();
+    db.execute(
+        "INSERT INTO knowledge_note_metadata VALUES('other-vault','映流/folder/n.md',1,0)",
+        [],
+    )
+    .unwrap();
+    db.execute_batch("CREATE TRIGGER fail_metadata BEFORE UPDATE OF path ON knowledge_note_versions BEGIN SELECT RAISE(ABORT,'history move failed'); END;").unwrap();
+    assert!(s.move_note(&id, "映流/folder", "映流/renamed").is_err());
+    assert!(vault.join(&doc.path).exists());
+    assert!(!vault.join("映流/renamed").exists());
+    assert_eq!(
+        s.note_collection(&id, "favorites", 1)
+            .unwrap()
+            .data
+            .items
+            .iter()
+            .filter(|x| x.path == doc.path)
+            .count(),
+        1
+    );
+    db.execute_batch("DROP TRIGGER fail_metadata;").unwrap();
+    s.move_note(&id, "映流/folder", "映流/renamed").unwrap();
+    assert!(
+        s.note_metadata(&id, "映流/renamed/n.md")
+            .unwrap()
+            .data
+            .favorite
+    );
+    assert_eq!(
+        s.note_versions(&id, "映流/renamed/n.md", 1)
+            .unwrap()
+            .data
+            .total,
+        1
+    );
+    assert_eq!(
+        db.query_row("SELECT path FROM knowledge_attachments", [], |r| r
+            .get::<_, String>(0))
+            .unwrap(),
+        "映流/renamed/a.pdf"
+    );
+    assert_eq!(db.query_row("SELECT count(*) FROM knowledge_note_metadata WHERE path='映流/folder-sibling/n.md' OR vault_id='other-vault'",[],|r|r.get::<_,i64>(0)).unwrap(),2);
+    drop(db);
+    drop(s);
+    fs::remove_dir_all(root).unwrap();
+}
 use std::{fs, path::PathBuf};
-fn setup() -> (PathBuf, std::sync::Arc<KnowledgeService>, PathBuf) {
+pub(super) fn setup() -> (PathBuf, std::sync::Arc<KnowledgeService>, PathBuf) {
     let root = std::env::temp_dir().join(format!(
         "knowledge-service-{}",
         crate::ffmpeg::runner::new_id()

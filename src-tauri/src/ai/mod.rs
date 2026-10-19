@@ -8,6 +8,9 @@ pub mod jobs;
 pub mod keyframes;
 mod materials;
 pub mod models;
+pub mod note_organize;
+#[cfg(test)]
+mod note_organize_tests;
 pub mod prompts;
 pub mod qa;
 #[cfg(test)]

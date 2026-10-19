@@ -591,6 +591,11 @@ impl AiService {
         Ok(())
     }
     pub fn shutdown(&self) {
+        if let Ok(active) = self.note_organize.lock() {
+            if let Some((_, control)) = active.as_ref() {
+                control.cancel();
+            }
+        }
         if let Ok(mut runtime) = self.runtime.lock() {
             runtime.exiting = true;
             if let Some((_, control)) = &runtime.active {

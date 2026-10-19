@@ -14,15 +14,16 @@ use std::{
     },
 };
 
-struct State {
-    settings: KnowledgeSettings,
-    db: Connection,
+pub(super) struct State {
+    pub(super) settings: KnowledgeSettings,
+    pub(super) db: Connection,
     obsidian_attempt: Option<(ObsidianBinding, ObsidianOpenResult)>,
 }
 pub struct KnowledgeService {
     data: PathBuf,
     state: Mutex<AppResult<State>>,
     indexing: AtomicBool,
+    pending_edits: AtomicBool,
 }
 fn load(data: &Path) -> AppResult<State> {
     let file = data.join("knowledge-settings.json");
@@ -41,7 +42,7 @@ fn load(data: &Path) -> AppResult<State> {
         obsidian_attempt: None,
     })
 }
-fn ensure_directory(vault: &Vault, relative: &str) -> AppResult<()> {
+pub(super) fn ensure_directory(vault: &Vault, relative: &str) -> AppResult<()> {
     let relative = vault::validate_relative(relative, false)?;
     let mut parent = String::new();
     for part in relative.split('/') {
@@ -68,7 +69,14 @@ impl KnowledgeService {
             data: data.into(),
             state: Mutex::new(load(data)),
             indexing: AtomicBool::new(false),
+            pending_edits: AtomicBool::new(false),
         })
+    }
+    pub fn pending_edits(&self) -> bool {
+        self.pending_edits.load(Ordering::SeqCst)
+    }
+    pub fn set_pending_edits(&self, pending: bool) {
+        self.pending_edits.store(pending, Ordering::SeqCst);
     }
     fn with_state<T>(&self, work: impl FnOnce(&mut State) -> AppResult<T>) -> AppResult<T> {
         let mut state = self.state.lock().map_err(|_| "知识库暂时不可用")?;
@@ -81,7 +89,7 @@ impl KnowledgeService {
                 .map_err(|e| format!("知识库初始化失败：{e}"))?,
         )
     }
-    fn with_vault<T>(
+    pub(super) fn with_vault<T>(
         &self,
         id: &str,
         work: impl FnOnce(&mut State, &Vault) -> AppResult<T>,
@@ -180,6 +188,25 @@ impl KnowledgeService {
         expected_hash: &str,
     ) -> AppResult<KnowledgeWrite> {
         self.with_vault(id, |s, v| {
+            let current = v.read(path)?;
+            if current.hash != expected_hash {
+                return Ok(KnowledgeWrite {
+                    vault_id: id.into(),
+                    outcome: WriteOutcome::Conflict(current),
+                    index_warning: None,
+                });
+            }
+            if current.text == text {
+                return Ok(KnowledgeWrite {
+                    vault_id: id.into(),
+                    outcome: WriteOutcome::Saved(current),
+                    index_warning: None,
+                });
+            }
+            if text.len() > 5 * 1024 * 1024 {
+                return Err("Markdown 超过 5 MiB 限制".into());
+            }
+            super::workspace::checkpoint(&s.db, id, &current)?;
             let outcome = v.write(path, text, expected_hash)?;
             let doc = match &outcome {
                 WriteOutcome::Saved(d) | WriteOutcome::Conflict(d) => d,
@@ -209,7 +236,16 @@ impl KnowledgeService {
                 None
             } else {
                 let doc = v.create_file(&path, text)?;
-                metadata_warning(index::upsert(&mut s.db, &doc))
+                let reset = s.db.execute(
+                    "DELETE FROM knowledge_note_metadata WHERE vault_id=?1 AND path=?2",
+                    rusqlite::params![id, doc.path],
+                );
+                let index = metadata_warning(index::upsert(&mut s.db, &doc));
+                if reset.is_err() {
+                    Some("文件已创建，但旧收藏/模板标记未能清理，请重新确认标记".into())
+                } else {
+                    index
+                }
             };
             Ok(KnowledgeMutation {
                 vault_id: id.into(),
@@ -237,6 +273,11 @@ impl KnowledgeService {
         self.with_vault(id, |s, v| {
             let from = vault::validate_relative(from, false)?;
             let to = vault::validate_relative(to, false)?;
+            let source = from.to_lowercase();
+            let attachments = s.settings.attachments_folder.to_lowercase();
+            if attachments == source || attachments.starts_with(&(source + "/")) {
+                return Err("当前附件目录及其上级目录不能移动或重命名".into());
+            }
             if to.to_lowercase().starts_with(&(from.to_lowercase()+"/")) {
                 return Err("不能将笔记本移动到它自己的内部".into());
             }
@@ -251,6 +292,9 @@ impl KnowledgeService {
                 moved = true;
                 for table in ["video_analyses", "video_notes"] {
                     tx.execute(&format!("UPDATE {table} SET markdown_path=?3||substr(markdown_path,length(?2)+1) WHERE markdown_vault_id=?1 AND (markdown_path=?2 OR substr(markdown_path,1,length(?2)+1)=?2||'/')"),rusqlite::params![id,from,to]).map_err(db::error)?;
+                }
+                for table in ["knowledge_note_metadata", "knowledge_note_versions", "knowledge_attachments"] {
+                    tx.execute(&format!("UPDATE {table} SET path=?3||substr(path,length(?2)+1) WHERE vault_id=?1 AND (path=?2 OR substr(path,1,length(?2)+1)=?2||'/')"),rusqlite::params![id,from,to]).map_err(db::error)?;
                 }
                 tx.commit().map_err(db::error)
             })();

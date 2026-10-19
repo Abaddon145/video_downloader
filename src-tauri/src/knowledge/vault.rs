@@ -111,6 +111,13 @@ fn raster(path: &str) -> bool {
             .contains(&extension.to_ascii_lowercase().as_str())
     })
 }
+fn attachment_limit(path: &str) -> usize {
+    if raster(path) {
+        8 * 1024 * 1024
+    } else {
+        20 * 1024 * 1024
+    }
+}
 fn fs_error(error: std::io::Error) -> String {
     format!(
         "知识库文件操作失败：{}",
@@ -855,10 +862,22 @@ impl Vault {
         }
     }
     pub fn create_raster(&self, rel: &str, bytes: &[u8]) -> AppResult<()> {
+        if !raster(rel) {
+            return Err("图片附件类型无效".into());
+        }
+        self.create_attachment(rel, bytes)
+    }
+    pub fn read_attachment(&self, rel: &str) -> AppResult<Vec<u8>> {
         let _lock = self.mutation.lock().map_err(|_| "知识库暂时不可用")?;
         let path = validate_relative(rel, false)?;
-        if !raster(&path) || bytes.is_empty() || bytes.len() > 8 * 1024 * 1024 {
-            return Err("图片附件类型或大小无效".into());
+        let (_parent, mut file) = self.open_document(&path)?;
+        read_bytes_from(&mut file, attachment_limit(&path))
+    }
+    pub fn create_attachment(&self, rel: &str, bytes: &[u8]) -> AppResult<()> {
+        let _lock = self.mutation.lock().map_err(|_| "知识库暂时不可用")?;
+        let path = validate_relative(rel, false)?;
+        if (raster(&path) && bytes.is_empty()) || bytes.len() > attachment_limit(&path) {
+            return Err("附件大小无效（图片最多8MiB，其他文件最多20MiB）".into());
         }
         let parent = self.parent(&path)?;
         let temporary = format!(".yingliu-new-{}.tmp", crate::ffmpeg::runner::new_id());
@@ -927,6 +946,12 @@ impl Vault {
         self.trash_kind(rel, expected_hash, false, false)
     }
     pub fn trash_raster(&self, rel: &str, expected_hash: &str) -> AppResult<String> {
+        if !raster(rel) {
+            return Err("附件不是允许的图片类型".into());
+        }
+        self.trash_kind(rel, expected_hash, true, false)
+    }
+    pub fn trash_attachment(&self, rel: &str, expected_hash: &str) -> AppResult<String> {
         self.trash_kind(rel, expected_hash, true, false)
     }
     pub fn delete_empty_directory(&self, rel: &str) -> AppResult<String> {
@@ -952,6 +977,9 @@ impl Vault {
             None,
         )?;
         if info(&file)?.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY != 0 {
+            if allow_raster {
+                return Err("附件操作不接受目录".into());
+            }
             if empty_only && !names(&file)?.is_empty() {
                 return Err("笔记本中仍有文件，请先移动其中内容".into());
             }
@@ -977,12 +1005,9 @@ impl Vault {
                 return Err("仅能删除空笔记本".into());
             }
             if allow_raster {
-                if !raster(&path) {
-                    return Err("附件不是允许的图片类型".into());
-                }
                 if format!(
                     "{:x}",
-                    Sha256::digest(read_bytes_from(&mut file, 8 * 1024 * 1024)?)
+                    Sha256::digest(read_bytes_from(&mut file, attachment_limit(&path))?)
                 ) != expected_hash
                 {
                     return Err("附件已变化，请重新确认".into());
