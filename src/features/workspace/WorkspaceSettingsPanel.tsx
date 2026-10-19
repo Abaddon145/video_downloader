@@ -47,4 +47,3 @@ export function WorkspaceSettingsPanel(){
   <p className="help">配置仅包含外观、布局和预设，不包含 API Key、Cookie 或账号信息。</p>{error&&<p role="alert" className="error-text">{error}</p>}{notice&&<p role="status" className="help">{notice}</p>}
  </div></section>;
 }
-

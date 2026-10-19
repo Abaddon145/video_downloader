@@ -1,0 +1,189 @@
+warn: could not canonicalize path C:\Users\14582
+   Compiling video-downloader v0.5.0 (C:\Users\14582\Documents\ChatGPT\视频下载软件\artifacts\v051\staging\src-tauri)
+error[E0599]: no method named `import_attachment` found for struct `std::sync::Arc<knowledge::service::KnowledgeService>` in the current scope
+ --> src\knowledge\attachment_tests.rs:8:17
+  |
+8 |     let first=s.import_attachment(&id,"中文 空格 #.pdf",b"%PDF-fixture").unwrap().data;
+  |                 ^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<knowledge::service::KnowledgeService>`
+
+error[E0599]: no method named `import_attachment` found for struct `std::sync::Arc<knowledge::service::KnowledgeService>` in the current scope
+ --> src\knowledge\attachment_tests.rs:9:18
+  |
+9 |     let second=s.import_attachment(&id,"中文 空格 #.pdf",b"other").unwrap().data;
+  |                  ^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<knowledge::service::KnowledgeService>`
+
+error[E0599]: no method named `attachment_bytes` found for struct `std::sync::Arc<knowledge::service::KnowledgeService>` in the current scope
+  --> src\knowledge\attachment_tests.rs:13:18
+   |
+13 |     assert_eq!(s.attachment_bytes(&id,&first.path).unwrap(),b"%PDF-fixture");
+   |                  ^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<knowledge::service::KnowledgeService>`
+
+error[E0599]: no method named `attachments` found for struct `std::sync::Arc<knowledge::service::KnowledgeService>` in the current scope
+  --> src\knowledge\attachment_tests.rs:14:18
+   |
+14 |     assert_eq!(s.attachments(&id,1).unwrap().data.total,2);
+   |                  ^^^^^^^^^^^ method not found in `std::sync::Arc<knowledge::service::KnowledgeService>`
+
+error[E0599]: no method named `attachment_bytes` found for struct `std::sync::Arc<knowledge::service::KnowledgeService>` in the current scope
+  --> src\knowledge\attachment_tests.rs:15:15
+   |
+15 |     assert!(s.attachment_bytes(&id,".obsidian/config.json").is_err());
+   |               ^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<knowledge::service::KnowledgeService>`
+
+error[E0599]: no method named `attachment_bytes` found for struct `std::sync::Arc<knowledge::service::KnowledgeService>` in the current scope
+  --> src\knowledge\attachment_tests.rs:16:15
+   |
+16 |     assert!(s.attachment_bytes(&id,"Attachments/../映流/n.md").is_err());
+   |               ^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<knowledge::service::KnowledgeService>`
+
+error[E0599]: no method named `import_attachment` found for struct `std::sync::Arc<knowledge::service::KnowledgeService>` in the current scope
+  --> src\knowledge\attachment_tests.rs:17:15
+   |
+17 |     assert!(s.import_attachment(&id,"large.bin",&vec![0;20*1024*1024+1]).is_err());
+   |               ^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<knowledge::service::KnowledgeService>`
+
+error[E0599]: no method named `import_attachment` found for struct `std::sync::Arc<knowledge::service::KnowledgeService>` in the current scope
+  --> src\knowledge\attachment_tests.rs:18:15
+   |
+18 |     assert!(s.import_attachment(&id,"large.png",&vec![0;8*1024*1024+1]).is_err());
+   |               ^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<knowledge::service::KnowledgeService>`
+
+error[E0599]: no method named `import_attachment` found for struct `std::sync::Arc<knowledge::service::KnowledgeService>` in the current scope
+  --> src\knowledge\attachment_tests.rs:19:15
+   |
+19 |     assert!(s.import_attachment(&id,"empty.png",b"").is_err());
+   |               ^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<knowledge::service::KnowledgeService>`
+
+error[E0599]: no method named `import_attachment` found for struct `std::sync::Arc<knowledge::service::KnowledgeService>` in the current scope
+  --> src\knowledge\attachment_tests.rs:20:17
+   |
+20 |     let empty=s.import_attachment(&id,"empty.txt",b"").unwrap().data;
+   |                 ^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<knowledge::service::KnowledgeService>`
+
+error[E0599]: no method named `attachment_bytes` found for struct `std::sync::Arc<knowledge::service::KnowledgeService>` in the current scope
+  --> src\knowledge\attachment_tests.rs:24:15
+   |
+24 |     assert!(s.attachment_bytes(&id,&first.path).is_err());
+   |               ^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<knowledge::service::KnowledgeService>`
+
+error[E0599]: no method named `import_attachment` found for struct `std::sync::Arc<knowledge::service::KnowledgeService>` in the current scope
+  --> src\knowledge\attachment_tests.rs:35:15
+   |
+35 |     assert!(s.import_attachment(&id,"a.pdf",b"content").is_err());
+   |               ^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<knowledge::service::KnowledgeService>`
+
+error[E0599]: no method named `import_attachment` found for struct `std::sync::Arc<knowledge::service::KnowledgeService>` in the current scope
+  --> src\knowledge\attachment_tests.rs:38:16
+   |
+38 |     let file=s.import_attachment(&id,"a.pdf",b"content").unwrap().data;
+   |                ^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<knowledge::service::KnowledgeService>`
+
+error[E0599]: no method named `delete_attachment` found for struct `std::sync::Arc<knowledge::service::KnowledgeService>` in the current scope
+  --> src\knowledge\attachment_tests.rs:40:15
+   |
+40 |     assert!(s.delete_attachment(&id,&file.path,&file.hash).is_err());
+   |               ^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<knowledge::service::KnowledgeService>`
+
+error[E0599]: no method named `attachments` found for struct `std::sync::Arc<knowledge::service::KnowledgeService>` in the current scope
+  --> src\knowledge\attachment_tests.rs:41:19
+   |
+41 |     let changed=s.attachments(&id,1).unwrap().data.items.remove(0);
+   |                   ^^^^^^^^^^^ method not found in `std::sync::Arc<knowledge::service::KnowledgeService>`
+
+error[E0599]: no method named `delete_attachment` found for struct `std::sync::Arc<knowledge::service::KnowledgeService>` in the current scope
+  --> src\knowledge\attachment_tests.rs:44:7
+   |
+44 |     s.delete_attachment(&id,&changed.path,&changed.hash).unwrap();
+   |       ^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<knowledge::service::KnowledgeService>`
+
+error[E0599]: no method named `attachments` found for struct `std::sync::Arc<knowledge::service::KnowledgeService>` in the current scope
+  --> src\knowledge\attachment_tests.rs:46:18
+   |
+46 |     assert_eq!(s.attachments(&id,1).unwrap().data.total,0);
+   |                  ^^^^^^^^^^^ method not found in `std::sync::Arc<knowledge::service::KnowledgeService>`
+
+error[E0599]: no method named `delete_attachment` found for struct `std::sync::Arc<knowledge::service::KnowledgeService>` in the current scope
+  --> src\knowledge\attachment_tests.rs:49:15
+   |
+49 |     assert!(s.delete_attachment(&id,&note.path,&note.hash).is_err());
+   |               ^^^^^^^^^^^^^^^^^ method not found in `std::sync::Arc<knowledge::service::KnowledgeService>`
+
+error[E0599]: no method named `create_attachment` found for struct `vault::Vault` in the current scope
+  --> src\knowledge\attachment_tests.rs:59:15
+   |
+59 |     assert!(v.create_attachment("Attachments/../../outside.pdf",b"x").is_err());
+   |               ^^^^^^^^^^^^^^^^^ method not found in `vault::Vault`
+   |
+  ::: src\knowledge\vault.rs:57:1
+   |
+57 | pub struct Vault {
+   | ---------------- method `create_attachment` not found for this struct
+
+error[E0599]: no method named `create_attachment` found for struct `vault::Vault` in the current scope
+  --> src\knowledge\attachment_tests.rs:61:7
+   |
+61 |     v.create_attachment("Attachments/boundary.png",&image).unwrap();
+   |       ^^^^^^^^^^^^^^^^^ method not found in `vault::Vault`
+   |
+  ::: src\knowledge\vault.rs:57:1
+   |
+57 | pub struct Vault {
+   | ---------------- method `create_attachment` not found for this struct
+
+error[E0599]: no method named `create_attachment` found for struct `vault::Vault` in the current scope
+  --> src\knowledge\attachment_tests.rs:62:15
+   |
+62 |     assert!(v.create_attachment("Attachments/boundary.png",b"overwrite").is_err());
+   |               ^^^^^^^^^^^^^^^^^ method not found in `vault::Vault`
+   |
+  ::: src\knowledge\vault.rs:57:1
+   |
+57 | pub struct Vault {
+   | ---------------- method `create_attachment` not found for this struct
+
+error[E0599]: no method named `read_attachment` found for struct `vault::Vault` in the current scope
+  --> src\knowledge\attachment_tests.rs:63:18
+   |
+63 |     assert_eq!(v.read_attachment("Attachments/boundary.png").unwrap(),image);
+   |                  ^^^^^^^^^^^^^^^ method not found in `vault::Vault`
+   |
+  ::: src\knowledge\vault.rs:57:1
+   |
+57 | pub struct Vault {
+   | ---------------- method `read_attachment` not found for this struct
+
+error[E0599]: no method named `create_attachment` found for struct `vault::Vault` in the current scope
+  --> src\knowledge\attachment_tests.rs:65:7
+   |
+65 |     v.create_attachment("Attachments/boundary.bin",&binary).unwrap();
+   |       ^^^^^^^^^^^^^^^^^ method not found in `vault::Vault`
+   |
+  ::: src\knowledge\vault.rs:57:1
+   |
+57 | pub struct Vault {
+   | ---------------- method `create_attachment` not found for this struct
+
+error[E0599]: no method named `read_attachment` found for struct `vault::Vault` in the current scope
+  --> src\knowledge\attachment_tests.rs:66:18
+   |
+66 |     assert_eq!(v.read_attachment("Attachments/boundary.bin").unwrap(),binary);
+   |                  ^^^^^^^^^^^^^^^ method not found in `vault::Vault`
+   |
+  ::: src\knowledge\vault.rs:57:1
+   |
+57 | pub struct Vault {
+   | ---------------- method `read_attachment` not found for this struct
+
+error[E0599]: no method named `trash_attachment` found for struct `vault::Vault` in the current scope
+  --> src\knowledge\attachment_tests.rs:67:15
+   |
+67 |     assert!(v.trash_attachment("Attachments","").is_err());
+   |               ^^^^^^^^^^^^^^^^ method not found in `vault::Vault`
+   |
+  ::: src\knowledge\vault.rs:57:1
+   |
+57 | pub struct Vault {
+   | ---------------- method `trash_attachment` not found for this struct
+
+For more information about this error, try `rustc --explain E0599`.
+error: could not compile `video-downloader` (lib test) due to 25 previous errors

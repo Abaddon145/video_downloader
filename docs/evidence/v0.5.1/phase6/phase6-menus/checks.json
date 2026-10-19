@@ -1,0 +1,13 @@
+{
+  "mocked": true,
+  "passed": true,
+  "checks": [
+    "download menus freeze selected IDs; unselected keyboard target remains single",
+    "completed downloads hand selected media paths to the real batch panel",
+    "series keyboard submenu and focus return; course move uses clicked item ID",
+    "context overlay hides and restores mocked native viewport",
+    "knowledge rename/delete targets the right-clicked path and preserves the open note",
+    "media bulk organize and confirmed safe record removal use selected IDs",
+    "880px menu stays within viewport without JavaScript errors"
+  ]
+}

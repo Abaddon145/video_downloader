@@ -1,0 +1,13 @@
+{
+  "mocked": true,
+  "passed": true,
+  "checks": [
+    "ten purposes, read-only builtins, copied custom versions and favorites independent of depth/privacy",
+    "purpose sections seek video and new regeneration retains historical snapshot and results",
+    "changing purpose requests material reuse with a new identity and never forces full retranscription",
+    "deleting custom template leaves frozen analysis history usable",
+    "template read failure blocks paid analysis while local transcription remains available",
+    "settings template manager works without an API key and sends no paid request",
+    "880px template workspace fits and has no JavaScript errors"
+  ]
+}

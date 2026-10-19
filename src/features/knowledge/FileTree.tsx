@@ -17,7 +17,8 @@ export function FileTree({vaultId,selected,revision,onOpen,onAction}:TreeProps){
   {id:'toggle',label:'展开 / 折叠',group:'view'},
   {id:'delete-empty',label:'删除空笔记本',danger:true,group:'remove'}
  ]:[
-  {id:'open',label:'打开',group:'open'},
+  {id:'open',label:'打开',group:'open'},{id:'open-new-tab',label:'在新标签页打开',group:'open'},
+  {id:'favorite',label:'切换收藏',group:'knowledge'},{id:'history',label:'版本历史',group:'knowledge'},{id:'ai',label:'AI整理笔记',group:'knowledge'},
   {id:'rename',label:'重命名',group:'edit'},{id:'move',label:'移动',group:'edit'},{id:'duplicate',label:'复制笔记',group:'edit'},
   {id:'export',label:'导出 Markdown',group:'file'},
   {id:'obsidian',label:'在 Obsidian 中打开',group:'obsidian'},{id:'configure-obsidian',label:'配置 Obsidian 联动',group:'obsidian'},

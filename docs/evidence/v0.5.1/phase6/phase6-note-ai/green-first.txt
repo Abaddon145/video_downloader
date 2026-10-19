@@ -1,0 +1,40 @@
+warn: could not canonicalize path C:\Users\14582
+    Blocking waiting for file lock on build directory
+   Compiling video-downloader v0.5.0 (C:\Users\14582\Documents\ChatGPT\视频下载软件\artifacts\v051\staging\src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.47s
+     Running unittests src\lib.rs (artifacts\v051\staging\src-tauri\target\debug\deps\video_downloader_lib-305ad3679f5cc789.exe)
+
+running 5 tests
+test ai::note_organize_tests::organize_settings_revocation_cancels_active_control ... ok
+test ai::note_organize_tests::organize_requires_note_consent_and_reads_only_supplied_text ... ok
+test ai::note_organize_tests::organize_records_usage_for_invalid_or_truncated_replies ... FAILED
+test ai::note_organize_tests::organize_preview_never_mutates_source ... ok
+test ai::note_organize_tests::organize_rechecks_consent_cancel_and_source_before_retry ... FAILED
+
+failures:
+
+---- ai::note_organize_tests::organize_records_usage_for_invalid_or_truncated_replies stdout ----
+
+thread '<unnamed>' (42092) panicked at src\ai\note_organize_tests.rs:54:59:
+called `Result::unwrap()` on an `Err` value: Os { code: 10035, kind: WouldBlock, message: "无法立即完成一个非阻止性套接字操作。" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'ai::note_organize_tests::organize_records_usage_for_invalid_or_truncated_replies' (17904) panicked at src\ai\note_organize_tests.rs:136:68:
+called `Result::unwrap()` on an `Err` value: Any { .. }
+
+---- ai::note_organize_tests::organize_rechecks_consent_cancel_and_source_before_retry stdout ----
+
+thread '<unnamed>' (23976) panicked at src\ai\note_organize_tests.rs:54:59:
+called `Result::unwrap()` on an `Err` value: Os { code: 10035, kind: WouldBlock, message: "无法立即完成一个非阻止性套接字操作。" }
+
+thread 'ai::note_organize_tests::organize_rechecks_consent_cancel_and_source_before_retry' (47396) panicked at src\ai\note_organize_tests.rs:121:77:
+called `Result::unwrap()` on an `Err` value: Any { .. }
+
+
+failures:
+    ai::note_organize_tests::organize_rechecks_consent_cancel_and_source_before_retry
+    ai::note_organize_tests::organize_records_usage_for_invalid_or_truncated_replies
+
+test result: FAILED. 3 passed; 2 failed; 0 ignored; 0 measured; 234 filtered out; finished in 0.86s
+
+error: test failed, to rerun pass `--lib`

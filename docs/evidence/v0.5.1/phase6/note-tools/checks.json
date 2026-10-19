@@ -1,0 +1,13 @@
+{
+  "mocked": true,
+  "passed": true,
+  "checks": [
+    "Obsidian Wiki/image/HTML content falls back to source without writing or executing",
+    "supported rich-text edits save ordinary Markdown through the same autosave queue",
+    "favorite/template metadata and historical source preview restore through a guarded draft",
+    "templates create an independent plain Markdown copy",
+    "explicit native attachment import inserts a Vault-relative link",
+    "AI requires global and per-call consent, sends only the selected text and previews before explicit apply",
+    "mind map and the complete knowledge toolbar fit at 880 CSS px"
+  ]
+}

@@ -7,7 +7,7 @@ export interface AnalysisTemplate {
 }
 export interface AiSettings {
  model: string; defaultMode: AnalysisMode; whisperModel: 'base' | 'small' | 'custom';
- allowTranscript: boolean; allowImages: boolean; cleanTemporaryFiles: boolean;
+ allowTranscript: boolean; allowImages: boolean; allowNoteText?:boolean; cleanTemporaryFiles: boolean;
  autoGenerateNotes: boolean; autoAnalyzeDownloads: boolean; chunkConcurrency: number;
 }
 export interface AiSettingsView { settings: AiSettings; hasApiKey: boolean }
@@ -33,7 +33,7 @@ export interface TranscriptSegment {id:string;analysisId:string;segmentIndex:num
 export interface TranscriptPage {items:TranscriptSegment[];total:number;page:number}
 export interface QuestionReply {id:string;analysisId:string;answer:string;references:{startMs:number;endMs:number;label:string}[]}
 export interface UsageModel {model:string;inputTokens:number;outputTokens:number;cachedTokens:number;unknownRequests:number}
-export interface UsageView {analyses:number;questions:number;models:UsageModel[]}
+export interface UsageView {analyses:number;questions:number;noteRequests?:number;models:UsageModel[]}
 export interface CacheInfo {bytes:number;clearableBytes:number}
 export interface WhisperModel {id:string;label:string;filename:string;bytes:number;sha256:string;url:string;source:string;installed:boolean}
 export interface ModelDownload {id:string;modelId:string;status:string;received:number;total:number;error:string|null}

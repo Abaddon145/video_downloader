@@ -1,0 +1,11 @@
+{
+  "mocked": true,
+  "passed": true,
+  "checks": [
+    "editing stays enabled during autosave; two tabs save serial snapshots independently and retain later edits",
+    "failed autosave keeps the draft across tab changes and guards leaving all open documents",
+    "tray exit with pending edits asks before shutdown and keeps failed drafts",
+    "external changes pause autosave and preserve both versions until explicit resolution",
+    "closing a saved tab and 880px layout remain usable"
+  ]
+}

@@ -95,5 +95,3 @@ try{
  }
  writeFileSync(`${out}/checks.json`,JSON.stringify({mocked:true,passed:true,checks},null,2));console.log(`PASS ${checks.length} workspace appearance and preset UI groups (DPI scale factors are simulated)`);
 }finally{await browser.close();}
-
-
