@@ -1,3 +1,4 @@
+import {useFeedback} from './components/Feedback';
 import {AiSettings} from './features/ai/AiSettings';
 import {WorkspaceSettingsPanel} from './features/workspace/WorkspaceSettingsPanel';
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNode, type MouseEvent as ReactMouseEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react';
@@ -219,7 +220,7 @@ export default function App() {
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [listPage, setListPage] = useState(1);
-  const [toast, setToast] = useState('');
+  const {notify}=useFeedback();
   const [previewOpen, setPreviewOpen] = useState(false);
   const [results, setResults] = useState<PreviewResult[]>([]);
   const [expected, setExpected] = useState(0);
@@ -238,7 +239,7 @@ export default function App() {
   const previewVisible = useRef(false); previewVisible.current = previewOpen;
   const lastSnapshot = useRef<AppSnapshot|null>(null);
   const cookieFailureTask = useRef<string|null>(null);
-  const notify = useCallback((message: string) => setToast(message), []);
+
   const receiveSnapshot = useCallback((data: AppSnapshot) => {
     const previous=lastSnapshot.current;
     lastSnapshot.current=data;
@@ -270,7 +271,7 @@ export default function App() {
     void subscribe().catch(error => notify(errorText(error)));
     return () => { cancelled = true; stops.forEach(stop => stop()); };
   }, [notify, receiveSnapshot]);
-  useEffect(() => { if (!toast) return; const timer = setTimeout(() => setToast(''), 7000); return () => clearTimeout(timer); }, [toast]);
+
   useEffect(() => { const key = (event: KeyboardEvent) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'l') { event.preventDefault(); const next=()=>{++navigationVersion.current;setPage('download');requestAnimationFrame(()=>input.current?.focus());};if(knowledgeGuard.current)knowledgeGuard.current(next);else next(); } }; document.addEventListener('keydown', key); return () => document.removeEventListener('keydown', key); }, []);
   useEffect(() => setListPage(1), [page, filter, search]);
   useEffect(() => { setSelectedIds(previous => keepSelection(previous, snapshot.tasks)); }, [snapshot.tasks]);
@@ -366,7 +367,7 @@ export default function App() {
       </>}
     </main>
     <ContextMenu menu={taskMenu} items={taskMenuItems} onClose={closeTaskMenu} onAction={handleTaskMenu}/>
-    {!!toast && <div className="toast" role="status"><CircleAlert size={18} /><span>{toast}</span><IconButton icon={X} label="关闭提示" onClick={() => setToast('')} /></div>}
+
     {confirmBatch && <Modal title={`确认${batchLabels[confirmBatch.action]}`} onClose={() => setConfirmBatch(null)}><div className="details-body"><p>{batchConfirmation(confirmBatch.action,confirmBatch.ids.length)}</p><p className="help">不适用的任务会跳过并说明原因。</p></div><div className="modal-footer"><button className="secondary" onClick={() => setConfirmBatch(null)}>返回</button><button className="primary" onClick={() => { void runBatch(confirmBatch.action,confirmBatch.ids); }}>确认操作</button></div></Modal>}
     {batchResult && <Modal title="批量操作结果" onClose={() => setBatchResult(null)}><div className="details-body"><p role="status">{batchSummary(batchResult)}</p>{!!(batchResult.skipped.length + batchResult.failed.length) && <details className="batch-details"><summary>查看逐项原因</summary>{batchResult.skipped.map(item => <p key={item.id}>{snapshot.tasks.find(task => task.id === item.id)?.request.title || item.id}：{item.reason}</p>)}{batchResult.failed.map(item => <p className="error-text" key={item.id}>{snapshot.tasks.find(task => task.id === item.id)?.request.title || item.id}：{item.error}</p>)}</details>}</div><div className="modal-footer"><button className="primary" onClick={() => setBatchResult(null)}>知道了</button></div></Modal>}
     {previewOpen && <PreviewPanel results={results} expected={expected} busy={parsing} directory={snapshot.settings.downloadDir} presets={snapshot.settings.downloadPresets ?? []} savePreset={savePreviewPreset} enqueue={enqueue} close={closePreview} configure={() => { closePreview(); navigate('settings'); }} retry={() => { void startPreview(); }} openSource={url => { void act('open_source', { url }); }} />}

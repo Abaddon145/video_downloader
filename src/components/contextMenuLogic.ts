@@ -5,6 +5,9 @@ export interface ContextMenuItem {
  danger?:boolean;
  group?:string;
  children?:ContextMenuItem[];
+ shortcut?:string;
+ availabilityReason?:string;
+ icon?:import('react').ReactNode;
 }
 
 export function firstEnabled(items:ContextMenuItem[]){return items.findIndex(item=>!item.disabled);}

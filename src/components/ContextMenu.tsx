@@ -72,9 +72,9 @@ export function ContextMenu<T>({menu,items,onClose,onAction}:{menu:ContextMenuSt
   {levelItems.map((item,index)=>{const path=[...prefix,index],id=`context-menu-${menu.id}-${key(path)}`,children=item.children?.length?item.children:null,expanded=!!children&&isOpen(path);
    return <div className="context-menu-entry" role="none" key={`${item.id}-${index}`}>
     {index>0&&item.group!==levelItems[index-1].group&&<div role="separator" className="context-menu-separator"/>}
-    <button id={id} ref={node=>{if(node)buttons.current.set(key(path),node);else buttons.current.delete(key(path));}} type="button" role="menuitem" tabIndex={-1} disabled={item.disabled||busy} aria-haspopup={children?'menu':undefined} aria-expanded={children?expanded:undefined} data-active={key(active)===key(path)} data-danger={item.danger||undefined} title={item.label}
+    <button id={id} ref={node=>{if(node)buttons.current.set(key(path),node);else buttons.current.delete(key(path));}} type="button" role="menuitem" tabIndex={-1} disabled={item.disabled||busy} aria-haspopup={children?'menu':undefined} aria-expanded={children?expanded:undefined} data-active={key(active)===key(path)} data-danger={item.danger||undefined} title={item.availabilityReason||item.label}
      onMouseEnter={()=>{if(item.disabled)return;setActive(path);if(children)openChild(path,false);else setOpened(prefix);}}
-     onClick={()=>{if(children)openChild(path,true);else void execute(item);}}><span>{item.label}</span>{children&&<span aria-hidden="true" className="context-menu-arrow">›</span>}</button>
+     onClick={()=>{if(children)openChild(path,true);else void execute(item);}}>{item.icon&&<span aria-hidden="true">{item.icon}</span>}<span>{item.label}{item.disabled&&item.availabilityReason&&<small className="context-menu-reason">{item.availabilityReason}</small>}</span>{item.shortcut&&<kbd>{item.shortcut}</kbd>}{children&&<span aria-hidden="true" className="context-menu-arrow">›</span>}</button>
     {expanded&&children&&render(children,path,submenus[key(path)]??point)}
    </div>;
   })}
