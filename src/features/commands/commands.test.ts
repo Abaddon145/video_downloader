@@ -78,3 +78,6 @@ test('opening the command UI never buries recent business commands',async()=>{
  await registry.run('navigate.history');await registry.run('app.palette');
  assert.equal(registry.getSnapshot().recent[0].id,'navigate.history');
 });
+test('Space on a focused action button is left to the button',()=>{
+ assert.equal(shouldHandleShortcut({key:' ',ctrlKey:false,shiftKey:false,altKey:false,metaKey:false},{id:'player.toggle',title:'播放',category:'播放器',shortcut:'Space',scope:'player',execute:()=>{}},{scope:'player',editable:false,overlay:false,interactive:true}),false);
+});

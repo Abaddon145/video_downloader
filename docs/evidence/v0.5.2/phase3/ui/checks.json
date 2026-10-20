@@ -1,0 +1,12 @@
+{
+  "mocked": true,
+  "passed": true,
+  "checks": [
+    "default live mode renders safe Wiki preview while source mode preserves literal YAML, Wiki syntax, and code text",
+    "formatting is a CodeMirror undoable transaction and save sends BOM/CRLF source with the expected hash",
+    "selection toolbar action keeps the current note and does not resolve or open the selected Wiki link",
+    "external read-only conflict keeps both versions and performs no write before an explicit resolution",
+    "reduced-motion and 880px conflict views render without horizontal overflow"
+  ],
+  "pageErrors": []
+}

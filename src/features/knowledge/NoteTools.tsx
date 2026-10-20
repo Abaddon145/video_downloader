@@ -15,7 +15,7 @@ interface AiDraft{requestId:string;vaultId:string;path:string;sourceHash:string;
 type Kind='history'|'favorites'|'templates'|'attachments'|'ai'|'mindmap';
 export type NoteToolRequest={id:number;path:string;kind:Kind|'favorite'};
 const hash=async(text:string)=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)))].map(b=>b.toString(16).padStart(2,'0')).join('');
-export function NoteTools({vaultId,path,text,revision,prepare,apply,openNote,created,jump,request}:{vaultId:string;path:string;text:string;revision:number;prepare:()=>Promise<NoteSnapshot>;apply:(text:string,snapshot:NoteSnapshot)=>boolean;openNote:(path:string)=>void;created:(path:string)=>void;jump:(id:string)=>void;request?:NoteToolRequest|null}){
+export function NoteTools({vaultId,path,text,revision,prepare,apply,openNote,created,jump,request,onMove,onDelete,onExport}:{vaultId:string;path:string;text:string;revision:number;prepare:()=>Promise<NoteSnapshot>;apply:(text:string,snapshot:NoteSnapshot)=>boolean;openNote:(path:string)=>void;created:(path:string)=>void;jump:(id:string)=>void;request?:NoteToolRequest|null;onMove:()=>void;onDelete:()=>void;onExport:()=>void}){
  const [metadata,setMetadata]=useState<Metadata|null>(null),[kind,setKind]=useState<Kind|null>(null),[snapshot,setSnapshot]=useState<NoteSnapshot|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  const [page,setPage]=useState(1),[list,setList]=useState<Page<Metadata|Version|Attachment>|null>(null),[preview,setPreview]=useState<KnowledgeDocument|Version|null>(null),[target,setTarget]=useState('');
  const [ai,setAi]=useState<AiSettingsView|null>(null),[consent,setConsent]=useState(false),[draft,setDraft]=useState<AiDraft|null>(null);
@@ -34,14 +34,19 @@ export function NoteTools({vaultId,path,text,revision,prepare,apply,openNote,cre
   await action(async()=>{try{const r=await invoke<AiDraft>('ai_organize_note',{request:{requestId:id,vaultId:s.vaultId,path:s.path,expectedHash:s.hash,text:s.text,allowNoteText:true}});if(!live.current||ticket.current!==own)return;if(r.requestId!==id||r.vaultId!==s.vaultId||r.path!==s.path||r.sourceHash!==s.hash||r.inputHash!==await hash(s.text))throw Error('整理回执与当前笔记不一致，草稿未替换。');setDraft(r);}finally{if(pendingRequest.current===id)pendingRequest.current=null;}});
  }
  return <><div className="note-tools" role="toolbar" aria-label="知识笔记工具">
-  <button className="text-button" disabled={busy} aria-pressed={metadata?.favorite??false} onClick={()=>{void toggle('favorite');}}><Star size={14}/>{metadata?.favorite?'已收藏':'收藏笔记'}</button>
-  <button className="text-button" disabled={busy} aria-pressed={metadata?.template??false} onClick={()=>{void toggle('template');}}>{metadata?.template?'取消模板标记':'设为笔记模板'}</button>
-  <button className="text-button" disabled={busy} onClick={()=>{void show('favorites');}}><Star size={14}/>收藏夹</button>
-  <button className="text-button" disabled={busy} onClick={()=>{void show('history');}}><History size={14}/>版本历史</button>
-  <button className="text-button" disabled={busy} onClick={()=>{void show('templates');}}><Files size={14}/>从模板新建</button>
-  <button className="text-button" disabled={busy} onClick={()=>{void show('attachments');}}><Paperclip size={14}/>附件</button>
   <button className="text-button" disabled={busy} onClick={()=>{void show('ai');}}><Sparkles size={14}/>AI整理笔记</button>
-  <button className="text-button" disabled={busy} onClick={()=>{void show('mindmap');}}><Network size={14}/>思维导图</button>
+  <details><summary style={{cursor:'pointer',padding:'7px'}}>更多</summary><div className="note-tools-more" style={{display:'flex',flexWrap:'wrap',gap:6,padding:6}}>
+   <button className="text-button" disabled={busy} aria-pressed={metadata?.favorite??false} onClick={()=>{void toggle('favorite');}}><Star size={14}/>{metadata?.favorite?'已收藏':'收藏笔记'}</button>
+   <button className="text-button" disabled={busy} aria-pressed={metadata?.template??false} onClick={()=>{void toggle('template');}}>{metadata?.template?'取消模板标记':'设为笔记模板'}</button>
+   <button className="text-button" disabled={busy} onClick={()=>{void show('favorites');}}><Star size={14}/>收藏夹</button>
+   <button className="text-button" disabled={busy} onClick={()=>{void show('history');}}><History size={14}/>版本历史</button>
+   <button className="text-button" disabled={busy} onClick={()=>{void show('templates');}}><Files size={14}/>从模板新建</button>
+   <button className="text-button" disabled={busy} onClick={()=>{void show('attachments');}}><Paperclip size={14}/>附件</button>
+   <button className="text-button" disabled={busy} onClick={()=>{void show('mindmap');}}><Network size={14}/>思维导图</button>
+   <button className="text-button" disabled={busy} onClick={onMove}>移动笔记</button>
+   <button className="text-button" disabled={busy} onClick={onExport}>导出笔记</button>
+   <button className="text-button" disabled={busy} onClick={onDelete}>删除笔记</button>
+  </div></details>
  </div>{error&&!kind&&<p role="alert" className="error-text">{error}</p>}
  {kind==='mindmap'&&<NoteMindMap title={path.split('/').at(-1)??path} text={text} jump={jump} close={close}/>}
  {kind&&kind!=='mindmap'&&<LearningDialog title={{history:'版本历史',favorites:'收藏笔记',templates:'Markdown笔记模板',attachments:'知识库附件',ai:'AI整理笔记'}[kind]} close={close} busy={false}>

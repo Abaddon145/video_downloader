@@ -35,10 +35,11 @@ export function importShortcuts(text:string,commands:CommandDescriptor[]):Shortc
 }
 export interface ShortcutEvent {key:string;code?:string;ctrlKey:boolean;altKey:boolean;shiftKey:boolean;metaKey:boolean;isComposing?:boolean;repeat?:boolean;defaultPrevented?:boolean;keyCode?:number}
 export function eventShortcut(event:ShortcutEvent){const key=event.shiftKey&&/^Digit[0-9]$/.test(event.code??'')?event.code!.slice(5):event.key;return normalizeShortcut([...event.ctrlKey?['Ctrl']:[],...event.altKey?['Alt']:[],...event.shiftKey?['Shift']:[],...event.metaKey?['Meta']:[],key===' '?'Space':key==='+'?'Plus':key].join('+'));}
-export function shouldHandleShortcut(event:ShortcutEvent,command:CommandDescriptor,context:{scope:CommandScope;editable:boolean;overlay:boolean}){
+export function shouldHandleShortcut(event:ShortcutEvent,command:CommandDescriptor,context:{scope:CommandScope;editable:boolean;overlay:boolean;interactive?:boolean}){
  if(event.defaultPrevented||event.repeat||event.isComposing||event.keyCode===229||context.overlay||command.enabled===false)return false;
  if((command.scope??'global')!=='global'&&command.scope!==context.scope)return false;
  if(context.editable&&!command.allowInEditable)return false;
+ if(context.interactive&&['Space','Enter'].includes(eventShortcut(event)??''))return false;
  return !!command.shortcut&&eventShortcut(event)===normalizeShortcut(command.shortcut)&&!shortcutIssue(command.shortcut,command.scope,[],command.id);
 }
 export class ShortcutManager {
@@ -60,7 +61,8 @@ export class ShortcutManager {
   const overlay=!!target?.closest?.('[role="dialog"],[role="menu"],[data-native-overlay]')||!!(typeof document!=='undefined'&&document.querySelector('dialog[open],[aria-modal="true"],[role="menu"][data-native-overlay]'));
   const editable=!!target?.closest?.('input,textarea,select,[contenteditable]:not([contenteditable="false"]),[role="textbox"],.cm-editor');
   const rawScope=target?.closest?.('[data-command-scope]')?.getAttribute('data-command-scope');const scope:CommandScope=rawScope==='player'||rawScope==='knowledge'?rawScope:'global';
-  const actual=this.commands(),matches=actual.filter(c=>shouldHandleShortcut(key,c,{scope,editable,overlay}));
+  const interactive=!!target?.closest?.('button,[role="button"],a[href]');
+  const actual=this.commands(),matches=actual.filter(c=>shouldHandleShortcut(key,c,{scope,editable,overlay,interactive}));
   if(matches.length!==1)return;const command=matches[0];if(shortcutIssue(command.shortcut!,command.scope,actual,command.id))return;
   key.preventDefault();void this.registry.run(command.id);
  };

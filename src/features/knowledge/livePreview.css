@@ -1,0 +1,19 @@
+.knowledge-live-shell{position:relative;min-width:0}
+.knowledge-selection-toolbar{display:flex;align-items:center;gap:4px;padding:6px 10px;flex-wrap:wrap;border-bottom:1px solid var(--theme-border,#303741);background:var(--theme-panel,#191d23)}
+.knowledge-selection-toolbar button{border:0;background:transparent;color:var(--theme-muted,#b8c4d5);padding:5px 7px;border-radius:5px;cursor:pointer;font:inherit;font-size:12px}
+.knowledge-selection-toolbar button:hover,.knowledge-selection-toolbar button:focus-visible{color:var(--theme-text,#e0e7ef);background:var(--theme-raised,#263441)}
+.knowledge-selection-toolbar button:disabled{opacity:.45;cursor:default}
+.knowledge-selection-toolbar.compact{position:absolute;z-index:5;max-width:min(420px,calc(100% - 16px));border:1px solid var(--theme-border,#303741);border-radius:8px;box-shadow:0 6px 18px #0005}
+.knowledge-live-shell .cm-line.knowledge-live-heading-1{font-size:1.6em;font-weight:700;line-height:1.5}
+.knowledge-live-shell .cm-line.knowledge-live-heading-2{font-size:1.35em;font-weight:700;line-height:1.55}
+.knowledge-live-shell .cm-line.knowledge-live-heading-3{font-size:1.18em;font-weight:700}
+.knowledge-live-shell .cm-line[class*="knowledge-live-heading-"]{color:var(--theme-text,#e0e7ef)}
+.knowledge-live-shell .cm-line.knowledge-live-quote{border-left:3px solid var(--workspace-accent-ink,#7dd3fc);padding-left:10px;color:var(--theme-muted,#b8c4d5)}
+.knowledge-live-shell .cm-line.knowledge-live-list{padding-left:8px}
+.knowledge-live-shell .cm-line.knowledge-live-list::before{content:'•';color:var(--workspace-accent-ink,#7dd3fc);margin-right:8px}
+.knowledge-live-shell .cm-line.knowledge-live-code,.knowledge-live-shell .cm-line.knowledge-live-code-fence{background:var(--theme-input,#111318);font-family:Consolas,monospace}
+.knowledge-live-shell .cm-line.knowledge-live-table{font-family:Consolas,monospace;border-bottom:1px solid var(--theme-border,#303741)}
+.knowledge-live-bold{font-weight:700}.knowledge-live-italic{font-style:italic}.knowledge-live-inline-code{font-family:Consolas,monospace;background:var(--theme-input,#111318);padding:1px 3px;border-radius:3px}
+.knowledge-live-link{color:var(--workspace-accent-ink,#7dd3fc);text-decoration:underline;text-underline-offset:3px;cursor:default}
+.knowledge-live-image{display:inline-block;border:1px dashed var(--theme-border,#303741);border-radius:5px;padding:5px 9px;color:var(--theme-muted,#b8c4d5);vertical-align:middle}
+.knowledge-live-image img{display:block;max-width:min(100%,360px);max-height:220px;object-fit:contain}
