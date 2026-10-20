@@ -2,6 +2,21 @@ use super::db;
 use rusqlite::Connection;
 use std::path::Path;
 #[test]
+fn command_course_search_is_literal_bounded_and_paged() {
+    let r = super::repository::Repository::open(Path::new(":memory:")).unwrap();
+    r.conn.execute_batch("INSERT INTO series(id,title,created_at,updated_at) VALUES('s','UE课程',0,0);").unwrap();
+    for n in 0..55 {
+        r.conn.execute("INSERT INTO series_items(id,series_id,title,created_at,updated_at) VALUES(?1,'s',?2,0,0)",rusqlite::params![format!("i{n:02}"),format!("GPU 第{n}课 %")]).unwrap();
+    }
+    let first = r.search_items("gpu", 1).unwrap();
+    assert_eq!(first.total, 55);
+    assert_eq!(first.items.len(), 50);
+    assert_eq!(r.search_items("%", 2).unwrap().items.len(), 5);
+    assert_eq!(r.search_items("_", 1).unwrap().total, 0);
+    assert!(r.search_items(&"x".repeat(201), 1).is_err());
+    assert_eq!(r.search_items("UE课程", 1).unwrap().total, 55);
+}
+#[test]
 fn moving_course_preserves_identity_progress_and_notes_and_rejects_missing_target() {
     let mut r = super::repository::Repository::open(Path::new(":memory:")).unwrap();
     r.conn.execute_batch("INSERT INTO series(id,title,created_at,updated_at) VALUES('a','原系列',0,0),('b','新系列',0,0);

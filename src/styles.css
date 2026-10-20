@@ -117,3 +117,5 @@ button:active:not(:disabled){filter:brightness(.92)}
 .context-menu-reason{display:block;font-size:11px;color:var(--text-secondary,#9ca3af)}
 .context-menu-panel kbd{margin-left:auto;white-space:nowrap;font-size:11px;opacity:.7}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}}
+
+.global-command-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.global-command-tools kbd{font-size:10px;opacity:.65}.header-right{flex-wrap:wrap;justify-content:flex-end}

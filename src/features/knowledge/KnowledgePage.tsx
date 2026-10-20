@@ -1,3 +1,4 @@
+import {useRegisterCommands,useCommands} from '../commands/CommandProvider';
 import {lazy,Suspense,useEffect,useMemo,useRef,useState,useSyncExternalStore} from 'react';
 import {NoteSessions} from './NoteSessions';
 import {NoteTools,type NoteSnapshot,type NoteToolRequest} from './NoteTools';
@@ -73,8 +74,9 @@ export default function KnowledgePage({notify,registerLeaveGuard,onOpenVideo,ope
  async function prepareNote():Promise<NoteSnapshot>{if(!activeKey||!(await sessions.save(activeKey)))throw Error('请先处理笔记的保存错误或冲突。');const s=sessions.get(activeKey);if(!s||current.current.settings?.vaultId!==s.vaultId||current.current.doc?.path!==s.path)throw Error('当前笔记已切换，请重新操作。');return {vaultId:s.vaultId,path:s.path,hash:s.document.hash,text:s.draft,editVersion:s.editVersion};}
  function applyNote(value:string,snapshot:NoteSnapshot){if(!activeKey||settings?.vaultId!==snapshot.vaultId||doc?.path!==snapshot.path)return false;const s=sessions.get(activeKey);if(!s||s.document.hash!==snapshot.hash||s.editVersion!==snapshot.editVersion)return false;sessions.edit(activeKey,value);return true;}
 
- const saveRef=useRef(save);saveRef.current=save;
- useEffect(()=>{const key=(e:KeyboardEvent)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();if(!document.querySelector('dialog[open]'))void saveRef.current();}};window.addEventListener('keydown',key);const closing=(e:BeforeUnloadEvent)=>{if(sessions.dirtyKeys().length){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',closing);return()=>{window.removeEventListener('keydown',key);window.removeEventListener('beforeunload',closing);};},[]);
+
+ useEffect(()=>{const closing=(e:BeforeUnloadEvent)=>{if(sessions.dirtyKeys().length){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',closing);return()=>window.removeEventListener('beforeunload',closing);},[sessions]);
+
  async function refreshFile(){const c=current.current,id=c.settings?.vaultId;if(!id||!c.doc||locked.current)return;try{const r=await invoke<KnowledgeView<KnowledgeDocument>>('knowledge_read',{vaultId:id,path:c.doc.path});if(!valid(id)||r.vaultId!==id||current.current.doc?.path!==c.doc.path||current.current.doc?.hash!==c.doc.hash||locked.current)return;const now=current.current;if(r.data.hash!==now.doc?.hash){if(now.text!==now.doc?.text){sessions.refresh(sessions.key(id,c.doc.path),r.data);setConflict(sessions.get(sessions.key(id,c.doc.path))?.conflict??null);setExternalView(false);}else sessions.refresh(sessions.key(id,c.doc.path),r.data);}}catch(e){if(valid(id)&&current.current.doc?.path===c.doc.path)setError('无法重新读取当前笔记，编辑内容已保留。'+aiError(e));}}
  async function scan(){const id=current.current.settings?.vaultId;if(!id||scanBusy.current===id)return;scanBusy.current=id;setIndexing(true);try{const r=await invoke<KnowledgeView<IndexStats>>('knowledge_reindex',{vaultId:id});if(valid(id)&&r.vaultId===id){setRevision(v=>v+1);if(!r.data.complete)notify('部分文件未能更新索引，已有笔记仍保留。');await refreshFile();}}catch(e){if(valid(id))setError(aiError(e));}finally{if(scanBusy.current===id){scanBusy.current=null;if(valid(id))setIndexing(false);}}}
  const refreshRef=useRef({scan,refreshFile});refreshRef.current={scan,refreshFile};
@@ -136,9 +138,19 @@ export default function KnowledgePage({notify,registerLeaveGuard,onOpenVideo,ope
    else if(kind!=='新建文件夹')await read(r.path);
   }catch(e){if(valid(id))setActionError(aiError(e));}finally{locked.current=false;if(alive.current)setBusy(false);}
  }
+ const {openSearch}=useCommands();
+ useRegisterCommands([
+  {id:'knowledge.new',title:'新建笔记',category:'知识库',scope:'knowledge',shortcut:'Ctrl+Shift+N',keywords:['note','create','笔记'],enabled:!!settings?.vaultId&&!busy,availabilityReason:'请先连接知识库并等待当前操作结束',execute:()=>prepare('新建笔记')},
+  {id:'knowledge.search',title:'搜索笔记',category:'知识库',keywords:['find','note'],execute:openSearch},
+  {id:'knowledge.save',title:'保存当前笔记',category:'知识库',scope:'knowledge',shortcut:'Ctrl+S',allowInEditable:true,enabled:!!doc&&!busy,availabilityReason:'请先打开笔记',execute:()=>save()},
+  {id:'knowledge.mode',title:'切换实时预览与源码',category:'知识库',enabled:!!doc,availabilityReason:'请先打开笔记',execute:()=>setMode(m=>m==='编辑'?'预览':'编辑')},
+  {id:'knowledge.recent',title:'打开最近笔记',category:'知识库',enabled:tabs.some(s=>s.vaultId===settings?.vaultId),availabilityReason:'本次尚未打开笔记',execute:()=>{const note=tabs.filter(s=>s.vaultId===settings?.vaultId).at(-1);if(note)openNote(note.path);}},
+  ...([['knowledge.template','创建模板笔记','templates'],['knowledge.history','打开版本历史','history']]as const).map(([id,title,kind])=>({id,title,category:'知识库',enabled:!!doc&&!busy,availabilityReason:'请先打开笔记',execute:()=>{if(doc)setToolRequest({id:Date.now(),path:doc.path,kind});}})),
+  {id:'knowledge.obsidian',title:'在 Obsidian 中打开当前笔记',category:'知识库',enabled:!!doc&&!busy,availabilityReason:'请先打开笔记',execute:()=>openObsidian()},
+ ]);
  const title=doc?.path.split('/').at(-1)??'选择一篇笔记';
  if(!settings?.vaultId)return <section className="knowledge-start"><div className="knowledge-start-icon"><BookOpen size={32}/></div><h2>知识归你，笔记留在本地</h2><p>创建 Markdown 知识库，或连接已有的 Obsidian Vault。无需安装 Obsidian 即可使用。</p><div><button className="primary" disabled={busy} onClick={()=>void chooseVault(true)}><Plus size={16}/>创建映流知识库</button><button className="secondary" disabled={busy} onClick={()=>void chooseVault(false)}><FolderOpen size={16}/>选择已有知识库</button></div><p className="help">已有知识库中的映流内容保存在“映流”文件夹。不会修改 Obsidian 配置。</p>{error&&<p className="error-text" role="alert">{error}</p>}</section>;
- return <section className="knowledge-workspace" aria-label="Markdown知识库" style={{"--knowledge-tree-width":`${layout.treeWidth}px`,"--knowledge-info-width":`${layout.infoWidth}px`} as React.CSSProperties}>
+ return <section className="knowledge-workspace" data-command-scope="knowledge" aria-label="Markdown知识库" style={{"--knowledge-tree-width":`${layout.treeWidth}px`,"--knowledge-info-width":`${layout.infoWidth}px`} as React.CSSProperties}>
   <div className="knowledge-toolbar"><div className="knowledge-vault-name" title={settings.vaultPath??''}><BookOpen size={17}/><strong>我的知识库</strong></div><button className="icon-button" aria-label={left?'隐藏文件树':'显示文件树'} aria-pressed={left} onClick={()=>setLeft(!left)}><PanelLeft size={17}/></button><button className="icon-button" aria-label={right?'隐藏笔记信息':'显示笔记信息'} aria-pressed={right} onClick={()=>setRight(!right)}><PanelRight size={17}/></button><button className="secondary" disabled={busy} onClick={()=>prepare('新建笔记')}><Plus size={15}/>新建笔记</button><button className="secondary" disabled={busy} onClick={()=>prepare('新建文件夹')}>新建文件夹</button><button className="icon-button" aria-label="刷新知识库" disabled={indexing} onClick={()=>void scan()}><RefreshCw size={17} className={indexing?'spin':''}/></button><button className="text-button" disabled={busy} onClick={()=>openObsidian(false)}>配置 Obsidian 联动</button><button className="text-button" disabled={busy} onClick={()=>guard(()=>{void chooseVault(false);})}>切换知识库</button></div>
   {error&&<p role="alert" className="error-text knowledge-warning">{error}</p>}
   <div className={`knowledge-layout ${left?'':'without-tree'} ${right?'':'without-info'}`}>

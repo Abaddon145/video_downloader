@@ -70,3 +70,11 @@ test('late registration conflict suppresses dispatch and remount removes every l
  const off=manager.attach(target as any);handler({key:'s',ctrlKey:true,altKey:true,metaKey:false,shiftKey:false,target:{closest:()=>null},preventDefault(){throw new Error('conflict was consumed');}});assert.equal(calls,0);off();
  remove();assert.equal(manager.issue('note.save','Ctrl+Alt+S'),null);const off2=manager.attach(target as any);off2();off2();assert.equal(adds,2);assert.equal(removes,2);
 });
+test('shifted digit keyboard events match custom numeric shortcuts',()=>{
+ assert.equal(eventShortcut({key:'!',code:'Digit1',ctrlKey:true,shiftKey:true,altKey:false,metaKey:false}), 'Ctrl+Shift+1');
+});
+test('opening the command UI never buries recent business commands',async()=>{
+ const registry=new CommandRegistry();registry.register([{id:'navigate.history',title:'历史',category:'导航',execute:()=>{}},{id:'app.palette',title:'面板',category:'全局',execute:()=>{}}]);
+ await registry.run('navigate.history');await registry.run('app.palette');
+ assert.equal(registry.getSnapshot().recent[0].id,'navigate.history');
+});

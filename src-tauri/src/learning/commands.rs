@@ -4,6 +4,12 @@ use std::sync::Arc;
 use tauri::State;
 type Learning<'a> = State<'a, Arc<LearningService>>;
 #[tauri::command]
+pub async fn learning_search_items(learning: Learning<'_>, query: String, page: u32) -> AppResult<ItemSearchPage> {
+    let learning = learning.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || learning.with(|r| r.search_items(&query, page)))
+        .await.map_err(|_| "课程搜索暂不可用，请重试")?
+}
+#[tauri::command]
 pub fn learning_home(
     learning: Learning<'_>,
     query: String,

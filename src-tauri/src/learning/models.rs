@@ -327,3 +327,10 @@ pub struct SeriesUpdate {
     pub new_entries: Vec<crate::models::PlaylistEntry>,
     pub template: crate::models::DownloadRequest,
 }
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ItemSearchPage {
+    pub items: Vec<LearningItem>,
+    pub total: i64,
+    pub page: u32,
+}

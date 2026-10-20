@@ -11,8 +11,9 @@ export class UndoManager {
  get busy(){return this.running;}
  peek=()=>this.entries.at(-1)??null;
  push(entry:UndoEntry){this.entries.push(entry);if(this.entries.length>this.limit)this.entries.shift();this.changed();}
- async undo(){
-  const entry=this.peek();if(!entry||this.running)return false;
+ async undo(target?:UndoEntry){
+  const entry=target??this.peek();if(!entry||this.running)return false;
+  if(this.peek()!==entry)throw new Error('请先撤销较新的操作，再重试此操作。');
   this.running=true;this.changed();
   try{await entry.undo();const index=this.entries.indexOf(entry);if(index>=0)this.entries.splice(index,1);return true;}
   finally{this.running=false;this.changed();}

@@ -1,3 +1,4 @@
+import {useRegisterCommands,useCommands} from '../commands/CommandProvider';
 import {useWorkspace} from '../workspace/WorkspaceProvider';
 import {ResizeHandle} from '../../components/ResizeHandle';
 import {LibrarySeriesView,SeriesCover} from './LibrarySeriesView';
@@ -86,6 +87,16 @@ export default function LearningLibraryPage({notify,onAiSettings,openRequest,onO
   if(kind==='copy'){await navigator.clipboard.writeText(series.title);notify('名称已复制');return;}
   if(kind==='remove')setDeleteTarget({type:'series',id:series.id,name:series.title});
  };
+ const {openSearch}=useCommands();
+ const currentLesson=detail?.items.find(i=>i.id===playingItem),continueLesson=home?.continueLearning[0]?.item;
+ const showLearningPanel=(action:string)=>{if(!playingItem)return;setAiRequest(c=>({itemId:playingItem,version:c.version+1,action}));};
+ useRegisterCommands([
+  {id:'learning.search',title:'搜索课程',category:'学习库',keywords:['course','教程','lesson'],execute:openSearch},
+  {id:'learning.continue',title:'从上次位置继续',category:'学习库',enabled:!!continueLesson,availabilityReason:'暂无可继续的学习记录',execute:()=>{if(continueLesson){openSeries(continueLesson.seriesId);setPlayingItem(continueLesson.id);setAutoPlay(true);}}},
+  {id:'learning.play-current',title:'播放当前课程',category:'学习库',enabled:!!currentLesson,availabilityReason:'请先选择课程',execute:()=>{if(currentLesson){setAutoPlay(true);setPlayingItem(currentLesson.id);}}},
+  {id:'learning.analyze',title:'分析当前视频',category:'学习库',enabled:!!currentLesson&&currentLesson.available&&!Object.values(aiStates).some(a=>a.id===aiStates[currentLesson.id]?.id&&['queued','extracting_audio','transcribing','extracting_keyframes','analyzing_chunks','finalizing','writing_note'].includes(a.status)),availabilityReason:'请先打开可用课程；正在分析时不能重复提交',execute:()=>{if(currentLesson)lessonAction(currentLesson,'ai');}},
+  ...([['learning.subtitles','打开课程字幕','transcript'],['learning.ai','打开 AI 学习面板','summary'],['learning.notes','生成课程笔记','notes']]as const).map(([id,title,action])=>({id,title,category:'学习库',enabled:!!playingItem,availabilityReason:'请先打开课程',execute:()=>showLearningPanel(action)})),
+ ]);
  const categoryName=(id:string|null)=>home?.categories.find(c=>c.id===id)?.name??'未分类';
  return <div className="learning-library">{error&&<div className="error-panel" role="alert"><strong>{error.includes('初始化失败')?'学习库初始化失败':'操作未完成'}</strong><p>{error}</p><button className="secondary" onClick={reload}>重试</button></div>}
  {!selected&&<><div className="learning-toolbar"><LibraryViewSettings/><button className="secondary" disabled={!home} onClick={()=>setShowSettings(true)}>学习设置</button><label className="learning-search"><Search size={17} aria-hidden="true"/><input aria-label="搜索学习库" value={query} onChange={e=>setQuery(e.target.value)} placeholder="搜索分类、系列、课程或笔记"/></label><button className="primary" disabled={!home} onClick={()=>void pickImport()}><Plus size={17}/>导入本地教程</button><button className="secondary" disabled={!home} onClick={()=>void pickImport(true)}><FolderOpen size={16}/>导入文件夹</button><button className="secondary" onClick={()=>{setEditSeries(undefined);setEditor('series');}} disabled={!home}><Plus size={17}/>新建系列</button></div>

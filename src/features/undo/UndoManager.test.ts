@@ -12,3 +12,9 @@ test('undo history is bounded and never records failed forward operations',()=>{
  const manager=new UndoManager(2);for(let i=0;i<3;i++)manager.push({label:String(i),undo:async()=>{}});
  assert.equal(manager.size,2);assert.equal(manager.peek()?.label,'2');
 });
+test('a stale undo button never reverses a newer operation',async()=>{
+ const manager=new UndoManager();let a=0,b=0;const older={label:'A',undo:async()=>{a++;}},newer={label:'B',undo:async()=>{b++;}};
+ manager.push(older);manager.push(newer);
+ await assert.rejects(manager.undo(older),/较新的操作/);assert.equal(a,0);assert.equal(b,0);
+ assert.equal(await manager.undo(newer),true);assert.equal(await manager.undo(older),true);
+});

@@ -265,6 +265,14 @@ impl Repository {
     pub fn item(&self, id: &str) -> AppResult<LearningItem> {
         self.conn.query_row(&format!("SELECT {ITEM_COLS} FROM series_items i LEFT JOIN playback_progress p ON p.item_id=i.id WHERE i.id=?1"),[id],item_row).optional().map_err(db::error)?.ok_or_else(||"课程不存在".into())
     }
+    pub fn search_items(&self, query: &str, page: u32) -> AppResult<ItemSearchPage> {
+        let query = text(query, 200, false)?.to_lowercase();
+        let filter = "FROM series_items i JOIN series s ON s.id=i.series_id LEFT JOIN playback_progress p ON p.item_id=i.id WHERE instr(lower(i.title),?1)>0 OR instr(lower(s.title),?1)>0";
+        let total: i64 = self.conn.query_row(&format!("SELECT count(*) {filter}"), [&query], |row| row.get(0)).map_err(db::error)?;
+        let page = page.max(1).min(((total + 49) / 50).max(1) as u32);
+        let items = self.rows(&format!("SELECT {ITEM_COLS} {filter} ORDER BY COALESCE(p.last_played_at,i.updated_at) DESC,i.id LIMIT 50 OFFSET ?2"), params![query,(page-1)*50], item_row)?;
+        Ok(ItemSearchPage {items,total,page})
+    }
     pub fn series(&self, id: &str, page: u32) -> AppResult<SeriesDetail> {
         let series = self.get_series(id)?;
         let total = series.total_items;

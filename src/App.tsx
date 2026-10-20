@@ -1,3 +1,6 @@
+import {CommandProvider} from './features/commands/CommandProvider';
+import {AppCommands} from './features/commands/AppCommands';
+import {QuickSearch} from './features/search/QuickSearch';
 import {useFeedback} from './components/Feedback';
 import {AiSettings} from './features/ai/AiSettings';
 import {WorkspaceSettingsPanel} from './features/workspace/WorkspaceSettingsPanel';
@@ -201,7 +204,11 @@ function SettingsPanel({ snapshot, act, notify, cookieFailure }: { cookieFailure
   </div>;
 }
 
-export default function App() {
+export default function App(){
+ const [quickSearchOpen,setQuickSearchOpen]=useState(false);
+ return <CommandProvider onOpenSearch={()=>setQuickSearchOpen(true)}><AppWorkspace quickSearchOpen={quickSearchOpen} closeQuickSearch={()=>setQuickSearchOpen(false)}/></CommandProvider>;
+}
+function AppWorkspace({quickSearchOpen,closeQuickSearch}:{quickSearchOpen:boolean;closeQuickSearch:()=>void}) {
   const [snapshot, setSnapshot] = useState(initial);
   const [appVersion,setAppVersion]=useState<string|null>('');
   useEffect(()=>{if(!isTauri())return;let active=true;void getVersion().then(version=>{if(active)setAppVersion(typeof version==='string'?version:null);}).catch(()=>{if(active)setAppVersion(null);});return()=>{active=false;};},[]);
@@ -272,7 +279,7 @@ export default function App() {
     return () => { cancelled = true; stops.forEach(stop => stop()); };
   }, [notify, receiveSnapshot]);
 
-  useEffect(() => { const key = (event: KeyboardEvent) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'l') { event.preventDefault(); const next=()=>{++navigationVersion.current;setPage('download');requestAnimationFrame(()=>input.current?.focus());};if(knowledgeGuard.current)knowledgeGuard.current(next);else next(); } }; document.addEventListener('keydown', key); return () => document.removeEventListener('keydown', key); }, []);
+
   useEffect(() => setListPage(1), [page, filter, search]);
   useEffect(() => { setSelectedIds(previous => keepSelection(previous, snapshot.tasks)); }, [snapshot.tasks]);
   const urls = extractUrls(links);
@@ -295,7 +302,7 @@ export default function App() {
   const closePreview = () => { if (parsing) void act('cancel_preview', {}); setPreviewOpen(false); requestAnimationFrame(() => (parsing ? input.current : previewButton.current)?.focus()); };
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || (!previewOpen && (event.target as HTMLElement)?.closest('dialog'))) return;
+      if (event.defaultPrevented || event.isComposing || event.key !== 'Escape' || (!previewOpen && (event.target as HTMLElement)?.closest('dialog'))) return;
       const action = escapeAction(previewOpen, parsing || snapshot.previewing, selectedIds.size);
       if (action === 'preview') { event.preventDefault(); if (parsing || snapshot.previewing) void act('cancel_preview', {}); setPreviewOpen(false); }
       else if (action === 'selection') { event.preventDefault(); setSelectedIds(new Set()); }
@@ -352,7 +359,7 @@ export default function App() {
     <aside className="sidebar"><div className="brand"><div className="brand-mark"><ArrowDownToLine size={23} strokeWidth={2.5} /></div><div><strong>映流</strong><span>本地视频学习与知识工作台</span></div></div><div className="nav-label">工作空间</div><nav aria-label="主导航">{[{ id: 'download', icon: Download, text: '下载', badge: active.length + waiting.length }, { id: 'learning', icon: ListVideo, text: '学习库', badge: null }, { id: 'knowledge', icon: BookOpen, text: '知识库', badge: null }, { id: 'media', icon: Wrench, text: '媒体工具', badge: null }, { id: 'history', icon: History, text: '历史', badge: null }, { id: 'settings', icon: Settings2, text: '设置', badge: null }].map(({ id, icon: Icon, text, badge }) => <button key={id} className={page === id ? 'active' : ''} onClick={() => navigate(id as typeof page)} aria-current={page === id ? 'page' : undefined}><Icon size={19} /><span>{text}</span>{!!badge && <span className="nav-badge">{badge}</span>}</button>)}</nav>
       <div className="sidebar-bottom"><div className="local-card"><ShieldCheck size={18} /><div><strong>本地运行</strong><p>下载文件只保存在你的电脑</p></div></div><div className="engine-status"><span className={`status-dot ${snapshot.engine.ready ? 'online' : ''}`} /><span>{snapshot.engine.ready ? `yt-dlp ${snapshot.engine.version}` : snapshot.engine.error ? '组件检查失败' : '正在检查组件'}</span></div><div className="app-version">WINDOWS DESKTOP <span>{appVersion?`v${appVersion}`:isTauri()?(appVersion===null?'版本不可用':'读取版本…'):'界面预览'}</span></div></div>
     </aside>
-    <main className="main"><header className="page-header"><div><div className="eyebrow">你的本地媒体工作空间</div><h1>{page === 'download' ? '下载' : page === 'history' ? '下载历史' : page === 'media' ? '媒体工具' : page === 'learning' ? '学习库' : page === 'knowledge' ? '知识库' : '偏好设置'}</h1><p>{page === 'download' ? '把喜欢的内容，留在本地。' : page === 'history' ? '每一次保存，都有迹可循。' : page === 'media' ? '转换、裁剪与提取，让媒体更合用。' : page === 'learning' ? '整理系列教程，从上次的位置继续。' : page === 'knowledge' ? '把学习收获，沉淀为自己的知识。' : '让下载按照你的习惯运行。'}</p></div><div className="header-right">{snapshot.coreUpdate?.available && <button className="text-button" onClick={() => navigate('settings')}>内核有新版本 {snapshot.coreUpdate.version}，去更新</button>}<span className="local-badge"><span className="status-dot online" />本地存储</span>{page === 'history' && <button className="secondary" onClick={() => { navigate('download'); requestAnimationFrame(() => input.current?.focus()); }}><Plus size={16} />新建下载</button>}</div></header>
+    <main className="main"><header className="page-header"><div><div className="eyebrow">你的本地媒体工作空间</div><h1>{page === 'download' ? '下载' : page === 'history' ? '下载历史' : page === 'media' ? '媒体工具' : page === 'learning' ? '学习库' : page === 'knowledge' ? '知识库' : '偏好设置'}</h1><p>{page === 'download' ? '把喜欢的内容，留在本地。' : page === 'history' ? '每一次保存，都有迹可循。' : page === 'media' ? '转换、裁剪与提取，让媒体更合用。' : page === 'learning' ? '整理系列教程，从上次的位置继续。' : page === 'knowledge' ? '把学习收获，沉淀为自己的知识。' : '让下载按照你的习惯运行。'}</p></div><div className="header-right"><AppCommands navigate={navigate} focusDownloads={()=>guardedLeave(()=>{navigate('download');requestAnimationFrame(()=>input.current?.focus());})} openDirectory={()=>invoke('open_download_directory')} hasRecent={completed.some(t=>t.files.length>0)} openRecent={()=>{const task=[...completed].sort((a,b)=>(b.finishedAt??b.createdAt)-(a.finishedAt??a.createdAt)).find(t=>t.files.length);if(!task)throw Error('暂无已完成文件');return invoke('open_task_target',{id:task.id,folder:false});}}/>{snapshot.coreUpdate?.available && <button className="text-button" onClick={() => navigate('settings')}>内核有新版本 {snapshot.coreUpdate.version}，去更新</button>}<span className="local-badge"><span className="status-dot online" />本地存储</span>{page === 'history' && <button className="secondary" onClick={() => { navigate('download'); requestAnimationFrame(() => input.current?.focus()); }}><Plus size={16} />新建下载</button>}</div></header>
       {(snapshot.notice || snapshot.engine.error) && <div className="global-notice" role="status"><CircleAlert size={17} /><span>{snapshot.notice || snapshot.engine.error}</span></div>}
       {page === 'knowledge' ? <Suspense fallback={<p role="status">正在打开知识库…</p>}><KnowledgePage notify={notify} registerLeaveGuard={registerKnowledgeGuard} onOpenVideo={openLearningVideo} openRequest={knowledgeOpen} onOpenConsumed={consumeKnowledgeOpen}/></Suspense> : page === 'learning' ? <LearningLibraryPage notify={notify} onAiSettings={()=>navigate('settings')} onOpenKnowledge={openKnowledge} onKnowledgeSetup={()=>navigate('knowledge')} openRequest={learningOpen} onOpenConsumed={consumeLearningOpen}/> : page === 'media' ? <MediaToolsPage initialBatchPaths={mediaBatchPaths} notify={notify} onAnalyze={analyzeLocal} /> : page === 'settings' ? <SettingsPanel snapshot={snapshot} act={act} notify={notify} cookieFailure={cookieFailure} /> : <>
         {page === 'download' && <><section className="link-card"><div className="link-card-heading"><span><Link2 size={18} />添加视频链接</span><kbd>Ctrl + L</kbd></div><div className="link-input-row"><textarea ref={input} aria-label="视频链接" value={links} onChange={event => setLinks(event.target.value)} onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); if (snapshot.engine.ready && !parsing) void startPreview(); } }} placeholder="粘贴视频、播放列表或分享文本，可一次添加多个链接" rows={2} spellCheck={false} /><button ref={previewButton} className="primary parse-button" disabled={!urls.length || parsing || snapshot.previewing || snapshot.updating || !snapshot.engine.ready} onClick={() => { void startPreview(); }}>{parsing ? <Loader2 size={18} className="spin" /> : <Search size={18} />}解析链接</button></div><div className="link-hint"><span><Globe2 size={14} />支持哔哩哔哩、YouTube 及 yt-dlp 支持的平台</span><span>{urls.length ? `识别到 ${urls.length} 个链接` : '先预览，再下载'}</span></div></section>
@@ -366,6 +373,7 @@ export default function App() {
         {page === 'download' && <div className="workspace-footer"><span className="save-location" title={snapshot.settings.downloadDir}><Folder size={15} /><span>{snapshot.settings.downloadDir || '默认保存至「下载 / 视频下载」'}</span></span><button className="text-button" onClick={() => navigate('settings')}>更改位置 <ChevronRight size={14} /></button></div>}
       </>}
     </main>
+    <QuickSearch open={quickSearchOpen} close={closeQuickSearch} onVideo={openLearningVideo} onNote={openKnowledge}/>
     <ContextMenu menu={taskMenu} items={taskMenuItems} onClose={closeTaskMenu} onAction={handleTaskMenu}/>
 
     {confirmBatch && <Modal title={`确认${batchLabels[confirmBatch.action]}`} onClose={() => setConfirmBatch(null)}><div className="details-body"><p>{batchConfirmation(confirmBatch.action,confirmBatch.ids.length)}</p><p className="help">不适用的任务会跳过并说明原因。</p></div><div className="modal-footer"><button className="secondary" onClick={() => setConfirmBatch(null)}>返回</button><button className="primary" onClick={() => { void runBatch(confirmBatch.action,confirmBatch.ids); }}>确认操作</button></div></Modal>}

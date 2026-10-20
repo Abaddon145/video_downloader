@@ -35,6 +35,7 @@ export class CommandRegistry {
   this.running.add(id);this.publish({error:''});
   try {
    await command!.execute();
+   if(['app.palette','app.search','app.shortcuts'].includes(id))return {ok:true};
    const previous=this.snapshot.recent.find(r=>r.id===id);const recent=[{id,time:Date.now(),count:(previous?.count??0)+1},...this.snapshot.recent.filter(r=>r.id!==id)].slice(0,30);
    try{this.storage?.setItem(RECENT_KEY,JSON.stringify(recent));}catch{/* Recents are optional; the completed action remains successful. */}
    this.publish({recent});return {ok:true};

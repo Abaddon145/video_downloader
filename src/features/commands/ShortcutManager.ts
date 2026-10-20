@@ -33,8 +33,8 @@ export function importShortcuts(text:string,commands:CommandDescriptor[]):Shortc
  for(const command of actual){if(!command.shortcut)continue;const issue=shortcutIssue(command.shortcut,command.scope,actual,command.id);if(issue)throw new Error(issue);}
  return result;
 }
-export interface ShortcutEvent {key:string;ctrlKey:boolean;altKey:boolean;shiftKey:boolean;metaKey:boolean;isComposing?:boolean;repeat?:boolean;defaultPrevented?:boolean;keyCode?:number}
-export function eventShortcut(event:ShortcutEvent){return normalizeShortcut([...event.ctrlKey?['Ctrl']:[],...event.altKey?['Alt']:[],...event.shiftKey?['Shift']:[],...event.metaKey?['Meta']:[],event.key===' '?'Space':event.key==='+'?'Plus':event.key].join('+'));}
+export interface ShortcutEvent {key:string;code?:string;ctrlKey:boolean;altKey:boolean;shiftKey:boolean;metaKey:boolean;isComposing?:boolean;repeat?:boolean;defaultPrevented?:boolean;keyCode?:number}
+export function eventShortcut(event:ShortcutEvent){const key=event.shiftKey&&/^Digit[0-9]$/.test(event.code??'')?event.code!.slice(5):event.key;return normalizeShortcut([...event.ctrlKey?['Ctrl']:[],...event.altKey?['Alt']:[],...event.shiftKey?['Shift']:[],...event.metaKey?['Meta']:[],key===' '?'Space':key==='+'?'Plus':key].join('+'));}
 export function shouldHandleShortcut(event:ShortcutEvent,command:CommandDescriptor,context:{scope:CommandScope;editable:boolean;overlay:boolean}){
  if(event.defaultPrevented||event.repeat||event.isComposing||event.keyCode===229||context.overlay||command.enabled===false)return false;
  if((command.scope??'global')!=='global'&&command.scope!==context.scope)return false;
