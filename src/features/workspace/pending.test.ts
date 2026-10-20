@@ -2,6 +2,22 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {defaultWorkspace} from './defaults.ts';
 import {readPendingWorkspace,writePendingWorkspace,acknowledgeWorkspace} from './pending.ts';
+test('legacy pending workspace remains recoverable after adding preset identity and sidebar state',()=>{
+ let raw:string|null=null;
+ const store={getItem:()=>raw,setItem:(_key:string,next:string)=>{raw=next;},removeItem:()=>{raw=null;}};
+ const old=defaultWorkspace() as Record<string,unknown>;
+ delete old.activePreset;
+ delete (old.appearance as Record<string,unknown>).sidebarCollapsed;
+ (old.currentLayout as ReturnType<typeof defaultWorkspace>['currentLayout']).library.view='table';
+ raw=JSON.stringify(old);
+ const restored=readPendingWorkspace(store);
+ assert.equal(restored?.currentLayout.library.view,'table');
+ assert.equal(restored?.activePreset,null);
+ assert.equal(restored?.appearance.sidebarCollapsed,false);
+ assert.equal(raw,JSON.stringify(old));
+ acknowledgeWorkspace(store,restored!);
+ assert.equal(raw,null);
+});
 test('pending workspace survives restart and an older save acknowledgement cannot erase the latest layout',()=>{
  let value:string|null=null;
  const store={getItem:()=>value,setItem:(_key:string,next:string)=>{value=next;},removeItem:()=>{value=null;}};

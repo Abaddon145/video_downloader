@@ -10,7 +10,7 @@ import {learningTime,learningError} from './lib';
 import './courseNotes.css';
 
 type NoteEditor={id:string|null;time:string;content:string;capture?:{timeMs:number;vaultId:string;session:string}};
-export function VideoNotes({itemId,captureSession='',canCapture=true,getCurrent,pauseAndSave,seek,notify,onOpenKnowledge,onKnowledgeSetup}:{itemId:string;captureSession?:string;canCapture?:boolean;getCurrent:()=>number;pauseAndSave:()=>Promise<void>;seek:(seconds:number)=>void;notify:(message:string)=>void;onOpenKnowledge?:(reference:KnowledgeReference)=>void;onKnowledgeSetup?:()=>void}){
+export function VideoNotes({createRequest,itemId,captureSession='',canCapture=true,getCurrent,pauseAndSave,seek,notify,onOpenKnowledge,onKnowledgeSetup}:{createRequest?:{version:number;itemId:string;timeMs:number};itemId:string;captureSession?:string;canCapture?:boolean;getCurrent:()=>number;pauseAndSave:()=>Promise<void>;seek:(seconds:number)=>void;notify:(message:string)=>void;onOpenKnowledge?:(reference:KnowledgeReference)=>void;onKnowledgeSetup?:()=>void}){
  const [notes,setNotes]=useState<NotePage|null>(null),[page,setPage]=useState(1),[tick,setTick]=useState(0),[editing,setEditing]=useState<NoteEditor|null>(null),[removing,setRemoving]=useState<VideoNote|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[missing,setMissing]=useState(false);
  const operation=useRef(0),locked=useRef(false),capture=useRef<string|null>(null),nonce=useRef(0);
  const cancelCapture=()=>{const session=capture.current;capture.current=null;if(session)void invoke('cancel_media_preview',{session}).catch(()=>{});};
@@ -18,14 +18,16 @@ export function VideoNotes({itemId,captureSession='',canCapture=true,getCurrent,
  useEffect(()=>{let alive=true;const stop=listen<{kind:string}>('learning-library-updated',e=>{if(alive&&e.payload.kind==='note')setTick(n=>n+1);});return()=>{alive=false;void stop.then(fn=>fn());};},[]);
  useEffect(()=>{let alive=true;void invoke<NotePage>('learning_notes',{itemId,page}).then(n=>{if(alive){setNotes(n);setPage(n.page);}}).catch(e=>{if(alive)notify(learningError(e));});return()=>{alive=false;};},[itemId,page,tick]);
  const close=()=>{++operation.current;cancelCapture();locked.current=false;setBusy(false);setEditing(null);setError('');};
- async function edit(note?:VideoNote,screenshot=false){
-  if(locked.current)return;locked.current=true;const ticket=++operation.current,timeMs=note?.timeMs??Math.round(getCurrent()*1000);setBusy(true);setError('');setMissing(false);
+ async function edit(note?:VideoNote,screenshot=false,atMs?:number){
+  if(locked.current)return;locked.current=true;const ticket=++operation.current,timeMs=atMs??note?.timeMs??Math.round(getCurrent()*1000);setBusy(true);setError('');setMissing(false);
   try{
    let screenshotData:NoteEditor['capture'];
    if(screenshot){const settings=await invoke<KnowledgeSettings>('knowledge_get_settings');if(ticket!==operation.current)return;if(!settings.vaultId){setMissing(true);setError('请先创建或选择知识库');return;}const session=`${captureSession}-capture-${Date.now().toString(36)}-${++nonce.current}`;if(!captureSession||session.length>80||!/^[a-zA-Z0-9-]+$/.test(session))throw '播放器正在准备，请稍后截图';screenshotData={timeMs,vaultId:settings.vaultId,session};capture.current=session;}
    await pauseAndSave();if(ticket!==operation.current)return;setEditing({id:note?.id??null,time:learningTime(timeMs),content:note?.content??'',capture:screenshotData});
   }catch(e){if(ticket===operation.current){cancelCapture();setError(learningError(e));}}finally{if(ticket===operation.current){locked.current=false;setBusy(false);}}
  }
+ const createdRequest=useRef(0);
+ useEffect(()=>{if(!createRequest||createdRequest.current===createRequest.version||createRequest.itemId!==itemId||busy||!Number.isSafeInteger(createRequest.timeMs)||createRequest.timeMs<0||createRequest.timeMs>604800000)return;createdRequest.current=createRequest.version;void edit(undefined,false,createRequest.timeMs);},[createRequest?.version,itemId,busy]);
  async function save(){
   if(!editing||locked.current)return;locked.current=true;const ticket=++operation.current;setBusy(true);setError('');
   try{

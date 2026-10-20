@@ -1,0 +1,39 @@
+{
+  "realBundledMpv": true,
+  "simulatedKeypressOverIpc": true,
+  "physicalKeyboard": false,
+  "checks": [
+    {
+      "key": "SPACE",
+      "passed": true
+    },
+    {
+      "key": "j",
+      "passed": true
+    },
+    {
+      "key": "M",
+      "passed": true
+    },
+    {
+      "key": "Ctrl+k",
+      "passed": true
+    },
+    {
+      "key": "Ctrl+!",
+      "passed": true
+    },
+    {
+      "key": "+",
+      "passed": true
+    },
+    {
+      "key": "Ctrl++",
+      "passed": true
+    },
+    {
+      "key": "Shift+LEFT",
+      "passed": true
+    }
+  ]
+}

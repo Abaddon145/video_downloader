@@ -1,6 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {defaultWorkspace, readWorkspace, saveWorkspaceQueue} from './defaults.ts';
+import {defaultWorkspace, readWorkspace, saveWorkspaceQueue, validateWorkspace} from './defaults.ts';
+
+test('legacy version 1 workspace keeps its layout and custom presets while gaining an unset identity',()=>{
+ const old=defaultWorkspace() as Record<string,unknown>;
+ old.currentLayout=structuredClone(old.currentLayout);
+ (old.currentLayout as ReturnType<typeof defaultWorkspace>['currentLayout']).library.view='table';
+ old.presets=[{id:'custom-old',name:'旧预设',layout:structuredClone(old.currentLayout)}];
+ delete old.activePreset;
+ delete (old.appearance as Record<string,unknown>).sidebarCollapsed;
+ const restored=readWorkspace(old);
+ assert.equal(restored.currentLayout.library.view,'table');
+ assert.equal(restored.presets[0].id,'custom-old');
+ assert.equal(restored.activePreset,null);
+ assert.equal(restored.appearance.sidebarCollapsed,false);
+ assert.equal(validateWorkspace(old).activePreset,null);
+});
 
 test('workspace accepts valid table layouts and rejects future, corrupt and out of range data',()=>{
  const settings=defaultWorkspace(); settings.currentLayout.library.view='table';
