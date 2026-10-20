@@ -1,0 +1,9 @@
+
+> video-downloader@0.5.1 build
+> tsc -b && vite build
+
+src/features/knowledge/RichTextEditor.tsx(2,32): error TS2307: Cannot find module '@tiptap/pm/state' or its corresponding type declarations.
+src/features/knowledge/RichTextEditor.tsx(3,39): error TS2307: Cannot find module '@tiptap/react' or its corresponding type declarations.
+src/features/knowledge/RichTextEditor.tsx(4,24): error TS2307: Cannot find module '@tiptap/starter-kit' or its corresponding type declarations.
+src/features/knowledge/RichTextEditor.tsx(18,141): error TS7031: Binding element 'editor' implicitly has an 'any' type.
+src/features/knowledge/RichTextEditor.tsx(24,140): error TS7006: Parameter 'transaction' implicitly has an 'any' type.
