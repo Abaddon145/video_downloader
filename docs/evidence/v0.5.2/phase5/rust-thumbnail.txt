@@ -1,0 +1,14 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.33s
+     Running unittests src\lib.rs (C:/Users/14582/Documents/ChatGPT/视频下载软件/src-tauri/target\debug\deps\video_downloader_lib-8f061203aeb65824.exe)
+
+running 7 tests
+test learning::thumbnail::failure_memo_tests::unchanged_thumbnail_failure_is_not_rescheduled_forever ... ok
+test learning::tests::learning_thumbnail_retry_uses_accurate_output_seek_preserving_literal_paths ... ok
+test learning::tests::learning_thumbnails_sample_after_first_frame_and_use_one_queue_entry ... ok
+test learning::thumbnail::worker_race_tests::relink_during_paused_thumbnail_work_requeues_latest_input_once ... ok
+test learning::thumbnail::task_observation_tests::recent_attempts_are_bounded_and_finish_without_changing_queue ... ok
+test learning::tests::learning_thumbnail_cas_preserves_manual_choice_and_relinked_sources ... ok
+test learning::tests::learning_v4_upgrade_preserves_progress_notes_and_source_thumbnail ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 246 filtered out; finished in 0.48s
+

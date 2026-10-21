@@ -311,3 +311,10 @@ pub async fn learning_capture_note(
     let _=l_event.app.emit("knowledge-file-changed",serde_json::json!({"id":result.reference.path,"vaultId":result.reference.vault_id,"kind":"create"}));
     Ok(result)
 }
+
+#[tauri::command]
+pub fn learning_thumbnail_tasks(
+    learning: Learning<'_>,
+) -> AppResult<Vec<super::thumbnail::ThumbnailTask>> {
+    learning.thumbnail_tasks()
+}

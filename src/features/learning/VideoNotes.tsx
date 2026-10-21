@@ -1,3 +1,4 @@
+import {useTaskCenter} from '../tasks/TaskCenter';
 import {useEffect,useRef,useState} from 'react';
 import {invoke} from '@tauri-apps/api/core';
 import {listen} from '@tauri-apps/api/event';
@@ -11,6 +12,7 @@ import './courseNotes.css';
 
 type NoteEditor={id:string|null;time:string;content:string;capture?:{timeMs:number;vaultId:string;session:string}};
 export function VideoNotes({createRequest,itemId,captureSession='',canCapture=true,getCurrent,pauseAndSave,seek,notify,onOpenKnowledge,onKnowledgeSetup}:{createRequest?:{version:number;itemId:string;timeMs:number};itemId:string;captureSession?:string;canCapture?:boolean;getCurrent:()=>number;pauseAndSave:()=>Promise<void>;seek:(seconds:number)=>void;notify:(message:string)=>void;onOpenKnowledge?:(reference:KnowledgeReference)=>void;onKnowledgeSetup?:()=>void}){
+ const {trackOperation}=useTaskCenter();
  const [notes,setNotes]=useState<NotePage|null>(null),[page,setPage]=useState(1),[tick,setTick]=useState(0),[editing,setEditing]=useState<NoteEditor|null>(null),[removing,setRemoving]=useState<VideoNote|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[missing,setMissing]=useState(false);
  const operation=useRef(0),locked=useRef(false),capture=useRef<string|null>(null),nonce=useRef(0);
  const cancelCapture=()=>{const session=capture.current;capture.current=null;if(session)void invoke('cancel_media_preview',{session}).catch(()=>{});};
@@ -31,7 +33,7 @@ export function VideoNotes({createRequest,itemId,captureSession='',canCapture=tr
  async function save(){
   if(!editing||locked.current)return;locked.current=true;const ticket=++operation.current;setBusy(true);setError('');
   try{
-   if(editing.capture){const {timeMs,vaultId,session}=editing.capture;const result=await invoke<{note:VideoNote;reference:KnowledgeReference;attachmentPath:string;warning:string|null}>('learning_capture_note',{itemId,timeMs,vaultId,session,content:editing.content});if(ticket!==operation.current)return;if(result.reference.vaultId!==vaultId)throw '截图返回的知识库不匹配';capture.current=null;if(result.warning)notify(result.warning);}
+   if(editing.capture){const {timeMs,vaultId,session}=editing.capture;const result=await trackOperation('note','保存课程截图笔记',()=>invoke<{note:VideoNote;reference:KnowledgeReference;attachmentPath:string;warning:string|null}>('learning_capture_note',{itemId,timeMs,vaultId,session,content:editing.content}),{output:r=>r.reference.path});if(ticket!==operation.current)return;if(result.reference.vaultId!==vaultId)throw '截图返回的知识库不匹配';capture.current=null;if(result.warning)notify(result.warning);}
    else await invoke('learning_save_note',{input:{id:editing.id,itemId,timeMs:Math.round(parseMediaTime(editing.time)*1000),content:editing.content}});
    if(ticket!==operation.current)return;setEditing(null);setPage(1);setTick(n=>n+1);
   }catch(e){if(ticket===operation.current)setError(learningError(e));}finally{if(ticket===operation.current){locked.current=false;setBusy(false);}}

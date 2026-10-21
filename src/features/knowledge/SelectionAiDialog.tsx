@@ -1,3 +1,4 @@
+import {useTaskCenter} from '../tasks/TaskCenter';
 import {useEffect,useRef,useState} from 'react';
 import {invoke} from '@tauri-apps/api/core';
 import {LearningDialog} from '../learning/Editors';
@@ -13,6 +14,7 @@ const names={summary:'AI 总结',polish:'AI 润色',review:'创建复习问题'}
 const hash=async(text:string)=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)))].map(b=>b.toString(16).padStart(2,'0')).join('');
 
 export function SelectionAiDialog({action,selection,prepare,current,apply,close}:{action:SelectionAiAction;selection:SelectionSnapshot;prepare:()=>Promise<NoteSnapshot>;current:()=>NoteSnapshot|null;apply:(text:string,snapshot:NoteSnapshot)=>boolean;close:()=>void}){
+ const {trackOperation}=useTaskCenter();
  const {recordUndo}=useFeedback();
  const [settings,setSettings]=useState<AiSettingsView|null>(null),[consent,setConsent]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[draft,setDraft]=useState<Draft|null>(null),[source,setSource]=useState<NoteSnapshot|null>(null);
  const active=useRef(true),request=useRef<string|null>(null),ticket=useRef(0);
@@ -20,7 +22,7 @@ export function SelectionAiDialog({action,selection,prepare,current,apply,close}
  const dismiss=()=>{++ticket.current;if(request.current)void invoke('ai_cancel_note_organize',{requestId:request.current}).catch(()=>{});close();};
  async function run(){if(busy||!settings?.hasApiKey||!settings.settings.allowNoteText||!consent)return;const own=++ticket.current,id=`selection-${crypto.randomUUID()}`;request.current=id;setBusy(true);setError('');
   try{const saved=await prepare();if(!active.current||own!==ticket.current)return;if(saved.text!==selection.source||!applySelectionDraft(selection,selection.selection,saved.text))throw Error('笔记内容已改变，请重新选择文字。');
-   const result=await invoke<Draft>('ai_organize_note',{request:{requestId:id,vaultId:saved.vaultId,path:saved.path,expectedHash:saved.hash,text:selection.selection,allowNoteText:true,operation:action}});
+   const result=await trackOperation('note','AI 整理选中文字',()=>invoke<Draft>('ai_organize_note',{request:{requestId:id,vaultId:saved.vaultId,path:saved.path,expectedHash:saved.hash,text:selection.selection,allowNoteText:true,operation:action}}));
    if(!active.current||own!==ticket.current)return;
    if(result.requestId!==id||result.vaultId!==saved.vaultId||result.path!==saved.path||result.sourceHash!==saved.hash||result.inputHash!==await hash(selection.selection))throw Error('AI 回执与选区不一致，结果未应用。');
    setSource(saved);setDraft(result);

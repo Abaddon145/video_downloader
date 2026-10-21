@@ -1,3 +1,4 @@
+import {useTaskCenter} from '../tasks/TaskCenter';
 import {useEffect,useRef,useState} from 'react';
 import {invoke} from '@tauri-apps/api/core';
 import {Star,History,Files,Paperclip,Sparkles,Network} from 'lucide-react';
@@ -16,6 +17,7 @@ type Kind='history'|'favorites'|'templates'|'attachments'|'ai'|'mindmap';
 export type NoteToolRequest={id:number;path:string;kind:Kind|'favorite'};
 const hash=async(text:string)=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)))].map(b=>b.toString(16).padStart(2,'0')).join('');
 export function NoteTools({vaultId,path,text,revision,prepare,apply,openNote,created,jump,request,onMove,onDelete,onExport}:{vaultId:string;path:string;text:string;revision:number;prepare:()=>Promise<NoteSnapshot>;apply:(text:string,snapshot:NoteSnapshot)=>boolean;openNote:(path:string)=>void;created:(path:string)=>void;jump:(id:string)=>void;request?:NoteToolRequest|null;onMove:()=>void;onDelete:()=>void;onExport:()=>void}){
+ const {trackOperation}=useTaskCenter();
  const [metadata,setMetadata]=useState<Metadata|null>(null),[kind,setKind]=useState<Kind|null>(null),[snapshot,setSnapshot]=useState<NoteSnapshot|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  const [page,setPage]=useState(1),[list,setList]=useState<Page<Metadata|Version|Attachment>|null>(null),[preview,setPreview]=useState<KnowledgeDocument|Version|null>(null),[target,setTarget]=useState('');
  const [ai,setAi]=useState<AiSettingsView|null>(null),[consent,setConsent]=useState(false),[draft,setDraft]=useState<AiDraft|null>(null);
@@ -31,7 +33,7 @@ export function NoteTools({vaultId,path,text,revision,prepare,apply,openNote,cre
  async function select(entry:Metadata|Version|Attachment){const own=++ticket.current;await action(async()=>{if(kind==='history'){const v=entry as Version;const r=await invoke<KnowledgeView<Version>>('knowledge_note_version',{vaultId,path,versionId:v.id});if(live.current&&ticket.current===own)setPreview(r.data);}else if(kind==='templates'){const r=await invoke<KnowledgeView<KnowledgeDocument>>('knowledge_read',{vaultId,path:entry.path});if(live.current&&ticket.current===own){setPreview(r.data);setTarget(entry.path.replace(/\.md$/i,' - 副本.md'));}}else if(kind==='favorites'){close();openNote(entry.path);}});}
  const applyPreview=()=>{if(snapshot&&preview?.text!==undefined){if(apply(preview.text,snapshot))close();else setError('笔记已发生变化，请关闭预览后重新操作；当前草稿已保留。');}};
  async function analyze(){if(!snapshot||!consent||!ai?.settings.allowNoteText)return;const s=snapshot,id=`note-${crypto.randomUUID()}`,own=++ticket.current;pendingRequest.current=id;
-  await action(async()=>{try{const r=await invoke<AiDraft>('ai_organize_note',{request:{requestId:id,vaultId:s.vaultId,path:s.path,expectedHash:s.hash,text:s.text,allowNoteText:true}});if(!live.current||ticket.current!==own)return;if(r.requestId!==id||r.vaultId!==s.vaultId||r.path!==s.path||r.sourceHash!==s.hash||r.inputHash!==await hash(s.text))throw Error('整理回执与当前笔记不一致，草稿未替换。');setDraft(r);}finally{if(pendingRequest.current===id)pendingRequest.current=null;}});
+  await action(async()=>{try{const r=await trackOperation('note','AI 整理当前笔记',()=>invoke<AiDraft>('ai_organize_note',{request:{requestId:id,vaultId:s.vaultId,path:s.path,expectedHash:s.hash,text:s.text,allowNoteText:true}}));if(!live.current||ticket.current!==own)return;if(r.requestId!==id||r.vaultId!==s.vaultId||r.path!==s.path||r.sourceHash!==s.hash||r.inputHash!==await hash(s.text))throw Error('整理回执与当前笔记不一致，草稿未替换。');setDraft(r);}finally{if(pendingRequest.current===id)pendingRequest.current=null;}});
  }
  return <><div className="note-tools" role="toolbar" aria-label="知识笔记工具">
   <button className="text-button" disabled={busy} onClick={()=>{void show('ai');}}><Sparkles size={14}/>AI整理笔记</button>

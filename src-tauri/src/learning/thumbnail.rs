@@ -4,6 +4,7 @@ use crate::{
     ffmpeg::{command, models::*},
 };
 use rusqlite::params;
+use serde::Serialize;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     fs,
@@ -11,7 +12,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 pub fn sample(duration: f64) -> f64 {
     let t = if !duration.is_finite() || duration <= 0. {
         0.1
@@ -63,8 +64,66 @@ pub(crate) struct ThumbnailState {
     queue: ThumbnailQueue,
     memo: HashMap<String, String>,
     forced: HashSet<String>,
+    tasks: VecDeque<ThumbnailTask>,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ThumbnailTaskStatus {
+    Running,
+    Completed,
+    Failed,
+    NeedsAction,
+}
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThumbnailTask {
+    pub id: String,
+    pub item_id: String,
+    pub name: String,
+    pub status: ThumbnailTaskStatus,
+    pub phase: String,
+    pub created_at: u64,
+    pub finished_at: Option<u64>,
+    pub error: Option<String>,
+    pub output: Option<String>,
 }
 impl ThumbnailState {
+    fn start_task(&mut self, item_id: &str, name: &str) -> ThumbnailTask {
+        let task = ThumbnailTask {
+            id: super::repository::id(),
+            item_id: item_id.into(),
+            name: name.into(),
+            status: ThumbnailTaskStatus::Running,
+            phase: "thumbnail".into(),
+            created_at: crate::service::now(),
+            finished_at: None,
+            error: None,
+            output: None,
+        };
+        if self.tasks.len() == 100 {
+            self.tasks.pop_front();
+        }
+        self.tasks.push_back(task.clone());
+        task
+    }
+    fn complete_task(
+        &mut self,
+        task_id: &str,
+        status: ThumbnailTaskStatus,
+        error: Option<String>,
+        output: Option<String>,
+    ) -> ThumbnailTask {
+        let task = self
+            .tasks
+            .iter_mut()
+            .find(|task| task.id == task_id)
+            .unwrap();
+        task.status = status;
+        task.finished_at = Some(crate::service::now());
+        task.error = error;
+        task.output = output;
+        task.clone()
+    }
     fn finish_attempt(&mut self, id: &str, attempted: String, current: Option<String>) {
         if self.memo.len() >= 10000 {
             self.memo.clear();
@@ -111,6 +170,18 @@ impl Repository {
     }
 }
 impl LearningService {
+    pub fn thumbnail_tasks(&self) -> AppResult<Vec<ThumbnailTask>> {
+        Ok(self
+            .thumbnails
+            .0
+            .lock()
+            .map_err(|_| "缩略图任务暂不可用")?
+            .tasks
+            .iter()
+            .rev()
+            .cloned()
+            .collect())
+    }
     pub(crate) fn schedule_thumbnails(&self, ids: &[String]) {
         if let Ok(mut state) = self.thumbnails.0.lock() {
             for id in ids {
@@ -173,19 +244,47 @@ impl LearningService {
                 };
                 if let Ok(item) = this.with(|r| r.item(&id)) {
                     let signature = this.thumbnail_signature(&item);
-                    let forced = this.thumbnails.0.lock().unwrap().forced.remove(&id);
-                    let memo = this.thumbnails.0.lock().unwrap().memo.get(&id).cloned();
-                    if forced || memo.as_deref() != Some(&signature) {
-                        let _ = this.resolve_thumbnail(&item, forced);
+                    let (forced, task) = {
+                        let mut state = this.thumbnails.0.lock().unwrap();
+                        let forced = state.forced.remove(&id);
+                        let task = if forced || state.memo.get(&id) != Some(&signature) {
+                            Some(state.start_task(&id, &item.title))
+                        } else {
+                            None
+                        };
+                        (forced, task)
+                    };
+                    if let Some(task) = task {
+                        let _ = this.app.emit("learning-thumbnail-task", &task);
+                        let result = this.resolve_thumbnail(&item, forced);
+                        let registered = this.with(|r| r.item(&id)).ok().and_then(|latest| {
+                            latest.thumbnail_path.filter(|path| {
+                                this.thumbnail_file(path)
+                                    || latest.thumbnail_source.as_deref() == Some("manual")
+                                        && manual_input(path).is_ok()
+                            })
+                        });
+                        let (status, error, output) = match (result, registered) {
+                            (Ok(()), Some(path)) => {
+                                (ThumbnailTaskStatus::Completed, None, Some(path))
+                            }
+                            (Err(error), _) => (ThumbnailTaskStatus::Failed, Some(error), None),
+                            (Ok(()), None) => (
+                                ThumbnailTaskStatus::NeedsAction,
+                                Some("没有可用的缩略图；请检查图片来源后重试".into()),
+                                None,
+                            ),
+                        };
                         let current = this
                             .with(|r| r.item(&id))
                             .ok()
                             .map(|i| this.thumbnail_signature(&i));
-                        this.thumbnails
-                            .0
-                            .lock()
-                            .unwrap()
-                            .finish_attempt(&id, signature, current);
+                        let finished = {
+                            let mut state = this.thumbnails.0.lock().unwrap();
+                            state.finish_attempt(&id, signature, current);
+                            state.complete_task(&task.id, status, error, output)
+                        };
+                        let _ = this.app.emit("learning-thumbnail-task", &finished);
                     }
                 }
                 this.thumbnails.0.lock().unwrap().queue.finish(&id);
@@ -302,14 +401,19 @@ impl LearningService {
         {
             return Ok(());
         }
+        let mut last_error = None;
         for kind in ["remote", "generated"] {
             if kind == "remote" && current.source_thumbnail_url.is_none()
                 || kind == "generated" && current.file_path.is_none()
             {
                 continue;
             }
-            let Ok(key) = self.thumbnail_key(&current, kind) else {
-                continue;
+            let key = match self.thumbnail_key(&current, kind) {
+                Ok(key) => key,
+                Err(error) => {
+                    last_error = Some(error);
+                    continue;
+                }
             };
             if current.thumbnail_source.as_deref() == Some(kind)
                 && current.thumbnail_key.as_deref() == Some(&key)
@@ -357,11 +461,12 @@ impl LearningService {
                 }
                 Ok(())
             })();
-            if result.is_ok() {
-                return Ok(());
+            match result {
+                Ok(()) => return Ok(()),
+                Err(error) => last_error = Some(error),
             }
         }
-        Ok(())
+        last_error.map_or(Ok(()), Err)
     }
     pub fn set_thumbnail(&self, id: &str, path: &str) -> AppResult<LearningItem> {
         let _single = self.thumbnail_guard.lock().map_err(|_| "缩略图暂不可用")?;
@@ -463,5 +568,41 @@ mod failure_memo_tests {
         s.finish_attempt("a", "same".into(), Some("same".into()));
         assert!(s.queue.take().is_none());
         assert_eq!(s.memo.get("a").map(String::as_str), Some("same"));
+    }
+}
+
+#[cfg(test)]
+mod task_observation_tests {
+    use super::*;
+
+    #[test]
+    fn recent_attempts_are_bounded_and_finish_without_changing_queue() {
+        let mut state = ThumbnailState::default();
+        state.queue.add("lesson");
+        assert_eq!(state.queue.take().as_deref(), Some("lesson"));
+        let first = state.start_task("lesson", "Lesson");
+        assert_eq!(first.status, ThumbnailTaskStatus::Running);
+        assert_eq!(first.finished_at, None);
+        state.complete_task(
+            &first.id,
+            ThumbnailTaskStatus::Completed,
+            None,
+            Some("cover.jpg".into()),
+        );
+        assert!(state.tasks.back().unwrap().finished_at.unwrap() >= first.created_at);
+        assert_eq!(
+            state.tasks.back().unwrap().output.as_deref(),
+            Some("cover.jpg")
+        );
+        assert_eq!(state.queue.take(), None);
+        assert!(state.queue.pending.contains("lesson"));
+
+        for n in 0..100 {
+            state.start_task(&format!("lesson-{n}"), "Lesson");
+        }
+        assert_eq!(state.tasks.len(), 100);
+        assert_eq!(state.tasks.front().unwrap().item_id, "lesson-0");
+        assert_eq!(state.tasks.back().unwrap().item_id, "lesson-99");
+        assert!(state.queue.pending.contains("lesson"));
     }
 }

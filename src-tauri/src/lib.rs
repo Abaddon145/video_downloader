@@ -289,6 +289,7 @@ pub fn run() {
             learning_clean_cache,
             learning_set_thumbnail,
             learning_regenerate_thumbnail,
+            learning_thumbnail_tasks,
             learning_load_subtitle,
             learning_scan,
             learning_import,

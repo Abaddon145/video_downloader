@@ -1,3 +1,4 @@
+import {useTaskCenter} from '../tasks/TaskCenter';
 import {useEffect,useRef,useState} from 'react';
 import {invoke} from '@tauri-apps/api/core';
 import {NotebookPen,ArrowUpRight} from 'lucide-react';
@@ -6,6 +7,7 @@ import type {KnowledgeReference,KnowledgeSettings} from '../../types/knowledge';
 import {aiError} from './lib';
 
 export function AnalysisNoteActions({analysis,onOpenKnowledge,onKnowledgeSetup}:{analysis:VideoAnalysis;onOpenKnowledge?:(reference:KnowledgeReference)=>void;onKnowledgeSetup?:()=>void}){
+ const {trackOperation}=useTaskCenter();
  const [reference,setReference]=useState<KnowledgeReference|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[missing,setMissing]=useState(false);
  const operation=useRef(0),locked=useRef(false);
  useEffect(()=>{++operation.current;setReference(null);setMessage('');setMissing(false);locked.current=false;setBusy(false);return()=>{++operation.current;};},[analysis.id]);
@@ -20,7 +22,7 @@ export function AnalysisNoteActions({analysis,onOpenKnowledge,onKnowledgeSetup}:
    if(!settings.vaultId){setMissing(true);setMessage('请先创建或选择知识库');return;}
    if(open){const latest=await invoke<KnowledgeReference|null>('knowledge_analysis_note',{id:analysis.id});if(ticket!==operation.current)return;if(!latest){setReference(null);setMessage('没有找到生成笔记，请重新生成');return;}const now=await invoke<KnowledgeSettings>('knowledge_get_settings');if(ticket!==operation.current)return;if(latest.vaultId!==settings.vaultId||now.vaultId!==settings.vaultId){setMessage('知识库已切换，请回到对应知识库后打开笔记');return;}setReference(latest);onOpenKnowledge?.(latest);}
    else{
-    const result=await invoke<KnowledgeReference&{warning:string|null}>('knowledge_generate_analysis_note',{id:analysis.id,vaultId:settings.vaultId});
+    const result=await trackOperation('note','生成课程知识笔记',()=>invoke<KnowledgeReference&{warning:string|null}>('knowledge_generate_analysis_note',{id:analysis.id,vaultId:settings.vaultId}),{output:r=>r.path});
     if(ticket!==operation.current)return;
     const now=await invoke<KnowledgeSettings>('knowledge_get_settings');if(ticket!==operation.current)return;
     if(now.vaultId!==settings.vaultId||result.vaultId!==settings.vaultId){setMessage('知识库已切换，笔记已保留在原知识库');return;}
