@@ -1,0 +1,29 @@
+{
+  "scope": "Git source/evidence plus generated dist text; not all user data",
+  "scannedFiles": 644,
+  "unreviewedMatches": 0,
+  "reviewedSyntheticTestLiterals": 5,
+  "locations": [],
+  "reviewedLocations": [
+    {
+      "path": "src-tauri/src/ai/analysis_tests.rs",
+      "line": 16
+    },
+    {
+      "path": "src-tauri/src/ai/note_organize_tests.rs",
+      "line": 183
+    },
+    {
+      "path": "src-tauri/src/ai/reference_tests.rs",
+      "line": 24
+    },
+    {
+      "path": "src-tauri/src/ai/tests.rs",
+      "line": 25
+    },
+    {
+      "path": "src-tauri/src/ai/tests.rs",
+      "line": 30
+    }
+  ]
+}

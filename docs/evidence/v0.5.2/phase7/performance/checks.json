@@ -1,0 +1,44 @@
+{
+  "mockedTauri": true,
+  "realBackendBenchmark": false,
+  "checks": [
+    "1000-course dataset renders only the current 50-row page",
+    "5000-course dataset keeps 50 rows and backend pagination",
+    "1000-note Vault tree fetches and renders a 50-note page",
+    "large source fallback keeps virtualized editor lines and accepts edits during 100 background events"
+  ],
+  "metrics": [
+    {
+      "name": "open-5000-course-paged-list-ms",
+      "value": 63
+    },
+    {
+      "name": "command-palette-wall-ms",
+      "samples": [
+        57,
+        41,
+        36,
+        36,
+        37,
+        65,
+        36,
+        36,
+        36,
+        35
+      ],
+      "median": 36,
+      "max": 65
+    },
+    {
+      "name": "open-large-note-wall-ms",
+      "value": 158,
+      "bytes": 612031,
+      "renderedLines": 37
+    },
+    {
+      "name": "edit-autosave-with-100-background-events-ms",
+      "value": 372
+    }
+  ],
+  "pageErrors": []
+}

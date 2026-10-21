@@ -65,7 +65,7 @@ try{
  const menu=name=>page.locator('.context-menu-layer').getByRole('menuitem',{name,exact:true});
  const dialog=name=>page.getByRole('dialog',{name,exact:true});
  const state=()=>page.evaluate(()=>({notes:structuredClone(window.kb.notes),trash:structuredClone(window.qaTrash),receipts:structuredClone(window.qaReceipts)}));
- const rightAction=async(name,action)=>{await note(name).click({button:'right'});await menu(action).click();};
+ const rightAction=async(name,action)=>{await note(name).focus();await page.keyboard.press('Shift+F10');await menu(action).click();};
  const undo=async()=>{await page.locator('.feedback-toast').getByRole('button',{name:'撤销',exact:true}).click();};
  await note('原笔记.md').click();await page.getByRole('textbox',{name:'Markdown正文',exact:true}).waitFor();
  await page.waitForFunction(()=>window.qaInitialMetadataPending);

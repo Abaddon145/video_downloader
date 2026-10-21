@@ -1,0 +1,92 @@
+{
+  "realWindows": true,
+  "realFilesystem": true,
+  "realMpv": true,
+  "aiRequests": 0,
+  "run": "C:\\Users\\14582\\.codex\\worktrees\\content-updates\\视频下载软件\\artifacts\\v052\\desktop\\run-1792579058164",
+  "checks": [
+    {
+      "name": "real release version and isolated empty-key state",
+      "passed": true,
+      "detail": {
+        "version": "0.5.2",
+        "hasApiKey": false
+      }
+    },
+    {
+      "name": "real Vault v8 history preserves original bytes and rejects conflicting writes",
+      "passed": true,
+      "detail": {
+        "versions": 1,
+        "sourceBytesPreserved": true,
+        "conflict": "rejected"
+      }
+    },
+    {
+      "name": "real favorites/history survive switching Vaults and source paths cannot escape",
+      "passed": true,
+      "detail": {
+        "crossVault": "isolated",
+        "traversal": "rejected"
+      }
+    },
+    {
+      "name": "real guarded moves, recycle and note flags refuse stale compensation",
+      "passed": true,
+      "detail": {
+        "noOverwrite": true,
+        "sourceBytesPreserved": true,
+        "oneUseTrashReceipt": true
+      }
+    },
+    {
+      "name": "real UI autosaves Markdown without a fake bridge",
+      "passed": true,
+      "detail": {
+        "realDiskWrite": true
+      }
+    },
+    {
+      "name": "real mpv plays MP4/WMV/HEVC originals and layout changes keep the session",
+      "passed": true,
+      "detail": {
+        "played": [
+          {
+            "path": "\\\\?\\C:\\Users\\14582\\.codex\\worktrees\\content-updates\\视频下载软件\\artifacts\\v052\\desktop\\run-1792579058164\\HEVC 课程.mkv",
+            "session": "learn-1792579066249-p70btwgo3z8-n-00vzlc7",
+            "seconds": 20
+          },
+          {
+            "path": "\\\\?\\C:\\Users\\14582\\.codex\\worktrees\\content-updates\\视频下载软件\\artifacts\\v052\\desktop\\run-1792579058164\\中文 课程（最终） # & Ω.mp4",
+            "session": "learn-1792579068766-5he7sfljed4-n-maulf8c",
+            "seconds": 20
+          },
+          {
+            "path": "\\\\?\\C:\\Users\\14582\\.codex\\worktrees\\content-updates\\视频下载软件\\artifacts\\v052\\desktop\\run-1792579058164\\原生 WMV.wmv",
+            "session": "learn-1792579070892-p50vuzcgn9-n-79bfu4o",
+            "seconds": 20
+          }
+        ],
+        "transcodeTasks": 0,
+        "sourceSha256": [
+          "ca97ade5c6e257f0d556919581fb1b36f5580a3c222c2535ed3417741c3bc01e",
+          "637865cb430285793c889614162ee7bc5b64323adaf07da85c7b611b0ba951fb",
+          "aece6b54dfc7b9e2c5401f3b767d7fdb8452c8eca0c57fc64637a3af22b5d335"
+        ],
+        "audioTracks": 2,
+        "frameStep": true,
+        "aspect": true,
+        "realDpiScale": 1
+      }
+    },
+    {
+      "name": "real workspace controls persist across an application restart",
+      "passed": true,
+      "detail": {
+        "theme": "light",
+        "density": "compact",
+        "realRestart": true
+      }
+    }
+  ]
+}
