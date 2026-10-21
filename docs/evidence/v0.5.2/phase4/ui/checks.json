@@ -1,0 +1,12 @@
+{
+  "mockedTauri": true,
+  "passed": true,
+  "checks": [
+    "native playback is mocked and starts one player session",
+    "J/L seek only with player focus; editable jump input and Ctrl+K preserve the session; fullscreen reaches the mock native control",
+    "timeline hover and chapter/note markers seek correctly; copy time and the existing timestamped note dialog use the current position",
+    "native surface tracks actual container resizing while retaining panel settings and one session; reduced-motion layout fits at 880px",
+    "active built-in preset identity and collapsed sidebar persist after reload"
+  ],
+  "pageErrors": []
+}

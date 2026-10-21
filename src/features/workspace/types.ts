@@ -6,8 +6,8 @@ export interface WorkspaceLayout {
  player: {layout:PlayerLayout;panelSize:number;panelCollapsed:boolean};
  knowledge: {treeWidth:number;infoWidth:number;treeCollapsed:boolean;infoCollapsed:boolean};
 }
-export interface WorkspaceAppearance {theme:'dark'|'light'|'system';accent:string;fontSize:number;density:'comfortable'|'standard'|'compact';sidebarWidth:number;motion:'system'|'reduced'|'full'}
+export interface WorkspaceAppearance {theme:'dark'|'light'|'system';accent:string;fontSize:number;density:'comfortable'|'standard'|'compact';sidebarWidth:number;sidebarCollapsed:boolean;motion:'system'|'reduced'|'full'}
 export interface WorkspacePreset {id:string;name:string;layout:WorkspaceLayout}
-export interface WorkspaceSettings {version:1;appearance:WorkspaceAppearance;currentLayout:WorkspaceLayout;presets:WorkspacePreset[]}
+export interface WorkspaceSettings {version:1;appearance:WorkspaceAppearance;currentLayout:WorkspaceLayout;presets:WorkspacePreset[];activePreset:string|null}
 export type LibraryLayout = WorkspaceLayout['library'];
 export type PlayerLayoutSettings = WorkspaceLayout['player'];

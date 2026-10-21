@@ -13,6 +13,8 @@ export function installKnowledgeFixture(){
    if(command==='plugin:dialog|open')return 'D:\\课程\\新课程 #Niagara.mp4';
    if(command==='get_snapshot')return {settings:{downloadDir:'D:/下载',concurrency:2,cookieMode:'none',browser:'edge',browserProfile:'',hasCookieFile:false,proxyEnabled:false,proxyUrl:'',autoCheckCoreUpdate:true,lastCoreUpdateCheck:null,cookieSummary:null,downloadPresets:[]},tasks:[],engine:{ready:true,version:'test',ffmpegVersion:'test',denoVersion:'test',error:null},notice:null,updating:false,previewing:false,coreUpdate:null};
    if(command==='get_media_settings')return null;
+   if(command==='learning_thumbnail_tasks')return [];
+   if(command==='get_media_snapshot')return {tasks:[],ready:true,error:null};
    window.kb??={configured:false,rev:1,notes:{'映流/课程总结.md':'# GPU Collision\n\n本节介绍 Niagara。\n\n[[映流/目标#重点|关联知识]]\n\n![[Attachments/画面.png]]\n\n<script>window.MARKDOWN_EXECUTED=true</script>','映流/第三.md':'# 第三篇笔记\n\n[播放课程](yingliu://video/lesson?t=751000)','映流/目标.md':'# 目标\n## 重点\n知识归用户所有。'}};
    const kb=window.kb,kid='vault-test';const settings={vaultPath:'D:/Vault',vaultId:kid,rootFolder:'映流',attachmentsFolder:'Attachments',obsidian:kb.obsidian??null};
    const doc=path=>({path,text:kb.notes[path],hash:`mock:${kb.notes[path]}`,mtime:1});

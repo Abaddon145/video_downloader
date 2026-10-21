@@ -1,0 +1,25 @@
+   Compiling video-downloader v0.5.1 (C:\Users\14582\Documents\ChatGPT\视频下载软件\artifacts\v052\staging\src-tauri)
+warning: linker stdout: 正在创建库 C:/Users/14582/Documents/ChatGPT/视频下载软件/src-tauri/target\debug\deps\video_downloader_lib.dll.lib 和对象 C:/Users/14582/Documents/ChatGPT/视频下载软件/src-tauri/target\debug\deps\video_downloader_lib.dll.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `video-downloader` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 20.72s
+     Running unittests src\lib.rs (C:/Users/14582/Documents/ChatGPT/视频下载软件/src-tauri/target\debug\deps\video_downloader_lib-8f061203aeb65824.exe)
+
+running 6 tests
+test ai::note_organize_tests::selection_operation_is_strict_and_user_text_stays_data ... ok
+test ai::note_organize_tests::organize_settings_revocation_cancels_active_control ... ok
+test ai::note_organize_tests::organize_requires_note_consent_and_reads_only_supplied_text ... ok
+test ai::note_organize_tests::organize_preview_never_mutates_source ... ok
+test ai::note_organize_tests::organize_rechecks_consent_cancel_and_source_before_retry ... ok
+test ai::note_organize_tests::organize_records_usage_for_invalid_or_truncated_replies ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 247 filtered out; finished in 1.03s
+
+     Running unittests src\main.rs (C:/Users/14582/Documents/ChatGPT/视频下载软件/src-tauri/target\debug\deps\video_downloader-20733de779091531.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -1,0 +1,16 @@
+{
+  "sourceVideoHashesBefore": [
+    "ca97ade5c6e257f0d556919581fb1b36f5580a3c222c2535ed3417741c3bc01e",
+    "637865cb430285793c889614162ee7bc5b64323adaf07da85c7b611b0ba951fb",
+    "aece6b54dfc7b9e2c5401f3b767d7fdb8452c8eca0c57fc64637a3af22b5d335"
+  ],
+  "sourceVideoHashesAfter": [
+    "ca97ade5c6e257f0d556919581fb1b36f5580a3c222c2535ed3417741c3bc01e",
+    "637865cb430285793c889614162ee7bc5b64323adaf07da85c7b611b0ba951fb",
+    "aece6b54dfc7b9e2c5401f3b767d7fdb8452c8eca0c57fc64637a3af22b5d335"
+  ],
+  "sourceUnchanged": true,
+  "obsidianConfigSha256": "2fc80b9ebd32afe6f8685d8979b37f3bdda0e9a1534a5fa23b5a02209858a914",
+  "obsidianConfigUnchanged": true,
+  "testDataOnly": true
+}

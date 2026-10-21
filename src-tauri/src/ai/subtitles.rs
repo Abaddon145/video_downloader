@@ -336,6 +336,22 @@ pub struct CourseTranscriptPage {
     pub warning: Option<String>,
     pub next_start_ms: Option<i64>,
 }
+fn search_rows(
+    rows: Vec<TranscriptSegment>,
+    query: Option<&str>,
+) -> AppResult<Vec<TranscriptSegment>> {
+    let Some(query) = query.map(str::trim).filter(|s| !s.is_empty()) else {
+        return Ok(rows);
+    };
+    if query.chars().count() > 120 {
+        return Err("字幕搜索词过长".into());
+    }
+    let query = query.to_lowercase();
+    Ok(rows
+        .into_iter()
+        .filter(|row| row.text.to_lowercase().contains(&query))
+        .collect())
+}
 fn paged(
     mut rows: Vec<TranscriptSegment>,
     page: u32,
@@ -370,6 +386,7 @@ impl AiService {
         item: &str,
         page: u32,
         current: Option<i64>,
+        query: Option<&str>,
     ) -> AppResult<CourseTranscriptPage> {
         use rusqlite::OptionalExtension;
         if item.is_empty()
@@ -420,7 +437,14 @@ impl AiService {
             &control,
         )?;
         if !rows.is_empty() {
-            return Ok(paged(rows, page, current, "subtitle", None, warning));
+            return Ok(paged(
+                search_rows(rows, query)?,
+                page,
+                if query.is_some() { None } else { current },
+                "subtitle",
+                None,
+                warning,
+            ));
         }
         // A completed transcript can belong to an older analysis than the latest queued job.
         let analysis=self.with(|r|{let id:Option<String>=r.conn.query_row("SELECT id FROM video_analyses WHERE item_id=?1 AND source_fingerprint=?2 AND transcript_done=1 AND EXISTS(SELECT 1 FROM transcript_segments WHERE analysis_id=video_analyses.id) ORDER BY created_at DESC,id DESC LIMIT 1",rusqlite::params![item,fingerprint],|row|row.get(0)).optional().map_err(db::error)?;id.map(|id|r.all_transcript(&id).map(|rows|(id,rows))).transpose()})?;
@@ -435,7 +459,14 @@ impl AiService {
             } else {
                 "whisper"
             };
-            return Ok(paged(rows, page, current, kind, Some(id), warning));
+            return Ok(paged(
+                search_rows(rows, query)?,
+                page,
+                if query.is_some() { None } else { current },
+                kind,
+                Some(id),
+                warning,
+            ));
         }
         Ok(paged(vec![], 1, None, "none", None, warning))
     }
@@ -444,6 +475,33 @@ impl AiService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn transcript_query_filters_before_paging() {
+        let rows = (0..120)
+            .map(|i| TranscriptSegment {
+                id: i.to_string(),
+                analysis_id: "a".into(),
+                segment_index: i,
+                start_ms: i as i64 * 1000,
+                end_ms: i as i64 * 1000 + 999,
+                text: if i == 110 {
+                    "Find This".into()
+                } else {
+                    "other".into()
+                },
+            })
+            .collect();
+        let page = paged(
+            search_rows(rows, Some("find this")).unwrap(),
+            1,
+            None,
+            "whisper",
+            Some("a".into()),
+            None,
+        );
+        assert_eq!(page.total, 1);
+        assert_eq!(page.items[0].segment_index, 110);
+    }
     #[test]
     fn cached_subtitle_probe_waits_for_cache_cleaner_guard() {
         let dir = std::env::temp_dir().join(crate::ffmpeg::runner::new_id());
@@ -622,12 +680,16 @@ mod tests {
         assert!(!dir.join("ai/models").exists());
         // Resolve a real course, then make the tools unavailable: seeks must reuse media metadata and extraction.
         service.with(|r|{r.conn.execute("INSERT INTO series(id,title,source_type,created_at,updated_at) VALUES('series','课程','local',1,1)",[]).unwrap();r.conn.execute("INSERT INTO series_items(id,series_id,title,sort_order,file_path,created_at,updated_at) VALUES('lesson','series','课',0,?1,1,1)",[source.to_string_lossy().as_ref()]).unwrap();Ok(())}).unwrap();
-        let first = service.course_transcript("lesson", 1, Some(2000)).unwrap();
+        let first = service
+            .course_transcript("lesson", 1, Some(2000), None)
+            .unwrap();
         assert_eq!(first.source, "subtitle");
         assert_eq!(first.total, 2);
         drop(service);
         let service = AiService::create(None, &dir, &dir.join("missing-tools"));
-        let cached = service.course_transcript("lesson", 1, Some(500)).unwrap();
+        let cached = service
+            .course_transcript("lesson", 1, Some(500), None)
+            .unwrap();
         assert_eq!(cached.total, 2);
         assert_eq!(cached.source, "subtitle");
         assert_eq!(t::file_hash(&source).unwrap(), before);

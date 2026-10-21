@@ -1,0 +1,13 @@
+{
+  "mockedTauri": true,
+  "realMachineCapabilities": false,
+  "passed": true,
+  "checks": [
+    "five task sources share one 55-item center; event updates during the delayed AI bootstrap win over its stale snapshot",
+    "local subtitle filter, unknown percentage remains absent, 50-item UI paging and backend AI page 2",
+    "failed filter, detail error, and download retry await control_task with the source task id",
+    "media retry/cancel and AI/local-transcription retry use the matching native command, ids, and awaited completion",
+    "drawer fits at 880px, Escape closes it, and keyboard focus remains in the dialog"
+  ],
+  "pageErrors": []
+}

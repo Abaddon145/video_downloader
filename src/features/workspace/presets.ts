@@ -7,12 +7,14 @@ export function BUILTIN_WORKSPACE_PRESETS():WorkspacePreset[]{
  const focus=structuredClone(base);focus.player.layout='focus';focus.player.panelCollapsed=true;focus.library.view='list';focus.library.categoryCollapsed=true;
  const batch=structuredClone(base);batch.library.view='table';batch.library.columns=['title','category','items','duration','progress','availability','actions'];batch.player.panelCollapsed=true;
  const knowledge=structuredClone(base);knowledge.knowledge.treeCollapsed=false;knowledge.knowledge.infoCollapsed=false;knowledge.knowledge.treeWidth=280;knowledge.knowledge.infoWidth=320;
+ const theater=structuredClone(base);theater.player.layout='theater';
  return [
   {id:'builtin.default',name:'默认',layout:base},
   {id:'builtin.learning',name:'视频学习',layout:learning},
   {id:'builtin.focus',name:'专注播放',layout:focus},
   {id:'builtin.batch',name:'批量管理',layout:batch},
   {id:'builtin.knowledge',name:'知识整理',layout:knowledge},
+  {id:'builtin.theater',name:'剧院模式',layout:theater},
  ].map(p=>({...p,layout:structuredClone(p.layout)}));
 }
 
@@ -46,7 +48,14 @@ export function renameWorkspacePreset(settings:WorkspaceSettings,id:string,name:
 export function deleteWorkspacePreset(settings:WorkspaceSettings,id:string):WorkspaceSettings{
  const current=custom(settings);safeId(id);const presets=current.presets.filter(p=>p.id!==id);
  if(presets.length===current.presets.length)throw new Error('自定义预设不存在');
- return validateWorkspace({...current,presets});
+ return validateWorkspace({...current,presets,activePreset:current.activePreset===id?null:current.activePreset});
+}
+
+export function applyWorkspacePreset(settings:WorkspaceSettings,id:string):WorkspaceSettings{
+ const current=validateWorkspace(settings);
+ const preset=[...BUILTIN_WORKSPACE_PRESETS(),...current.presets].find(p=>p.id===id);
+ if(!preset)throw new Error('布局预设不存在');
+ return validateWorkspace({...current,currentLayout:structuredClone(preset.layout),activePreset:id});
 }
 
 export function parseWorkspaceJson(text:string):WorkspaceSettings{

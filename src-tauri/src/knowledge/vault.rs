@@ -920,26 +920,89 @@ impl Vault {
         Ok(())
     }
     pub fn move_entry(&self, from: &str, to: &str) -> AppResult<()> {
+        self.move_entry_checked(from, to, None)
+    }
+    pub fn move_entry_checked(
+        &self,
+        from: &str,
+        to: &str,
+        expected_hash: Option<&str>,
+    ) -> AppResult<()> {
         let _lock = self.mutation.lock().map_err(|_| "知识库暂时不可用")?;
         let from = validate_relative(from, false)?;
         let to = validate_relative(to, false)?;
         let source = self.parent(&from)?;
         let target = self.parent(&to)?;
-        let file = child(
+        let mut file = child(
             source.handle(),
             &source.name,
             None,
             FILE_READ_DATA | DELETE,
             NT_OPEN,
-            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            if expected_hash.is_some() {
+                FILE_SHARE_READ
+            } else {
+                FILE_SHARE_READ | FILE_SHARE_WRITE
+            },
             None,
         )?;
         if info(&file)?.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY != 0 {
+            if expected_hash.is_some() {
+                return Err("带内容校验的移动仅支持笔记文件".into());
+            }
             preflight(&file, 0, &mut 0)?;
         } else {
             markdown(&from)?;
             markdown(&to)?;
+            if let Some(expected) = expected_hash {
+                if document(&mut file, &self.root)?.hash != expected {
+                    return Err("笔记已变化，不能撤销原操作，请重新读取。".into());
+                }
+            }
         }
+        rename(&file, target.handle(), &target.name, false)
+    }
+    pub fn restore_trashed(
+        &self,
+        trash_path: &str,
+        to: &str,
+        expected_hash: &str,
+    ) -> AppResult<()> {
+        let _lock = self.mutation.lock().map_err(|_| "知识库暂时不可用")?;
+        let name = trash_path
+            .strip_prefix(".yingliu-trash/")
+            .ok_or("回收路径无效")?;
+        component(name)?;
+        markdown(name)?;
+        let to = validate_relative(to, false)?;
+        markdown(&to)?;
+        let root = self.root_handle()?;
+        let trash = child(
+            &root,
+            TRASH,
+            Some(true),
+            FILE_LIST_DIRECTORY,
+            NT_OPEN,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            Some(TRASH),
+        )?;
+        let mut file = child(
+            &trash,
+            name,
+            Some(false),
+            FILE_READ_DATA | DELETE,
+            NT_OPEN,
+            FILE_SHARE_READ,
+            None,
+        )?;
+        let hash = format!(
+            "{:x}",
+            Sha256::digest(read_bytes_from(&mut file, MAX_MARKDOWN)?)
+        );
+        if hash != expected_hash {
+            return Err("回收文件已变化，当前文件与回收内容均保留。".into());
+        }
+        let target = self.parent(&to)?;
         rename(&file, target.handle(), &target.name, false)
     }
     pub fn trash(&self, rel: &str, expected_hash: &str) -> AppResult<String> {

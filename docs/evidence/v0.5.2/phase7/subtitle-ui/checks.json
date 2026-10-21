@@ -1,0 +1,15 @@
+{
+  "mocked": true,
+  "passed": true,
+  "checks": [
+    "whole-course subtitle search filters before pages capped at 50",
+    "disabled transcript upload blocks selected-text Send before the paid AI call",
+    "selected subtitle prefills a question without paid request until explicit Send",
+    "new note requires preview and uses generated content hash for Undo without a post-create read",
+    "new-note Undo rejects external edits",
+    "append preserves BOM, CRLF and trailing whitespace, and stale review cannot write",
+    "append Undo restores exact original bytes under the saved hash",
+    "summary append conflict stays unsaved and is marked failed in Task Center without another AI request"
+  ],
+  "pageErrors": []
+}

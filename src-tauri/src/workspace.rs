@@ -29,6 +29,8 @@ pub struct WorkspaceAppearance {
     pub font_size: f64,
     pub density: String,
     pub sidebar_width: f64,
+    #[serde(default)]
+    pub sidebar_collapsed: bool,
     pub motion: String,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -83,6 +85,8 @@ pub struct WorkspaceSettings {
     pub appearance: WorkspaceAppearance,
     pub current_layout: WorkspaceLayout,
     pub presets: Vec<WorkspacePreset>,
+    #[serde(default)]
+    pub active_preset: Option<String>,
 }
 impl Default for WorkspaceSettings {
     fn default() -> Self {
@@ -94,6 +98,7 @@ impl Default for WorkspaceSettings {
                 font_size: 14.,
                 density: "standard".into(),
                 sidebar_width: 194.,
+                sidebar_collapsed: false,
                 motion: "system".into(),
             },
             current_layout: WorkspaceLayout {
@@ -124,6 +129,7 @@ impl Default for WorkspaceSettings {
                 },
             },
             presets: Vec::new(),
+            active_preset: Some("builtin.default".into()),
         }
     }
 }
@@ -193,6 +199,22 @@ impl WorkspaceSettings {
             {
                 return Err("工作区预设无效".into());
             }
+        }
+        if self.active_preset.as_ref().is_some_and(|id| {
+            id.len() > 100
+                || id.chars().any(char::is_control)
+                || ![
+                    "builtin.default",
+                    "builtin.learning",
+                    "builtin.focus",
+                    "builtin.batch",
+                    "builtin.knowledge",
+                    "builtin.theater",
+                ]
+                .contains(&id.as_str())
+                    && !ids.contains(id)
+        }) {
+            return Err("当前预设 ID 无效".into());
         }
         Ok(())
     }
@@ -360,6 +382,51 @@ pub async fn workspace_export(
 mod tests {
     use super::*;
     #[test]
+    fn legacy_workspace_and_active_preset_round_trip_without_losing_layout() {
+        let mut legacy = serde_json::to_value(WorkspaceSettings::default()).unwrap();
+        legacy["currentLayout"]["library"]["view"] = "table".into();
+        legacy.as_object_mut().unwrap().remove("activePreset");
+        legacy["appearance"]
+            .as_object_mut()
+            .unwrap()
+            .remove("sidebarCollapsed");
+        let restored: WorkspaceSettings = serde_json::from_value(legacy).unwrap();
+        assert_eq!(restored.current_layout.library.view, "table");
+        assert_eq!(restored.active_preset, None);
+        assert!(!restored.appearance.sidebar_collapsed);
+        let mut applied = restored;
+        applied.active_preset = Some("builtin.theater".into());
+        assert_eq!(
+            serde_json::from_slice::<WorkspaceSettings>(&settings_bytes(&applied).unwrap())
+                .unwrap()
+                .active_preset
+                .as_deref(),
+            Some("builtin.theater")
+        );
+    }
+    #[test]
+    fn workspace_import_rejects_unknown_active_preset_and_credentials() {
+        let dir = std::env::temp_dir().join(crate::ffmpeg::runner::new_id());
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("invalid.json");
+        let mut value = serde_json::to_value(WorkspaceSettings::default()).unwrap();
+        for id in [
+            "builtin.missing",
+            "custom-missing",
+            "bad\0id",
+            "long-id-that-does-not-exist",
+        ] {
+            value["activePreset"] = id.into();
+            std::fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
+            assert!(read_import(&path).is_err());
+        }
+        value["activePreset"] = serde_json::Value::Null;
+        value["apiKey"] = "private".into();
+        std::fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
+        assert!(read_import(&path).is_err());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+    #[test]
     fn workspace_presets_reject_builtin_identity_and_control_characters() {
         let mut settings = WorkspaceSettings::default();
         settings.presets.push(WorkspacePreset {
@@ -451,8 +518,13 @@ mod tests {
         let mut settings = WorkspaceSettings::default();
         settings.current_layout.library.view = "table".into();
         settings.current_layout.library.category_width = 280.;
+        settings.active_preset = Some("builtin.batch".into());
         store.save(settings.clone()).unwrap();
         assert_eq!(store.get().unwrap().current_layout.library.view, "table");
+        assert_eq!(
+            store.get().unwrap().active_preset.as_deref(),
+            Some("builtin.batch")
+        );
         settings.appearance.font_size = 999.;
         assert!(store.save(settings).is_err());
         let mut settings = WorkspaceSettings::default();

@@ -4,6 +4,17 @@ use std::sync::Arc;
 use tauri::State;
 type Learning<'a> = State<'a, Arc<LearningService>>;
 #[tauri::command]
+pub async fn learning_search_items(
+    learning: Learning<'_>,
+    query: String,
+    page: u32,
+) -> AppResult<ItemSearchPage> {
+    let learning = learning.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || learning.with(|r| r.search_items(&query, page)))
+        .await
+        .map_err(|_| "课程搜索暂不可用，请重试")?
+}
+#[tauri::command]
 pub fn learning_home(
     learning: Learning<'_>,
     query: String,
@@ -31,6 +42,18 @@ pub fn learning_item(learning: Learning<'_>, id: String) -> AppResult<LearningIt
 #[tauri::command]
 pub fn learning_change(learning: Learning<'_>, change: LearningChange) -> AppResult<String> {
     learning.change(change)
+}
+
+#[tauri::command]
+pub fn learning_reversible_change(
+    learning: Learning<'_>,
+    change: ReversibleLearningChange,
+) -> AppResult<Option<String>> {
+    learning.reversible_change(change)
+}
+#[tauri::command]
+pub fn learning_undo_change(learning: Learning<'_>, receipt: String) -> AppResult<()> {
+    learning.undo_change(&receipt)
 }
 
 #[tauri::command]
@@ -202,6 +225,12 @@ pub async fn learning_clean_cache(
         .map_err(|_| "缓存清理线程异常")?
 }
 
+#[tauri::command]
+pub fn learning_thumbnail_tasks(
+    learning: Learning<'_>,
+) -> AppResult<Vec<super::thumbnail::ThumbnailTask>> {
+    learning.thumbnail_tasks()
+}
 #[tauri::command]
 pub async fn learning_set_thumbnail(
     learning: Learning<'_>,

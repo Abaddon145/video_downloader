@@ -88,6 +88,13 @@ fn save_download_presets(
     service.save_presets(presets)
 }
 #[tauri::command]
+fn open_download_directory(service: AppService<'_>) -> AppResult<()> {
+    let path=service.state.lock().map_err(|_|"设置暂时不可用")?.disk.settings.download_dir.clone();
+    let path=std::fs::canonicalize(path).map_err(|_|"下载目录尚不存在，请先选择有效目录")?;
+    if !path.is_dir(){return Err("下载目录无效".into());}
+    service::shell_open(path.to_str().ok_or("目录名称不可读取")?)
+}
+#[tauri::command]
 fn open_task_target(service: AppService<'_>, id: String, folder: bool) -> AppResult<()> {
     service::open_target(&service, &id, folder)
 }
@@ -290,6 +297,10 @@ pub fn run() {
             learning_delete_preview,
             learning_open_file,
             learning_home,
+            learning_thumbnail_tasks,
+            learning_reversible_change,
+            learning_undo_change,
+            learning_search_items,
             learning_series,
             learning_item,
             learning_change,
@@ -375,6 +386,10 @@ pub fn run() {
             knowledge_rename,
             knowledge_move,
             knowledge_delete,
+            knowledge_trash_note,
+            knowledge_set_note_flag,
+            knowledge_restore_trashed_note,
+            knowledge_move_guarded,
             knowledge_delete_empty_directory,
             knowledge_search,
             knowledge_backlinks,
@@ -396,6 +411,7 @@ pub fn run() {
             save_settings,
             import_cookies,
             open_task_target,
+            open_download_directory,
             open_source,
             check_engine_update,
             update_engine,

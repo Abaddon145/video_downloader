@@ -183,3 +183,13 @@ pub struct NoteAttachmentPage {
     pub total: u64,
     pub page: u32,
 }
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrashReceipt {
+    pub vault_id: String,
+    pub path: String,
+    pub trash_path: String,
+    pub hash: String,
+    pub index_warning: Option<String>,
+}

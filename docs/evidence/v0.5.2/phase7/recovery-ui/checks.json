@@ -1,0 +1,17 @@
+{
+  "mockedTauri": true,
+  "browser": "headless Edge",
+  "passed": true,
+  "checks": [
+    "late initial metadata cannot roll back favorite display after guarded toggle",
+    "rename and undo preserve exact note text and original path",
+    "guarded move and undo return note to original path",
+    "stale source hash rejects move without touching the external edit",
+    "occupied restore path fails visibly, keeps new file and trash, and retains retry",
+    "modified trash content rejects restore and preserves the modified trash",
+    "retry with unchanged trash restores original location and consumes receipt",
+    "time insertion command shares the actual source-preserving editor action and guarded autosave",
+    "folder context commands expand descendants lazily and collapse the subtree"
+  ],
+  "pageErrors": []
+}

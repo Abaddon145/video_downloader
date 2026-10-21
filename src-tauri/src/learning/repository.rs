@@ -5,6 +5,317 @@ use std::path::Path;
 pub struct Repository {
     pub(crate) conn: Connection,
 }
+
+#[cfg(test)]
+mod safe_undo_tests {
+    use super::*;
+
+    #[test]
+    fn receipts_are_session_bound_single_use_and_keep_failed_undo_for_retry() {
+        let mut r = fixture();
+        let mut receipts = std::collections::VecDeque::new();
+        let receipt = r
+            .reversible_receipt(
+                ReversibleLearningChange::MoveItem {
+                    id: "i".into(),
+                    series_id: "b".into(),
+                },
+                &mut receipts,
+            )
+            .unwrap()
+            .unwrap();
+        assert_eq!(receipt.len(), 32);
+        assert!(receipt.bytes().all(|b| b.is_ascii_hexdigit()));
+        assert!(r.undo_receipt("forged-id", &mut receipts).is_err());
+        assert_eq!(r.item("i").unwrap().series_id, "b");
+        assert_eq!(receipts.len(), 1);
+        assert!(r
+            .undo_receipt(&receipt, &mut std::collections::VecDeque::new())
+            .is_err());
+        let expected = r.item("i").unwrap().sort_order;
+        r.conn
+            .execute("UPDATE series_items SET sort_order=99 WHERE id='i'", [])
+            .unwrap();
+        assert!(r.undo_receipt(&receipt, &mut receipts).is_err());
+        assert_eq!(receipts.len(), 1);
+        assert_eq!(r.item("i").unwrap().sort_order, 99);
+        r.conn
+            .execute(
+                "UPDATE series_items SET sort_order=?1 WHERE id='i'",
+                [expected],
+            )
+            .unwrap();
+        assert_eq!(r.undo_receipt(&receipt, &mut receipts).unwrap(), "i");
+        assert_eq!(r.item("i").unwrap().series_id, "a");
+        assert_eq!(r.item("i").unwrap().sort_order, 4);
+        assert!(receipts.is_empty());
+        assert!(r.undo_receipt(&receipt, &mut receipts).is_err());
+        assert!(r
+            .reversible_receipt(
+                ReversibleLearningChange::MoveItem {
+                    id: "i".into(),
+                    series_id: "a".into()
+                },
+                &mut receipts
+            )
+            .unwrap()
+            .is_none());
+        assert!(receipts.is_empty());
+        let mut first = String::new();
+        for n in 0..31 {
+            let receipt = r
+                .reversible_receipt(
+                    ReversibleLearningChange::RenameItem {
+                        id: "i".into(),
+                        title: format!("title-{n}"),
+                    },
+                    &mut receipts,
+                )
+                .unwrap()
+                .unwrap();
+            if n == 0 {
+                first = receipt;
+            }
+        }
+        assert_eq!(receipts.len(), 30);
+        assert!(r.undo_receipt(&first, &mut receipts).is_err());
+        assert_eq!(r.item("i").unwrap().title, "title-30");
+    }
+
+    fn fixture() -> Repository {
+        let r = Repository::open(Path::new(":memory:")).unwrap();
+        r.conn.execute_batch("INSERT INTO categories(id,name,created_at,updated_at) VALUES('c1','旧分类',0,0),('c2','新分类',0,0);
+            INSERT INTO series(id,category_id,title,description,favorite,created_at,updated_at) VALUES('a','c1','原系列','保留说明',0,0,0),('b','c2','目标系列','目标说明',0,0,0);
+            INSERT INTO series_items(id,series_id,title,file_path,sort_order,created_at,updated_at) VALUES('i','a','旧名称','C:/source.mp4',4,0,0);
+            INSERT INTO playback_progress(item_id,position_ms,duration_ms,completed,updated_at) VALUES('i',42000,60000,0,0);
+            INSERT INTO video_notes(id,item_id,time_ms,content,created_at,updated_at) VALUES('n','i',42000,'保留笔记',0,0);").unwrap();
+        r
+    }
+
+    #[test]
+    fn undo_restores_only_target_fields_and_keeps_other_course_data() {
+        let mut r = fixture();
+        let moved = r
+            .reversible_change(ReversibleLearningChange::MoveItem {
+                id: "i".into(),
+                series_id: "b".into(),
+            })
+            .unwrap()
+            .unwrap();
+        r.conn
+            .execute(
+                "UPDATE series_items SET title='随后修改的标题' WHERE id='i'",
+                [],
+            )
+            .unwrap();
+        r.undo_change(moved).unwrap();
+        let item = r.item("i").unwrap();
+        assert_eq!(
+            (
+                item.series_id.as_str(),
+                item.title.as_str(),
+                item.file_path.as_deref(),
+                item.progress.position_ms
+            ),
+            ("a", "随后修改的标题", Some("C:/source.mp4"), 42000)
+        );
+        assert_eq!(
+            r.conn
+                .query_row(
+                    "SELECT sort_order FROM series_items WHERE id='i'",
+                    [],
+                    |row| row.get::<_, i64>(0)
+                )
+                .unwrap(),
+            4
+        );
+        assert_eq!(
+            r.conn
+                .query_row("SELECT content FROM video_notes WHERE id='n'", [], |row| {
+                    row.get::<_, String>(0)
+                })
+                .unwrap(),
+            "保留笔记"
+        );
+
+        let renamed = r
+            .reversible_change(ReversibleLearningChange::RenameItem {
+                id: "i".into(),
+                title: "新名称".into(),
+            })
+            .unwrap()
+            .unwrap();
+        r.undo_change(renamed).unwrap();
+        assert_eq!(r.item("i").unwrap().title, "随后修改的标题");
+
+        let category = r
+            .reversible_change(ReversibleLearningChange::SetSeriesCategory {
+                id: "a".into(),
+                category_id: Some("c2".into()),
+            })
+            .unwrap()
+            .unwrap();
+        r.conn
+            .execute(
+                "UPDATE series SET description='后来更新的说明' WHERE id='a'",
+                [],
+            )
+            .unwrap();
+        r.undo_change(category).unwrap();
+        let series = r.get_series("a").unwrap();
+        assert_eq!(
+            (series.category_id.as_deref(), series.description.as_deref()),
+            (Some("c1"), Some("后来更新的说明"))
+        );
+        let uncategorized = r
+            .reversible_change(ReversibleLearningChange::SetSeriesCategory {
+                id: "a".into(),
+                category_id: None,
+            })
+            .unwrap()
+            .unwrap();
+        r.undo_change(uncategorized).unwrap();
+        assert_eq!(
+            r.get_series("a").unwrap().category_id.as_deref(),
+            Some("c1")
+        );
+
+        let favorite = r
+            .reversible_change(ReversibleLearningChange::SetSeriesFavorite {
+                id: "a".into(),
+                favorite: true,
+            })
+            .unwrap()
+            .unwrap();
+        r.conn
+            .execute(
+                "UPDATE series SET title='后来的系列名称',category_id=NULL WHERE id='a'",
+                [],
+            )
+            .unwrap();
+        r.undo_change(favorite).unwrap();
+        let series = r.get_series("a").unwrap();
+        assert!(!series.favorite);
+        assert_eq!(
+            (series.title.as_str(), series.category_id),
+            ("后来的系列名称", None)
+        );
+        let category = r
+            .reversible_change(ReversibleLearningChange::SetSeriesCategory {
+                id: "a".into(),
+                category_id: Some("c2".into()),
+            })
+            .unwrap()
+            .unwrap();
+        r.undo_change(category).unwrap();
+        assert_eq!(r.get_series("a").unwrap().category_id, None);
+        assert!(r
+            .reversible_change(ReversibleLearningChange::MoveItem {
+                id: "i".into(),
+                series_id: "a".into()
+            })
+            .unwrap()
+            .is_none());
+        assert!(r
+            .reversible_change(ReversibleLearningChange::RenameItem {
+                id: "i".into(),
+                title: " 随后修改的标题 ".into()
+            })
+            .unwrap()
+            .is_none());
+        assert!(r
+            .reversible_change(ReversibleLearningChange::SetSeriesCategory {
+                id: "a".into(),
+                category_id: None
+            })
+            .unwrap()
+            .is_none());
+        assert!(r
+            .reversible_change(ReversibleLearningChange::SetSeriesFavorite {
+                id: "a".into(),
+                favorite: false
+            })
+            .unwrap()
+            .is_none());
+        assert!(r
+            .reversible_change(ReversibleLearningChange::RenameItem {
+                id: "i".into(),
+                title: " \0 ".into()
+            })
+            .is_err());
+        assert!(r
+            .reversible_change(ReversibleLearningChange::SetSeriesCategory {
+                id: "a".into(),
+                category_id: Some("missing".into())
+            })
+            .is_err());
+    }
+
+    #[test]
+    fn undo_rejects_stale_expected_values_without_overwriting_later_edits() {
+        let mut r = fixture();
+        let moved = r
+            .reversible_change(ReversibleLearningChange::MoveItem {
+                id: "i".into(),
+                series_id: "b".into(),
+            })
+            .unwrap()
+            .unwrap();
+        r.conn
+            .execute("UPDATE series_items SET sort_order=99 WHERE id='i'", [])
+            .unwrap();
+        assert!(r.undo_change(moved).is_err());
+        assert_eq!(r.item("i").unwrap().series_id, "b");
+
+        let renamed = r
+            .reversible_change(ReversibleLearningChange::RenameItem {
+                id: "i".into(),
+                title: "新名称".into(),
+            })
+            .unwrap()
+            .unwrap();
+        r.conn
+            .execute("UPDATE series_items SET title='后来名称' WHERE id='i'", [])
+            .unwrap();
+        assert!(r.undo_change(renamed).is_err());
+        assert_eq!(r.item("i").unwrap().title, "后来名称");
+
+        let category = r
+            .reversible_change(ReversibleLearningChange::SetSeriesCategory {
+                id: "a".into(),
+                category_id: Some("c2".into()),
+            })
+            .unwrap()
+            .unwrap();
+        r.conn
+            .execute("UPDATE series SET category_id=NULL WHERE id='a'", [])
+            .unwrap();
+        assert!(r.undo_change(category).is_err());
+        assert_eq!(r.get_series("a").unwrap().category_id, None);
+
+        let favorite = r
+            .reversible_change(ReversibleLearningChange::SetSeriesFavorite {
+                id: "a".into(),
+                favorite: true,
+            })
+            .unwrap()
+            .unwrap();
+        r.conn
+            .execute("UPDATE series SET favorite=0 WHERE id='a'", [])
+            .unwrap();
+        assert!(r.undo_change(favorite).is_err());
+        assert!(!r.get_series("a").unwrap().favorite);
+        assert_eq!(r.item("i").unwrap().progress.position_ms, 42000);
+        assert_eq!(
+            r.conn
+                .query_row("SELECT content FROM video_notes WHERE id='n'", [], |row| {
+                    row.get::<_, String>(0)
+                })
+                .unwrap(),
+            "保留笔记"
+        );
+    }
+}
 pub(crate) fn now() -> i64 {
     crate::service::now() as i64
 }
@@ -265,6 +576,19 @@ impl Repository {
     pub fn item(&self, id: &str) -> AppResult<LearningItem> {
         self.conn.query_row(&format!("SELECT {ITEM_COLS} FROM series_items i LEFT JOIN playback_progress p ON p.item_id=i.id WHERE i.id=?1"),[id],item_row).optional().map_err(db::error)?.ok_or_else(||"课程不存在".into())
     }
+    pub fn search_items(&self, query: &str, page: u32) -> AppResult<ItemSearchPage> {
+        let query = text(query, 200, false)?.to_lowercase();
+        let filter = "FROM series_items i JOIN series s ON s.id=i.series_id LEFT JOIN playback_progress p ON p.item_id=i.id WHERE instr(lower(i.title),?1)>0 OR instr(lower(s.title),?1)>0";
+        let total: i64 = self
+            .conn
+            .query_row(&format!("SELECT count(*) {filter}"), [&query], |row| {
+                row.get(0)
+            })
+            .map_err(db::error)?;
+        let page = page.max(1).min(((total + 49) / 50).max(1) as u32);
+        let items = self.rows(&format!("SELECT {ITEM_COLS} {filter} ORDER BY COALESCE(p.last_played_at,i.updated_at) DESC,i.id LIMIT 50 OFFSET ?2"), params![query,(page-1)*50], item_row)?;
+        Ok(ItemSearchPage { items, total, page })
+    }
     pub fn series(&self, id: &str, page: u32) -> AppResult<SeriesDetail> {
         let series = self.get_series(id)?;
         let total = series.total_items;
@@ -302,6 +626,134 @@ impl Repository {
             return Err("课程不存在".into());
         }
         Ok(())
+    }
+    pub fn reversible_receipt(
+        &mut self,
+        change: ReversibleLearningChange,
+        receipts: &mut std::collections::VecDeque<(String, LearningUndoToken)>,
+    ) -> AppResult<Option<String>> {
+        let receipt: String = self
+            .conn
+            .query_row("SELECT lower(hex(randomblob(16)))", [], |row| row.get(0))
+            .map_err(db::error)?;
+        let Some(token) = self.reversible_change(change)? else {
+            return Ok(None);
+        };
+        receipts.push_back((receipt.clone(), token));
+        if receipts.len() > 30 {
+            receipts.pop_front();
+        }
+        Ok(Some(receipt))
+    }
+    pub fn undo_receipt(
+        &mut self,
+        receipt: &str,
+        receipts: &mut std::collections::VecDeque<(String, LearningUndoToken)>,
+    ) -> AppResult<String> {
+        let index = receipts
+            .iter()
+            .position(|(id, _)| id == receipt)
+            .ok_or("无法撤销：操作凭据不存在、已过期或已使用")?;
+        let token = receipts[index].1.clone();
+        let id = match &token {
+            LearningUndoToken::MoveItem { id, .. }
+            | LearningUndoToken::RenameItem { id, .. }
+            | LearningUndoToken::SetSeriesCategory { id, .. }
+            | LearningUndoToken::SetSeriesFavorite { id, .. } => id.clone(),
+        };
+        self.undo_change(token)?;
+        receipts.remove(index);
+        Ok(id)
+    }
+    pub fn reversible_change(
+        &mut self,
+        change: ReversibleLearningChange,
+    ) -> AppResult<Option<LearningUndoToken>> {
+        let token = match change {
+            ReversibleLearningChange::MoveItem { id, series_id } => {
+                let before = self.item(&id)?;
+                self.move_item_to_series(&id, &series_id)?;
+                if before.series_id == series_id {
+                    return Ok(None);
+                }
+                let after = self.item(&id)?;
+                LearningUndoToken::MoveItem {
+                    id,
+                    previous_series_id: before.series_id,
+                    previous_sort_order: before.sort_order,
+                    expected_series_id: after.series_id,
+                    expected_sort_order: after.sort_order,
+                }
+            }
+            ReversibleLearningChange::RenameItem { id, title } => {
+                let title = text(&title, 500, true)?;
+                let previous = self.item(&id)?.title;
+                if previous == title {
+                    return Ok(None);
+                }
+                self.rename_item(&id, &title)?;
+                LearningUndoToken::RenameItem {
+                    id,
+                    previous,
+                    expected: title,
+                }
+            }
+            ReversibleLearningChange::SetSeriesCategory { id, category_id } => {
+                let category_id = optional(&category_id, 100)?;
+                let previous = self.get_series(&id)?.category_id;
+                if previous == category_id {
+                    return Ok(None);
+                }
+                self.conn
+                    .execute(
+                        "UPDATE series SET category_id=?1,updated_at=?2 WHERE id=?3",
+                        params![category_id, now(), id],
+                    )
+                    .map_err(db::error)?;
+                LearningUndoToken::SetSeriesCategory {
+                    id,
+                    previous,
+                    expected: category_id,
+                }
+            }
+            ReversibleLearningChange::SetSeriesFavorite { id, favorite } => {
+                let previous = self.get_series(&id)?.favorite;
+                if previous == favorite {
+                    return Ok(None);
+                }
+                self.conn
+                    .execute(
+                        "UPDATE series SET favorite=?1,updated_at=?2 WHERE id=?3",
+                        params![favorite, now(), id],
+                    )
+                    .map_err(db::error)?;
+                LearningUndoToken::SetSeriesFavorite {
+                    id,
+                    previous,
+                    expected: favorite,
+                }
+            }
+        };
+        Ok(Some(token))
+    }
+    pub fn undo_change(&mut self, token: LearningUndoToken) -> AppResult<()> {
+        let tx = self.conn.transaction().map_err(db::error)?;
+        let changed = match token {
+            LearningUndoToken::MoveItem { id, previous_series_id, previous_sort_order, expected_series_id, expected_sort_order } => {
+                let changed = tx.execute("UPDATE series_items SET series_id=?1,sort_order=?2,updated_at=?3 WHERE id=?4 AND series_id=?5 AND sort_order=?6", params![text(&previous_series_id,100,true)?, previous_sort_order, now(), id, expected_series_id, expected_sort_order]).map_err(db::error)?;
+                if changed == 1 {
+                    tx.execute("UPDATE series SET updated_at=?1 WHERE id IN (?2,?3)", params![now(), previous_series_id, expected_series_id]).map_err(db::error)?;
+                }
+                changed
+            }
+            LearningUndoToken::RenameItem { id, previous, expected } => tx.execute("UPDATE series_items SET title=?1,updated_at=?2 WHERE id=?3 AND title=?4", params![text(&previous,500,true)?,now(),id,expected]).map_err(db::error)?,
+            LearningUndoToken::SetSeriesCategory { id, previous, expected } => tx.execute("UPDATE series SET category_id=?1,updated_at=?2 WHERE id=?3 AND category_id IS ?4", params![optional(&previous,100)?,now(),id,expected]).map_err(db::error)?,
+            LearningUndoToken::SetSeriesFavorite { id, previous, expected } => tx.execute("UPDATE series SET favorite=?1,updated_at=?2 WHERE id=?3 AND favorite=?4", params![previous,now(),id,expected]).map_err(db::error)?,
+        };
+        if changed != 1 {
+            return Err("无法撤销：目标已被修改或移除，当前数据已保留".into());
+        }
+        tx.commit().map_err(db::error)
     }
     pub fn delete_item_records(&self, id: &str) -> AppResult<()> {
         if self

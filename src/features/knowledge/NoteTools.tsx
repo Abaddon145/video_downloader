@@ -1,3 +1,5 @@
+import {useTaskCenter} from '../tasks/TaskCenter';
+import {useFeedback} from '../../components/Feedback';
 import {useEffect,useRef,useState} from 'react';
 import {invoke} from '@tauri-apps/api/core';
 import {Star,History,Files,Paperclip,Sparkles,Network} from 'lucide-react';
@@ -15,33 +17,40 @@ interface AiDraft{requestId:string;vaultId:string;path:string;sourceHash:string;
 type Kind='history'|'favorites'|'templates'|'attachments'|'ai'|'mindmap';
 export type NoteToolRequest={id:number;path:string;kind:Kind|'favorite'};
 const hash=async(text:string)=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)))].map(b=>b.toString(16).padStart(2,'0')).join('');
-export function NoteTools({vaultId,path,text,revision,prepare,apply,openNote,created,jump,request}:{vaultId:string;path:string;text:string;revision:number;prepare:()=>Promise<NoteSnapshot>;apply:(text:string,snapshot:NoteSnapshot)=>boolean;openNote:(path:string)=>void;created:(path:string)=>void;jump:(id:string)=>void;request?:NoteToolRequest|null}){
+export function NoteTools({vaultId,path,text,revision,prepare,apply,openNote,created,jump,request,onMove,onDelete,onExport}:{vaultId:string;path:string;text:string;revision:number;prepare:()=>Promise<NoteSnapshot>;apply:(text:string,snapshot:NoteSnapshot)=>boolean;openNote:(path:string)=>void;created:(path:string)=>void;jump:(id:string)=>void;request?:NoteToolRequest|null;onMove:()=>void;onDelete:()=>void;onExport:()=>void}){
+ const {trackOperation}=useTaskCenter();
+ const {recordUndo}=useFeedback();
  const [metadata,setMetadata]=useState<Metadata|null>(null),[kind,setKind]=useState<Kind|null>(null),[snapshot,setSnapshot]=useState<NoteSnapshot|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  const [page,setPage]=useState(1),[list,setList]=useState<Page<Metadata|Version|Attachment>|null>(null),[preview,setPreview]=useState<KnowledgeDocument|Version|null>(null),[target,setTarget]=useState('');
  const [ai,setAi]=useState<AiSettingsView|null>(null),[consent,setConsent]=useState(false),[draft,setDraft]=useState<AiDraft|null>(null);
- const live=useRef(true),pendingRequest=useRef<string|null>(null),lastRequest=useRef(0),ticket=useRef(0);
+ const live=useRef(true),pendingRequest=useRef<string|null>(null),lastRequest=useRef(0),ticket=useRef(0),metadataEpoch=useRef(0);
  useEffect(()=>{live.current=true;return()=>{live.current=false;const id=pendingRequest.current;if(id)void invoke('ai_cancel_note_organize',{requestId:id}).catch(()=>{});};},[]);
- useEffect(()=>{let active=true;invoke<KnowledgeView<Metadata>>('knowledge_note_metadata',{vaultId,path}).then(r=>{if(active)setMetadata(r?.data??null);}).catch(e=>{if(active)setError(String(e));});return()=>{active=false;};},[vaultId,path,revision]);
+ useEffect(()=>{let active=true;const epoch=++metadataEpoch.current;invoke<KnowledgeView<Metadata>>('knowledge_note_metadata',{vaultId,path}).then(r=>{if(active&&epoch===metadataEpoch.current)setMetadata(r?.data??null);}).catch(e=>{if(active&&epoch===metadataEpoch.current)setError(String(e));});return()=>{active=false;};},[vaultId,path,revision]);
  async function action(fn:()=>Promise<void>){setBusy(true);setError('');try{await fn();}catch(e){if(live.current)setError(String(e));}finally{if(live.current)setBusy(false);}}
  const close=()=>{++ticket.current;const id=pendingRequest.current;if(id)void invoke('ai_cancel_note_organize',{requestId:id}).catch(e=>setError(String(e)));setKind(null);setDraft(null);setPreview(null);};
- async function toggle(key:'favorite'|'template'){await action(async()=>{const m=metadata??(await invoke<KnowledgeView<Metadata>>('knowledge_note_metadata',{vaultId,path})).data;const r=await invoke<KnowledgeView<Metadata>>('knowledge_set_note_metadata',{vaultId,path,favorite:key==='favorite'?!m.favorite:m.favorite,template:key==='template'?!m.template:m.template});if(live.current)setMetadata(r.data);});}
+ async function toggle(key:'favorite'|'template'){await action(async()=>{++metadataEpoch.current;const m=(await invoke<KnowledgeView<Metadata>>('knowledge_note_metadata',{vaultId,path})).data,expected=m[key],value=!expected;if(!live.current)return;const r=await invoke<KnowledgeView<Metadata>>('knowledge_set_note_flag',{vaultId,path,flag:key,expected,value});++metadataEpoch.current;if(live.current)setMetadata(r.data);recordUndo({label:key==='favorite'?'修改笔记收藏':'修改模板标记',undo:async()=>{++metadataEpoch.current;const restored=await invoke<KnowledgeView<Metadata>>('knowledge_set_note_flag',{vaultId,path,flag:key,expected:value,value:expected});++metadataEpoch.current;if(live.current)setMetadata(restored.data);}});});}
  async function show(next:Kind){const own=++ticket.current;await action(async()=>{const s=await prepare();if(!live.current||ticket.current!==own)return;setSnapshot(s);setPage(1);setList(null);setPreview(null);setDraft(null);setConsent(false);setKind(next);if(next==='ai'){const settings=await invoke<AiSettingsView>('ai_get_settings');if(live.current&&ticket.current===own)setAi(settings);}});}
  useEffect(()=>{if(!request||request.id===lastRequest.current||request.path!==path)return;lastRequest.current=request.id;if(request.kind==='favorite')void toggle('favorite');else void show(request.kind);},[request?.id,path]);
  useEffect(()=>{if(!kind||kind==='ai'||kind==='mindmap')return;let active=true;setError('');setList(null);const command=kind==='history'?'knowledge_note_versions':kind==='attachments'?'knowledge_attachments':'knowledge_note_collection';void invoke<KnowledgeView<Page<Metadata|Version|Attachment>>>(command,{vaultId,...(kind==='history'?{path}:kind==='attachments'?{}:{kind}),page}).then(r=>{if(active)setList(r.data);}).catch(e=>{if(active)setError(String(e));});return()=>{active=false;};},[kind,page,vaultId,path,revision]);
  async function select(entry:Metadata|Version|Attachment){const own=++ticket.current;await action(async()=>{if(kind==='history'){const v=entry as Version;const r=await invoke<KnowledgeView<Version>>('knowledge_note_version',{vaultId,path,versionId:v.id});if(live.current&&ticket.current===own)setPreview(r.data);}else if(kind==='templates'){const r=await invoke<KnowledgeView<KnowledgeDocument>>('knowledge_read',{vaultId,path:entry.path});if(live.current&&ticket.current===own){setPreview(r.data);setTarget(entry.path.replace(/\.md$/i,' - 副本.md'));}}else if(kind==='favorites'){close();openNote(entry.path);}});}
  const applyPreview=()=>{if(snapshot&&preview?.text!==undefined){if(apply(preview.text,snapshot))close();else setError('笔记已发生变化，请关闭预览后重新操作；当前草稿已保留。');}};
  async function analyze(){if(!snapshot||!consent||!ai?.settings.allowNoteText)return;const s=snapshot,id=`note-${crypto.randomUUID()}`,own=++ticket.current;pendingRequest.current=id;
-  await action(async()=>{try{const r=await invoke<AiDraft>('ai_organize_note',{request:{requestId:id,vaultId:s.vaultId,path:s.path,expectedHash:s.hash,text:s.text,allowNoteText:true}});if(!live.current||ticket.current!==own)return;if(r.requestId!==id||r.vaultId!==s.vaultId||r.path!==s.path||r.sourceHash!==s.hash||r.inputHash!==await hash(s.text))throw Error('整理回执与当前笔记不一致，草稿未替换。');setDraft(r);}finally{if(pendingRequest.current===id)pendingRequest.current=null;}});
+  await action(async()=>{try{const r=await trackOperation('note','AI 整理当前笔记',()=>invoke<AiDraft>('ai_organize_note',{request:{requestId:id,vaultId:s.vaultId,path:s.path,expectedHash:s.hash,text:s.text,allowNoteText:true}}));if(!live.current||ticket.current!==own)return;if(r.requestId!==id||r.vaultId!==s.vaultId||r.path!==s.path||r.sourceHash!==s.hash||r.inputHash!==await hash(s.text))throw Error('整理回执与当前笔记不一致，草稿未替换。');setDraft(r);}finally{if(pendingRequest.current===id)pendingRequest.current=null;}});
  }
  return <><div className="note-tools" role="toolbar" aria-label="知识笔记工具">
-  <button className="text-button" disabled={busy} aria-pressed={metadata?.favorite??false} onClick={()=>{void toggle('favorite');}}><Star size={14}/>{metadata?.favorite?'已收藏':'收藏笔记'}</button>
-  <button className="text-button" disabled={busy} aria-pressed={metadata?.template??false} onClick={()=>{void toggle('template');}}>{metadata?.template?'取消模板标记':'设为笔记模板'}</button>
-  <button className="text-button" disabled={busy} onClick={()=>{void show('favorites');}}><Star size={14}/>收藏夹</button>
-  <button className="text-button" disabled={busy} onClick={()=>{void show('history');}}><History size={14}/>版本历史</button>
-  <button className="text-button" disabled={busy} onClick={()=>{void show('templates');}}><Files size={14}/>从模板新建</button>
-  <button className="text-button" disabled={busy} onClick={()=>{void show('attachments');}}><Paperclip size={14}/>附件</button>
   <button className="text-button" disabled={busy} onClick={()=>{void show('ai');}}><Sparkles size={14}/>AI整理笔记</button>
-  <button className="text-button" disabled={busy} onClick={()=>{void show('mindmap');}}><Network size={14}/>思维导图</button>
+  <details><summary style={{cursor:'pointer',padding:'7px'}}>更多</summary><div className="note-tools-more" style={{display:'flex',flexWrap:'wrap',gap:6,padding:6}}>
+   <button className="text-button" disabled={busy} aria-pressed={metadata?.favorite??false} onClick={()=>{void toggle('favorite');}}><Star size={14}/>{metadata?.favorite?'已收藏':'收藏笔记'}</button>
+   <button className="text-button" disabled={busy} aria-pressed={metadata?.template??false} onClick={()=>{void toggle('template');}}>{metadata?.template?'取消模板标记':'设为笔记模板'}</button>
+   <button className="text-button" disabled={busy} onClick={()=>{void show('favorites');}}><Star size={14}/>收藏夹</button>
+   <button className="text-button" disabled={busy} onClick={()=>{void show('history');}}><History size={14}/>版本历史</button>
+   <button className="text-button" disabled={busy} onClick={()=>{void show('templates');}}><Files size={14}/>从模板新建</button>
+   <button className="text-button" disabled={busy} onClick={()=>{void show('attachments');}}><Paperclip size={14}/>附件</button>
+   <button className="text-button" disabled={busy} onClick={()=>{void show('mindmap');}}><Network size={14}/>思维导图</button>
+   <button className="text-button" disabled={busy} onClick={onMove}>移动笔记</button>
+   <button className="text-button" disabled={busy} onClick={onExport}>导出笔记</button>
+   <button className="text-button" disabled={busy} onClick={onDelete}>删除笔记</button>
+  </div></details>
  </div>{error&&!kind&&<p role="alert" className="error-text">{error}</p>}
  {kind==='mindmap'&&<NoteMindMap title={path.split('/').at(-1)??path} text={text} jump={jump} close={close}/>}
  {kind&&kind!=='mindmap'&&<LearningDialog title={{history:'版本历史',favorites:'收藏笔记',templates:'Markdown笔记模板',attachments:'知识库附件',ai:'AI整理笔记'}[kind]} close={close} busy={false}>

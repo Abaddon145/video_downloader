@@ -1,3 +1,10 @@
+import {useWorkspace} from './features/workspace/WorkspaceProvider';
+import {TaskCenterProvider,TaskCenterButton} from './features/tasks/TaskCenter';
+import {TaskCommands} from './features/tasks/TaskCommands';
+import {CommandProvider} from './features/commands/CommandProvider';
+import {AppCommands} from './features/commands/AppCommands';
+import {QuickSearch} from './features/search/QuickSearch';
+import {useFeedback} from './components/Feedback';
 import {AiSettings} from './features/ai/AiSettings';
 import {WorkspaceSettingsPanel} from './features/workspace/WorkspaceSettingsPanel';
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNode, type MouseEvent as ReactMouseEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react';
@@ -200,7 +207,12 @@ function SettingsPanel({ snapshot, act, notify, cookieFailure }: { cookieFailure
   </div>;
 }
 
-export default function App() {
+export default function App(){
+ const [quickSearchOpen,setQuickSearchOpen]=useState(false);
+ return <CommandProvider onOpenSearch={()=>setQuickSearchOpen(true)}><AppWorkspace quickSearchOpen={quickSearchOpen} closeQuickSearch={()=>setQuickSearchOpen(false)}/></CommandProvider>;
+}
+function AppWorkspace({quickSearchOpen,closeQuickSearch}:{quickSearchOpen:boolean;closeQuickSearch:()=>void}) {
+  const {workspace,setAppearance}=useWorkspace();
   const [snapshot, setSnapshot] = useState(initial);
   const [appVersion,setAppVersion]=useState<string|null>('');
   useEffect(()=>{if(!isTauri())return;let active=true;void getVersion().then(version=>{if(active)setAppVersion(typeof version==='string'?version:null);}).catch(()=>{if(active)setAppVersion(null);});return()=>{active=false;};},[]);
@@ -219,7 +231,7 @@ export default function App() {
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [listPage, setListPage] = useState(1);
-  const [toast, setToast] = useState('');
+  const {notify}=useFeedback();
   const [previewOpen, setPreviewOpen] = useState(false);
   const [results, setResults] = useState<PreviewResult[]>([]);
   const [expected, setExpected] = useState(0);
@@ -238,7 +250,7 @@ export default function App() {
   const previewVisible = useRef(false); previewVisible.current = previewOpen;
   const lastSnapshot = useRef<AppSnapshot|null>(null);
   const cookieFailureTask = useRef<string|null>(null);
-  const notify = useCallback((message: string) => setToast(message), []);
+
   const receiveSnapshot = useCallback((data: AppSnapshot) => {
     const previous=lastSnapshot.current;
     lastSnapshot.current=data;
@@ -270,8 +282,8 @@ export default function App() {
     void subscribe().catch(error => notify(errorText(error)));
     return () => { cancelled = true; stops.forEach(stop => stop()); };
   }, [notify, receiveSnapshot]);
-  useEffect(() => { if (!toast) return; const timer = setTimeout(() => setToast(''), 7000); return () => clearTimeout(timer); }, [toast]);
-  useEffect(() => { const key = (event: KeyboardEvent) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'l') { event.preventDefault(); const next=()=>{++navigationVersion.current;setPage('download');requestAnimationFrame(()=>input.current?.focus());};if(knowledgeGuard.current)knowledgeGuard.current(next);else next(); } }; document.addEventListener('keydown', key); return () => document.removeEventListener('keydown', key); }, []);
+
+
   useEffect(() => setListPage(1), [page, filter, search]);
   useEffect(() => { setSelectedIds(previous => keepSelection(previous, snapshot.tasks)); }, [snapshot.tasks]);
   const urls = extractUrls(links);
@@ -294,7 +306,7 @@ export default function App() {
   const closePreview = () => { if (parsing) void act('cancel_preview', {}); setPreviewOpen(false); requestAnimationFrame(() => (parsing ? input.current : previewButton.current)?.focus()); };
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || (!previewOpen && (event.target as HTMLElement)?.closest('dialog'))) return;
+      if (event.defaultPrevented || event.isComposing || event.key !== 'Escape' || (!previewOpen && (event.target as HTMLElement)?.closest('dialog'))) return;
       const action = escapeAction(previewOpen, parsing || snapshot.previewing, selectedIds.size);
       if (action === 'preview') { event.preventDefault(); if (parsing || snapshot.previewing) void act('cancel_preview', {}); setPreviewOpen(false); }
       else if (action === 'selection') { event.preventDefault(); setSelectedIds(new Set()); }
@@ -347,11 +359,11 @@ export default function App() {
   const openKnowledge=(reference:KnowledgeReference)=>{if(!reference.vaultId||reference.vaultId.length>256||!reference.path||reference.path.length>32768){notify('知识笔记链接无效');return;}guardedLeave(()=>{++navigationVersion.current;setLearningOpen(null);setKnowledgeOpen({...reference,version:++knowledgeOpenVersion.current});setPage('knowledge');});};
   const analyzeLocal=async(path:string)=>{if(analysisImport.current)return;analysisImport.current=true;setAnalysisBusy(true);const ticket=navigationVersion.current;try{const item=await invoke<import('./types/learning').LearningItem>('learning_import_for_analysis',{path});if(ticket===navigationVersion.current)openLearningVideo(item.id,0,'ai');else notify('课程已加入学习库，可在课程旁开始AI分析');}catch(e){notify(errorText(e));}finally{analysisImport.current=false;setAnalysisBusy(false);}};
   const navigate = (target: typeof page) => {if(target===page)return;guardedLeave(()=>{++navigationVersion.current;if(target!=='knowledge')setKnowledgeOpen(null);if(target!=='learning')setLearningOpen(null);setPage(target);setFilter('all');setSearch('');});};
-  return <div className="app-shell">
-    <aside className="sidebar"><div className="brand"><div className="brand-mark"><ArrowDownToLine size={23} strokeWidth={2.5} /></div><div><strong>映流</strong><span>本地视频学习与知识工作台</span></div></div><div className="nav-label">工作空间</div><nav aria-label="主导航">{[{ id: 'download', icon: Download, text: '下载', badge: active.length + waiting.length }, { id: 'learning', icon: ListVideo, text: '学习库', badge: null }, { id: 'knowledge', icon: BookOpen, text: '知识库', badge: null }, { id: 'media', icon: Wrench, text: '媒体工具', badge: null }, { id: 'history', icon: History, text: '历史', badge: null }, { id: 'settings', icon: Settings2, text: '设置', badge: null }].map(({ id, icon: Icon, text, badge }) => <button key={id} className={page === id ? 'active' : ''} onClick={() => navigate(id as typeof page)} aria-current={page === id ? 'page' : undefined}><Icon size={19} /><span>{text}</span>{!!badge && <span className="nav-badge">{badge}</span>}</button>)}</nav>
+  return <TaskCenterProvider downloads={snapshot.tasks} onOpenVideo={openLearningVideo} onOpenKnowledge={openKnowledge}><TaskCommands/><div className={`app-shell${workspace.appearance.sidebarCollapsed?' sidebar-collapsed':''}`}>
+    <aside className="sidebar"><div className="brand"><div className="brand-mark"><ArrowDownToLine size={23} strokeWidth={2.5} /></div><div><strong>映流</strong><span>本地视频学习与知识工作台</span></div></div><button className="text-button sidebar-collapse-toggle" aria-label={workspace.appearance.sidebarCollapsed?'展开主侧栏':'折叠主侧栏'} onClick={()=>setAppearance(old=>({...old,sidebarCollapsed:!old.sidebarCollapsed}))}>{workspace.appearance.sidebarCollapsed?'展开':'折叠侧栏'}</button><div className="nav-label">工作空间</div><nav aria-label="主导航">{[{ id: 'download', icon: Download, text: '下载', badge: active.length + waiting.length }, { id: 'learning', icon: ListVideo, text: '学习库', badge: null }, { id: 'knowledge', icon: BookOpen, text: '知识库', badge: null }, { id: 'media', icon: Wrench, text: '媒体工具', badge: null }, { id: 'history', icon: History, text: '历史', badge: null }, { id: 'settings', icon: Settings2, text: '设置', badge: null }].map(({ id, icon: Icon, text, badge }) => <button key={id} aria-label={text} title={text} className={page === id ? 'active' : ''} onClick={() => navigate(id as typeof page)} aria-current={page === id ? 'page' : undefined}><Icon size={19} /><span>{text}</span>{!!badge && <span className="nav-badge">{badge}</span>}</button>)}</nav>
       <div className="sidebar-bottom"><div className="local-card"><ShieldCheck size={18} /><div><strong>本地运行</strong><p>下载文件只保存在你的电脑</p></div></div><div className="engine-status"><span className={`status-dot ${snapshot.engine.ready ? 'online' : ''}`} /><span>{snapshot.engine.ready ? `yt-dlp ${snapshot.engine.version}` : snapshot.engine.error ? '组件检查失败' : '正在检查组件'}</span></div><div className="app-version">WINDOWS DESKTOP <span>{appVersion?`v${appVersion}`:isTauri()?(appVersion===null?'版本不可用':'读取版本…'):'界面预览'}</span></div></div>
     </aside>
-    <main className="main"><header className="page-header"><div><div className="eyebrow">你的本地媒体工作空间</div><h1>{page === 'download' ? '下载' : page === 'history' ? '下载历史' : page === 'media' ? '媒体工具' : page === 'learning' ? '学习库' : page === 'knowledge' ? '知识库' : '偏好设置'}</h1><p>{page === 'download' ? '把喜欢的内容，留在本地。' : page === 'history' ? '每一次保存，都有迹可循。' : page === 'media' ? '转换、裁剪与提取，让媒体更合用。' : page === 'learning' ? '整理系列教程，从上次的位置继续。' : page === 'knowledge' ? '把学习收获，沉淀为自己的知识。' : '让下载按照你的习惯运行。'}</p></div><div className="header-right">{snapshot.coreUpdate?.available && <button className="text-button" onClick={() => navigate('settings')}>内核有新版本 {snapshot.coreUpdate.version}，去更新</button>}<span className="local-badge"><span className="status-dot online" />本地存储</span>{page === 'history' && <button className="secondary" onClick={() => { navigate('download'); requestAnimationFrame(() => input.current?.focus()); }}><Plus size={16} />新建下载</button>}</div></header>
+    <main className="main"><header className="page-header"><div><div className="eyebrow">你的本地媒体工作空间</div><h1>{page === 'download' ? '下载' : page === 'history' ? '下载历史' : page === 'media' ? '媒体工具' : page === 'learning' ? '学习库' : page === 'knowledge' ? '知识库' : '偏好设置'}</h1><p>{page === 'download' ? '把喜欢的内容，留在本地。' : page === 'history' ? '每一次保存，都有迹可循。' : page === 'media' ? '转换、裁剪与提取，让媒体更合用。' : page === 'learning' ? '整理系列教程，从上次的位置继续。' : page === 'knowledge' ? '把学习收获，沉淀为自己的知识。' : '让下载按照你的习惯运行。'}</p></div><div className="header-right"><TaskCenterButton/><AppCommands navigate={navigate} focusDownloads={()=>guardedLeave(()=>{navigate('download');requestAnimationFrame(()=>input.current?.focus());})} openDirectory={()=>invoke('open_download_directory')} hasRecent={completed.some(t=>t.files.length>0)} openRecent={()=>{const task=[...completed].sort((a,b)=>(b.finishedAt??b.createdAt)-(a.finishedAt??a.createdAt)).find(t=>t.files.length);if(!task)throw Error('暂无已完成文件');return invoke('open_task_target',{id:task.id,folder:false});}}/>{snapshot.coreUpdate?.available && <button className="text-button" onClick={() => navigate('settings')}>内核有新版本 {snapshot.coreUpdate.version}，去更新</button>}<span className="local-badge"><span className="status-dot online" />本地存储</span>{page === 'history' && <button className="secondary" onClick={() => { navigate('download'); requestAnimationFrame(() => input.current?.focus()); }}><Plus size={16} />新建下载</button>}</div></header>
       {(snapshot.notice || snapshot.engine.error) && <div className="global-notice" role="status"><CircleAlert size={17} /><span>{snapshot.notice || snapshot.engine.error}</span></div>}
       {page === 'knowledge' ? <Suspense fallback={<p role="status">正在打开知识库…</p>}><KnowledgePage notify={notify} registerLeaveGuard={registerKnowledgeGuard} onOpenVideo={openLearningVideo} openRequest={knowledgeOpen} onOpenConsumed={consumeKnowledgeOpen}/></Suspense> : page === 'learning' ? <LearningLibraryPage notify={notify} onAiSettings={()=>navigate('settings')} onOpenKnowledge={openKnowledge} onKnowledgeSetup={()=>navigate('knowledge')} openRequest={learningOpen} onOpenConsumed={consumeLearningOpen}/> : page === 'media' ? <MediaToolsPage initialBatchPaths={mediaBatchPaths} notify={notify} onAnalyze={analyzeLocal} /> : page === 'settings' ? <SettingsPanel snapshot={snapshot} act={act} notify={notify} cookieFailure={cookieFailure} /> : <>
         {page === 'download' && <><section className="link-card"><div className="link-card-heading"><span><Link2 size={18} />添加视频链接</span><kbd>Ctrl + L</kbd></div><div className="link-input-row"><textarea ref={input} aria-label="视频链接" value={links} onChange={event => setLinks(event.target.value)} onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); if (snapshot.engine.ready && !parsing) void startPreview(); } }} placeholder="粘贴视频、播放列表或分享文本，可一次添加多个链接" rows={2} spellCheck={false} /><button ref={previewButton} className="primary parse-button" disabled={!urls.length || parsing || snapshot.previewing || snapshot.updating || !snapshot.engine.ready} onClick={() => { void startPreview(); }}>{parsing ? <Loader2 size={18} className="spin" /> : <Search size={18} />}解析链接</button></div><div className="link-hint"><span><Globe2 size={14} />支持哔哩哔哩、YouTube 及 yt-dlp 支持的平台</span><span>{urls.length ? `识别到 ${urls.length} 个链接` : '先预览，再下载'}</span></div></section>
@@ -365,11 +377,12 @@ export default function App() {
         {page === 'download' && <div className="workspace-footer"><span className="save-location" title={snapshot.settings.downloadDir}><Folder size={15} /><span>{snapshot.settings.downloadDir || '默认保存至「下载 / 视频下载」'}</span></span><button className="text-button" onClick={() => navigate('settings')}>更改位置 <ChevronRight size={14} /></button></div>}
       </>}
     </main>
+    <QuickSearch open={quickSearchOpen} close={closeQuickSearch} onVideo={openLearningVideo} onNote={openKnowledge}/>
     <ContextMenu menu={taskMenu} items={taskMenuItems} onClose={closeTaskMenu} onAction={handleTaskMenu}/>
-    {!!toast && <div className="toast" role="status"><CircleAlert size={18} /><span>{toast}</span><IconButton icon={X} label="关闭提示" onClick={() => setToast('')} /></div>}
+
     {confirmBatch && <Modal title={`确认${batchLabels[confirmBatch.action]}`} onClose={() => setConfirmBatch(null)}><div className="details-body"><p>{batchConfirmation(confirmBatch.action,confirmBatch.ids.length)}</p><p className="help">不适用的任务会跳过并说明原因。</p></div><div className="modal-footer"><button className="secondary" onClick={() => setConfirmBatch(null)}>返回</button><button className="primary" onClick={() => { void runBatch(confirmBatch.action,confirmBatch.ids); }}>确认操作</button></div></Modal>}
     {batchResult && <Modal title="批量操作结果" onClose={() => setBatchResult(null)}><div className="details-body"><p role="status">{batchSummary(batchResult)}</p>{!!(batchResult.skipped.length + batchResult.failed.length) && <details className="batch-details"><summary>查看逐项原因</summary>{batchResult.skipped.map(item => <p key={item.id}>{snapshot.tasks.find(task => task.id === item.id)?.request.title || item.id}：{item.reason}</p>)}{batchResult.failed.map(item => <p className="error-text" key={item.id}>{snapshot.tasks.find(task => task.id === item.id)?.request.title || item.id}：{item.error}</p>)}</details>}</div><div className="modal-footer"><button className="primary" onClick={() => setBatchResult(null)}>知道了</button></div></Modal>}
     {previewOpen && <PreviewPanel results={results} expected={expected} busy={parsing} directory={snapshot.settings.downloadDir} presets={snapshot.settings.downloadPresets ?? []} savePreset={savePreviewPreset} enqueue={enqueue} close={closePreview} configure={() => { closePreview(); navigate('settings'); }} retry={() => { void startPreview(); }} openSource={url => { void act('open_source', { url }); }} />}
     {detail && <Modal title="任务详情" subtitle={statusText[detail.status]} onClose={() => setDetailId(null)}><div className="details-body"><h3>{detail.request.title}</h3><dl><dt>来源链接</dt><dd>{detail.request.url}</dd><dt>保存目录</dt><dd>{detail.outputDir}</dd><dt>下载类型</dt><dd>{kindText[detail.request.kind]} · {detail.request.videoMode === 'compatible' ? '兼容优先' : '源格式'}</dd><dt>创建时间</dt><dd>{dateText(detail.createdAt)}</dd>{detail.files.length > 0 && <><dt>输出文件</dt><dd>{detail.files.map(file => <p key={file}>{file}</p>)}</dd></>}</dl>{detail.error && <div className="error-panel"><strong>{downloadError(detail.request.url, detail.error).title}</strong><p>{downloadError(detail.request.url, detail.error).message}</p><details className="task-logs"><summary>技术详情</summary><pre>{detail.error}</pre></details>{(detail.error.toLowerCase().includes('cookie') || downloadError(detail.request.url, detail.error).message !== detail.error) && <button className="secondary" onClick={() => { setDetailId(null); navigate('settings'); }}>到设置导入 Cookie</button>}</div>}<details className="task-logs" open={detail.status === 'failed'}><summary>内核日志（已脱敏）</summary><pre>{detail.logs.join('\n') || '暂无日志'}</pre></details></div><div className="modal-footer"><button className="secondary" onClick={() => { void act('open_source', { url: detail.request.url }); }}><ArrowUpRight size={16} />打开来源</button><button className="secondary" onClick={() => { void act('open_task_target', { id: detail.id, folder: true }); }}><FolderOpen size={16} />打开目录</button></div></Modal>}
-  </div>;
+  </div></TaskCenterProvider>;
 }

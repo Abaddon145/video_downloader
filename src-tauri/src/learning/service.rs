@@ -8,6 +8,7 @@ use tauri::{Emitter, Manager};
 pub struct LearningService {
     pub(crate) db: Mutex<AppResult<Repository>>,
     pub(crate) live: Mutex<std::collections::HashMap<String, ProgressInput>>,
+    undo_receipts: Mutex<std::collections::VecDeque<(String, LearningUndoToken)>>,
     pub(crate) app: tauri::AppHandle,
     pub(crate) media: Arc<MediaService>,
     pub(crate) data: PathBuf,
@@ -21,6 +22,7 @@ impl LearningService {
         Arc::new(Self {
             db: Mutex::new(Repository::open(&data.join("learning.db"))),
             live: Mutex::new(Default::default()),
+            undo_receipts: Mutex::new(Default::default()),
             app,
             media,
             data: data.into(),
@@ -166,5 +168,29 @@ impl LearningService {
         self.schedule_series_thumbnails(&id);
         self.changed("structure", &id);
         Ok(id)
+    }
+    pub fn reversible_change(&self, change: ReversibleLearningChange) -> AppResult<Option<String>> {
+        let id = match &change {
+            ReversibleLearningChange::MoveItem { id, .. }
+            | ReversibleLearningChange::RenameItem { id, .. }
+            | ReversibleLearningChange::SetSeriesCategory { id, .. }
+            | ReversibleLearningChange::SetSeriesFavorite { id, .. } => id.clone(),
+        };
+        let receipt = self.with(|r| {
+            let mut receipts = self.undo_receipts.lock().map_err(|_| "撤销记录暂不可用")?;
+            r.reversible_receipt(change, &mut receipts)
+        })?;
+        if receipt.is_some() {
+            self.changed("structure", &id);
+        }
+        Ok(receipt)
+    }
+    pub fn undo_change(&self, receipt: &str) -> AppResult<()> {
+        let id = self.with(|r| {
+            let mut receipts = self.undo_receipts.lock().map_err(|_| "撤销记录暂不可用")?;
+            r.undo_receipt(receipt, &mut receipts)
+        })?;
+        self.changed("structure", &id);
+        Ok(())
     }
 }

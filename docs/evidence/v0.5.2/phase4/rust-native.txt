@@ -1,0 +1,15 @@
+   Compiling video-downloader v0.5.1 (C:\Users\14582\.codex\worktrees\content-updates\视频下载软件\src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.68s
+     Running unittests src\lib.rs (C:/Users/14582/Documents/ChatGPT/视频下载软件/src-tauri/target\debug\deps\video_downloader_lib-8f061203aeb65824.exe)
+
+running 7 tests
+test learning::native_player::tests::native_input_routes_transport_keys_through_learning_controls ... ok
+test learning::native_player::tests::native_viewport_is_finite_and_bounded ... ok
+test learning::native_player::tests::native_ipc_matches_response_and_ignores_events ... ok
+test learning::native_player::tests::native_rejects_unsafe_controls ... ok
+test learning::native_player::tests::native_cancelled_claim_preserves_newer_owner ... ok
+test learning::native_player::tests::native_advanced_controls_are_bounded_and_use_fixed_mpv_commands ... ok
+test learning::native_player::tests::native_shortcuts_reject_injection_unknown_keys_and_duplicate_bindings ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 245 filtered out; finished in 0.00s
+

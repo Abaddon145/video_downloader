@@ -1,0 +1,11 @@
+{
+  "mockedTauri": true,
+  "checks": [
+    "CtrlK bilingual search, disabled reasons, Enter runs actual navigation",
+    "recent order, arrow selection, Tab focus and Esc",
+    "custom shifted-digit binding opens the palette",
+    "scoped CtrlS calls the existing guarded save without stealing editor text",
+    "CtrlP queries actual bounded course/knowledge APIs"
+  ],
+  "pageErrors": []
+}

@@ -2,6 +2,8 @@
 
 映流把视频下载、本地学习和 Markdown 知识整理放在一款 Windows 桌面应用中。下载基于官方 **yt-dlp**；学习媒体保留在本机，笔记使用普通 Markdown 文件。
 
+**v0.5.2 高级交互候选版本**：新增命令面板、自定义快捷键、Markdown 实时预览、原生播放器高级控制与自适应工作区、统一任务中心，以及字幕到知识笔记和安全撤销。AI 仍位于对应课程内。见[使用说明](docs/advanced-interactions-v0.5.2.md)和[交付验收](docs/v0.5.2-delivery.md)，包含真实测试范围、安装包校验与人工验收项。
+
 **v0.5.1 工作区候选版本**：修复 AI 引用/总结截断与 Obsidian Vault 联动，新增学习库三视图、播放器布局、统一右键菜单、用途模板、全局外观及布局预设。知识库支持多标签自动保存、历史/收藏/模板/附件、导图、保守富文本与 AI 笔记预览。使用方法见[工作区说明](docs/workspace-v0.5.1.md)、[知识工作台](docs/knowledge-workspace-v0.5.1.md)；真实测试、构建和限制见[交付记录](docs/v0.5.1-delivery.md)。PR 保持 Draft，尚未合并或正式发布安装包。
 
 **v0.5.0 候选版本：AI视频学习与知识库。** AI分析从学习库课程进入，支持语音转录、课程总结、字幕、问答和笔记；知识库用于浏览、编辑、搜索及关联课程内容。自动下载分析默认关闭。版本状态、隐私边界和使用方法见[AI视频分析说明](docs/ai-video-analysis-v0.5.0.md)、[知识库说明](docs/knowledge-vault-v0.5.0.md)与[DeepSeek隐私说明](docs/deepseek-privacy-v0.5.0.md)。真实 DeepSeek 短片验收已通过；安装包和回归范围见[交付记录](docs/ai-video-analysis-delivery.md)。短韩语/拼接中英语音识别存在已记录的质量限制；PR 保持草稿，尚未发布正式 Release。

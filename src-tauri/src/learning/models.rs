@@ -224,6 +224,58 @@ pub enum LearningChange {
     },
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(
+    tag = "type",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
+)]
+pub enum ReversibleLearningChange {
+    MoveItem {
+        id: String,
+        series_id: String,
+    },
+    RenameItem {
+        id: String,
+        title: String,
+    },
+    SetSeriesCategory {
+        id: String,
+        category_id: Option<String>,
+    },
+    SetSeriesFavorite {
+        id: String,
+        favorite: bool,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub enum LearningUndoToken {
+    MoveItem {
+        id: String,
+        previous_series_id: String,
+        previous_sort_order: i64,
+        expected_series_id: String,
+        expected_sort_order: i64,
+    },
+    RenameItem {
+        id: String,
+        previous: String,
+        expected: String,
+    },
+    SetSeriesCategory {
+        id: String,
+        previous: Option<String>,
+        expected: Option<String>,
+    },
+    SetSeriesFavorite {
+        id: String,
+        previous: bool,
+        expected: bool,
+    },
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct LocalImportInput {
@@ -326,4 +378,11 @@ pub struct SeriesUpdate {
     pub preview: crate::models::MediaPreview,
     pub new_entries: Vec<crate::models::PlaylistEntry>,
     pub template: crate::models::DownloadRequest,
+}
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ItemSearchPage {
+    pub items: Vec<LearningItem>,
+    pub total: i64,
+    pub page: u32,
 }
