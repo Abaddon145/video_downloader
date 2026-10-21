@@ -36,6 +36,30 @@ fn version_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<NoteVersion> {
     })
 }
 impl KnowledgeService {
+    pub fn set_note_flag(
+        &self,
+        id: &str,
+        path: &str,
+        flag: &str,
+        expected: bool,
+        value: bool,
+    ) -> AppResult<KnowledgeView<NoteMetadata>> {
+        let column = match flag {
+            "favorite" => "favorite",
+            "template" => "template",
+            _ => return Err("笔记标记类型无效".into()),
+        };
+        self.with_vault(id,|s,v| {
+            let path=v.read(path)?.path;
+            let tx=s.db.transaction().map_err(db::error)?;
+            tx.execute("INSERT OR IGNORE INTO knowledge_note_metadata(vault_id,path,favorite,template) VALUES(?1,?2,0,0)",rusqlite::params![id,path]).map_err(db::error)?;
+            let changed=tx.execute(&format!("UPDATE knowledge_note_metadata SET {column}=?3 WHERE vault_id=?1 AND path=?2 AND {column}=?4"),rusqlite::params![id,path,value,expected]).map_err(db::error)?;
+            if changed!=1 {return Err("笔记标记已发生变化，请重新读取；未覆盖后续修改".into());}
+            let (favorite,template)=tx.query_row("SELECT favorite,template FROM knowledge_note_metadata WHERE vault_id=?1 AND path=?2",rusqlite::params![id,path],|r|Ok((r.get(0)?,r.get(1)?))).map_err(db::error)?;
+            tx.commit().map_err(db::error)?;
+            Ok(KnowledgeView{vault_id:id.into(),data:NoteMetadata{path,favorite,template,available:true}})
+        })
+    }
     pub fn note_metadata(&self, id: &str, path: &str) -> AppResult<KnowledgeView<NoteMetadata>> {
         self.with_vault(id, |s,v| {
             let path=note_path(path)?;

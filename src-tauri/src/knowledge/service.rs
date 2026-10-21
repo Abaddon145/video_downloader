@@ -6,7 +6,7 @@ use super::{
 use crate::{domain::AppResult, learning::db};
 use rusqlite::{Connection, TransactionBehavior};
 use std::{
-    collections::{BTreeSet, VecDeque},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -18,6 +18,8 @@ pub(super) struct State {
     pub(super) settings: KnowledgeSettings,
     pub(super) db: Connection,
     obsidian_attempt: Option<(ObsidianBinding, ObsidianOpenResult)>,
+    // ponytail: undo receipts are session-local; a persisted recovery catalog is needed for cross-restart undo.
+    trash_receipts: BTreeMap<(String, String), (String, String)>,
 }
 pub struct KnowledgeService {
     data: PathBuf,
@@ -40,6 +42,7 @@ fn load(data: &Path) -> AppResult<State> {
         settings,
         db: db::open(&data.join("learning.db"))?,
         obsidian_attempt: None,
+        trash_receipts: BTreeMap::new(),
     })
 }
 pub(super) fn ensure_directory(vault: &Vault, relative: &str) -> AppResult<()> {
@@ -270,6 +273,24 @@ impl KnowledgeService {
         Ok(())
     }
     pub fn move_note(&self, id: &str, from: &str, to: &str) -> AppResult<KnowledgeMutation> {
+        self.move_note_checked(id, from, to, None)
+    }
+    pub fn move_note_guarded(
+        &self,
+        id: &str,
+        from: &str,
+        to: &str,
+        expected_hash: &str,
+    ) -> AppResult<KnowledgeMutation> {
+        self.move_note_checked(id, from, to, Some(expected_hash))
+    }
+    fn move_note_checked(
+        &self,
+        id: &str,
+        from: &str,
+        to: &str,
+        expected_hash: Option<&str>,
+    ) -> AppResult<KnowledgeMutation> {
         self.with_vault(id, |s, v| {
             let from = vault::validate_relative(from, false)?;
             let to = vault::validate_relative(to, false)?;
@@ -288,7 +309,7 @@ impl KnowledgeService {
             let mut moved = false;
             let linked = (|| {
                 let tx = s.db.transaction_with_behavior(TransactionBehavior::Immediate).map_err(db::error)?;
-                v.move_entry(&from, &to)?;
+                v.move_entry_checked(&from, &to, expected_hash)?;
                 moved = true;
                 for table in ["video_analyses", "video_notes"] {
                     tx.execute(&format!("UPDATE {table} SET markdown_path=?3||substr(markdown_path,length(?2)+1) WHERE markdown_vault_id=?1 AND (markdown_path=?2 OR substr(markdown_path,1,length(?2)+1)=?2||'/')"),rusqlite::params![id,from,to]).map_err(db::error)?;
@@ -301,7 +322,7 @@ impl KnowledgeService {
             if let Err(error) = linked {
                 // Transaction::drop rolls back on UPDATE/COMMIT failure; report a failed rollback too.
                 let database = if s.db.is_autocommit() { Ok(()) } else { s.db.execute_batch("ROLLBACK").map_err(db::error) };
-                let restored = if moved { v.move_entry(&to, &from) } else { Ok(()) };
+                let restored = if moved { v.move_entry_checked(&to, &from, expected_hash) } else { Ok(()) };
                 return Err(match (database, restored) {
                     (Ok(()), Ok(())) => format!("笔记移动失败，文件与关联已保留在原位置：{error}"),
                     (database, restored) => format!("笔记移动失败：{error}；数据库回滚：{}；文件恢复：{}。请检查原路径“{}”和目标路径“{}”，不要重复移动。", database.err().unwrap_or_else(|| "完成".into()), restored.err().unwrap_or_else(|| "完成".into()), v.root.join(&from).display(), v.root.join(&to).display()),
@@ -315,6 +336,56 @@ impl KnowledgeService {
             } else {
                 Some("目录已移动，请重新扫描以更新其中笔记的索引".into())
             };
+            Ok(KnowledgeMutation {
+                vault_id: id.into(),
+                path: to,
+                index_warning: warning,
+            })
+        })
+    }
+    pub fn trash_note(&self, id: &str, path: &str, expected_hash: &str) -> AppResult<TrashReceipt> {
+        self.with_vault(id, |s, v| {
+            let path = vault::validate_relative(path, false)?;
+            v.read(&path)?;
+            if s.trash_receipts.len() >= 1000 {
+                return Err("本次会话回收记录已满，请重启后再操作；已有回收文件保留。".into());
+            }
+            let trash_path = v.trash(&path, expected_hash)?;
+            s.trash_receipts.insert(
+                (id.into(), trash_path.clone()),
+                (path.clone(), expected_hash.into()),
+            );
+            let warning = Self::remove_paths(s, &path)
+                .err()
+                .map(|_| "笔记已回收，请重新扫描更新搜索索引".into());
+            Ok(TrashReceipt {
+                vault_id: id.into(),
+                path,
+                trash_path,
+                hash: expected_hash.into(),
+                index_warning: warning,
+            })
+        })
+    }
+    pub fn restore_trashed_note(
+        &self,
+        id: &str,
+        trash_path: &str,
+        to: &str,
+        expected_hash: &str,
+    ) -> AppResult<KnowledgeMutation> {
+        self.with_vault(id, |s, v| {
+            let to = vault::validate_relative(to, false)?;
+            let key = (id.to_string(), trash_path.to_string());
+            if s.trash_receipts.get(&key) != Some(&(to.clone(), expected_hash.to_string())) {
+                return Err("恢复凭据不属于原笔记位置，或本次会话已结束；回收文件保留。".into());
+            }
+            if let Some((parent, _)) = to.rsplit_once('/') {
+                ensure_directory(v, parent)?;
+            }
+            v.restore_trashed(trash_path, &to, expected_hash)?;
+            s.trash_receipts.remove(&key);
+            let warning = metadata_warning(v.read(&to).and_then(|d| index::upsert(&mut s.db, &d)));
             Ok(KnowledgeMutation {
                 vault_id: id.into(),
                 path: to,

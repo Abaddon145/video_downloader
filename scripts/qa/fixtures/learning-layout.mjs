@@ -11,6 +11,9 @@ export function installLearningLayoutFixture(){
    if(command==='workspace_save'){localStorage.setItem('qa-workspace',JSON.stringify(args.settings));return args.settings;}
    if(command==='get_snapshot')return {settings:{downloadDir:'C:/downloads',concurrency:2,cookieMode:'none',browser:'edge',browserProfile:'',hasCookieFile:false,proxyEnabled:false,proxyUrl:'',autoCheckCoreUpdate:true,lastCoreUpdateCheck:null,cookieSummary:null,downloadPresets:[]},tasks:[],engine:{ready:true,version:'test',ffmpegVersion:'test',denoVersion:'test',error:null},notice:null,updating:false,previewing:false,coreUpdate:null};
    if(command==='get_media_settings')return null;
+   if(command==='learning_thumbnail_tasks')return [];
+   if(command==='get_media_snapshot')return {tasks:[],ready:true,error:null};
+   if(command==='ai_list_analyses')return {items:[],total:0,page:1};
    if(command==='learning_home')return {settings,categories:[{id:'c0',name:'设计',description:null,icon:'BookOpen',color:null,sortOrder:0}],series:args.sort==='title'?[...series].reverse():series,total:2,page:1,continueLearning:[{series:series[0],item}]};
    if(command==='learning_series')return {series:series.find(s=>s.id===args.id),items:[item],total:1,page:1};
    if(command==='learning_item')return item;

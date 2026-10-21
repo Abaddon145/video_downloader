@@ -13,6 +13,7 @@ import {LearningDialog} from '../learning/Editors';
 import {aiError} from '../ai/lib';
 import {FileTree} from './FileTree';
 import {MarkdownEditor} from './MarkdownEditor';
+import {applySelectionAction} from './MarkdownLivePreview';
 import {SelectionAiDialog} from './SelectionAiDialog';
 import type {SelectionAiAction,SelectionSnapshot} from './SelectionToolbar';
 import type {ReactCodeMirrorRef} from '@uiw/react-codemirror';
@@ -21,10 +22,12 @@ import {ObsidianConnection} from './ObsidianConnection';
 import {MAX_OUTLINE_CHARACTERS,headingSlug,headings,relativeNotePath} from './lib';
 import {useWorkspace} from '../workspace/WorkspaceProvider';
 import {ResizeHandle} from '../../components/ResizeHandle';
+import {useFeedback} from '../../components/Feedback';
 import './knowledge.css';
 
 type FileAction='新建笔记'|'新建文件夹'|'重命名笔记'|'移动笔记'|'删除笔记'|'重命名笔记本'|'移动笔记本'|'删除空笔记本'|'复制笔记';
 export default function KnowledgePage({notify,registerLeaveGuard,onOpenVideo,openRequest,onOpenConsumed}:{notify:(message:string)=>void;registerLeaveGuard?:(guard:LeaveGuard|null)=>void;onOpenVideo?:(itemId:string,timeMs:number)=>void;openRequest?:KnowledgeOpenRequest|null;onOpenConsumed?:(version:number)=>void}){
+ const {recordUndo}=useFeedback();
  const [settings,setSettings]=useState<KnowledgeSettings|null>(null);
  const [sessions]=useState(()=>new NoteSessions(async(vaultId,path,text,expectedHash)=>{const r=await invoke<KnowledgeWrite>('knowledge_write',{vaultId,path,text,expectedHash});if(alive.current&&r.outcome.status==='saved'){setRevision(v=>v+1);if(r.indexWarning)notify(r.indexWarning);}return r;}));
  const tabs=useSyncExternalStore(sessions.subscribe,sessions.getSnapshot),[activeKey,setActiveKey]=useState<string|null>(null);
@@ -72,6 +75,8 @@ export default function KnowledgePage({notify,registerLeaveGuard,onOpenVideo,ope
   guard(()=>{void read(request.path).finally(()=>onOpenConsumed?.(request.version));});
  },[openRequest?.version,settings?.vaultId,onOpenConsumed]);
  const openNote=(path:string,heading?:string)=>{void read(path,heading);};
+ function promptTime(){const value=window.prompt('视频时间点链接（yingliu://video/课程ID?t=毫秒）');if(!value)return null;try{const url=new URL(value.trim()),time=Number(url.searchParams.get('t')),item=decodeURIComponent(url.pathname.slice(1));if(url.protocol==='yingliu:'&&url.hostname==='video'&&!url.username&&!url.password&&/^[a-zA-Z0-9_-]{1,128}$/.test(item)&&Number.isSafeInteger(time)&&time>=0&&time<=604800000)return url.toString();}catch{}notify('请输入有效的映流课程时间点链接');return null;}
+ function insertTime(){const view=editor.current?.view;if(!view||view.composing)throw Error('请先打开正文编辑器，并完成当前输入');const target=promptTime();if(target)applySelectionAction(view,'time',target);}
  function openObsidian(autoOpen=true){if(locked.current)return;const c=current.current;if(c.doc&&c.text!==c.doc.text)setObsidianDirty(autoOpen);else setObsidian({path:c.doc?.path??null,autoOpen});}
  async function save(expected?:string):Promise<boolean>{if(!activeKey)return true;const ok=await sessions.save(activeKey,expected);const s=sessions.get(activeKey);if(s?.conflict){setConflict(s.conflict);setExternalView(false);}if(s?.error)setError(s.error);if(ok)notify('笔记已保存');return ok;}
  async function prepareNote():Promise<NoteSnapshot>{if(!activeKey||!(await sessions.save(activeKey)))throw Error('请先处理笔记的保存错误或冲突。');const s=sessions.get(activeKey);if(!s||current.current.settings?.vaultId!==s.vaultId||current.current.doc?.path!==s.path)throw Error('当前笔记已切换，请重新操作。');return {vaultId:s.vaultId,path:s.path,hash:s.document.hash,text:s.draft,editVersion:s.editVersion};}
@@ -114,6 +119,7 @@ export default function KnowledgePage({notify,registerLeaveGuard,onOpenVideo,ope
   }catch(e){if(valid(id))setError(aiError(e));}finally{locked.current=false;if(alive.current)setBusy(false);}
  })();});}
  async function treeAction(entry:TreeEntry,kind:string){
+  if(kind==='insert-time'){const result=await run('knowledge.insert-time');if(!result.ok)throw Error(result.error);return;}
   if(['open-new-tab','favorite','history','ai'].includes(kind)){await read(entry.path);if(kind!=='open-new-tab')setToolRequest({id:Date.now(),path:entry.path,kind:kind as 'favorite'|'history'|'ai'});return;}
   if(kind==='open'){openNote(entry.path);return;}
   if(kind==='new-note'){prepare('新建笔记',entry);return;}
@@ -132,17 +138,17 @@ export default function KnowledgePage({notify,registerLeaveGuard,onOpenVideo,ope
  }
  async function mutate(){const id=settings?.vaultId;if(!id||!action||locked.current)return;locked.current=true;setBusy(true);const kind=action,source=actionSource;
   try{if(!(await sessions.flush(id)))throw '请先处理未保存笔记的冲突，再操作文件。';let r:KnowledgeMutation;if(source&&source.vaultId!==id)throw '知识库已切换，请重新选择操作目标';
-   if(kind==='删除笔记'){if(!source?.document)throw '请重新选择笔记';r=await invoke('knowledge_delete',{vaultId:id,path:source.path,expectedHash:source.document.hash});}
+   if(kind==='删除笔记'){if(!source?.document)throw '请重新选择笔记';const receipt=await invoke<KnowledgeMutation&{trashPath:string;hash:string}>('knowledge_trash_note',{vaultId:id,path:source.path,expectedHash:source.document.hash});r=receipt;recordUndo({label:'笔记已移至回收目录',undo:async()=>{const restored=await invoke<KnowledgeMutation>('knowledge_restore_trashed_note',{vaultId:id,trashPath:receipt.trashPath,to:receipt.path,expectedHash:receipt.hash});if(restored.indexWarning)notify(restored.indexWarning);if(valid(id)){setRevision(v=>v+1);await read(restored.path);}}});}
    else if(kind==='删除空笔记本'){if(!source?.directory)throw '请重新选择笔记本';r=await invoke('knowledge_delete_empty_directory',{vaultId:id,path:source.path});}
    else if(kind==='新建笔记'||kind==='新建文件夹'||kind==='复制笔记')r=await invoke('knowledge_create',{vaultId:id,path,text:kind==='复制笔记'?source?.document?.text??'':kind==='新建笔记'?'# 新笔记\n':'',directory:kind==='新建文件夹'});
-   else{if(!source)throw '请先选择笔记或笔记本';sessions.checkMove(id,source.path,path);r=await invoke(kind.startsWith('移动')?'knowledge_move':'knowledge_rename',{vaultId:id,...(kind.startsWith('移动')?{from:source.path}:{path:source.path}),to:path});}
+   else{if(!source)throw '请先选择笔记或笔记本';sessions.checkMove(id,source.path,path);r=source.directory?await invoke(kind.startsWith('移动')?'knowledge_move':'knowledge_rename',{vaultId:id,...(kind.startsWith('移动')?{from:source.path}:{path:source.path}),to:path}):await invoke('knowledge_move_guarded',{vaultId:id,from:source.path,to:path,expectedHash:source.document?.hash});if(!source.directory&&source.document){const from=source.path,to=r.path,hash=source.document.hash;recordUndo({label:kind.startsWith('移动')?'笔记已移动':'笔记已重命名',undo:async()=>{await sessions.settle();sessions.checkMove(id,to,from);const restored=await invoke<KnowledgeMutation>('knowledge_move_guarded',{vaultId:id,from:to,to:from,expectedHash:hash});if(restored.indexWarning)notify(restored.indexWarning);if(valid(id)){const opened=current.current.doc?.path;sessions.move(id,to,restored.path);setRevision(v=>v+1);if(opened===to)await read(restored.path);}}});}}
    if(!valid(id)||r.vaultId!==id)return;setAction(null);setRevision(v=>v+1);if(r.indexWarning)notify(r.indexWarning);
-   if(kind.startsWith('删除')){if(source){for(const tab of sessions.getSnapshot().filter(s=>s.vaultId===id&&(s.path===source.path||s.path.startsWith(source.path+'/'))))sessions.close(tab.key,true);if(current.current.doc?.path===source.path)setActiveKey(null);}notify(kind==='删除空笔记本'?'空笔记本已删除':'笔记已移至知识库回收目录');}
-   else if(kind.startsWith('移动')||kind.startsWith('重命名')){if(source)sessions.move(id,source.path,r.path);const opened=current.current.doc?.path;if(opened&&source&&(opened===source.path||opened.startsWith(source.path+'/')))await read(r.path+opened.slice(source.path.length));notify('位置已更新');}
+   if(kind.startsWith('删除')){if(source){for(const tab of sessions.getSnapshot().filter(s=>s.vaultId===id&&(s.path===source.path||s.path.startsWith(source.path+'/'))))sessions.close(tab.key,true);if(current.current.doc?.path===source.path)setActiveKey(null);}if(kind==='删除空笔记本')notify('空笔记本已删除');}
+   else if(kind.startsWith('移动')||kind.startsWith('重命名')){if(source)sessions.move(id,source.path,r.path);const opened=current.current.doc?.path;if(opened&&source&&(opened===source.path||opened.startsWith(source.path+'/')))await read(r.path+opened.slice(source.path.length));if(source?.directory)notify('位置已更新');}
    else if(kind!=='新建文件夹')await read(r.path);
   }catch(e){if(valid(id))setActionError(aiError(e));}finally{locked.current=false;if(alive.current)setBusy(false);}
  }
- const {openSearch}=useCommands();
+ const {openSearch,run}=useCommands();
  useRegisterCommands([
   {id:'knowledge.new',title:'新建笔记',category:'知识库',scope:'knowledge',shortcut:'Ctrl+Shift+N',keywords:['note','create','笔记'],enabled:!!settings?.vaultId&&!busy,availabilityReason:'请先连接知识库并等待当前操作结束',execute:()=>prepare('新建笔记')},
   {id:'knowledge.search',title:'搜索笔记',category:'知识库',keywords:['find','note'],execute:openSearch},
@@ -151,6 +157,7 @@ export default function KnowledgePage({notify,registerLeaveGuard,onOpenVideo,ope
   {id:'knowledge.recent',title:'打开最近笔记',category:'知识库',enabled:tabs.some(s=>s.vaultId===settings?.vaultId),availabilityReason:'本次尚未打开笔记',execute:()=>{const note=tabs.filter(s=>s.vaultId===settings?.vaultId).at(-1);if(note)openNote(note.path);}},
   ...([['knowledge.template','创建模板笔记','templates'],['knowledge.history','打开版本历史','history']]as const).map(([id,title,kind])=>({id,title,category:'知识库',enabled:!!doc&&!busy,availabilityReason:'请先打开笔记',execute:()=>{if(doc)setToolRequest({id:Date.now(),path:doc.path,kind});}})),
   {id:'knowledge.obsidian',title:'在 Obsidian 中打开当前笔记',category:'知识库',enabled:!!doc&&!busy,availabilityReason:'请先打开笔记',execute:()=>openObsidian()},
+  {id:'knowledge.insert-time',title:'插入视频时间点',category:'知识库',scope:'knowledge',enabled:!!doc&&!busy&&mode!=='预览'&&mode!=='富文本',availabilityReason:'请先打开笔记的实时预览或源码编辑器',execute:insertTime},
  ]);
  const title=doc?.path.split('/').at(-1)??'选择一篇笔记';
  if(!settings?.vaultId)return <section className="knowledge-start"><div className="knowledge-start-icon"><BookOpen size={32}/></div><h2>知识归你，笔记留在本地</h2><p>创建 Markdown 知识库，或连接已有的 Obsidian Vault。无需安装 Obsidian 即可使用。</p><div><button className="primary" disabled={busy} onClick={()=>void chooseVault(true)}><Plus size={16}/>创建映流知识库</button><button className="secondary" disabled={busy} onClick={()=>void chooseVault(false)}><FolderOpen size={16}/>选择已有知识库</button></div><p className="help">已有知识库中的映流内容保存在“映流”文件夹。不会修改 Obsidian 配置。</p>{error&&<p className="error-text" role="alert">{error}</p>}</section>;
@@ -166,7 +173,7 @@ export default function KnowledgePage({notify,registerLeaveGuard,onOpenVideo,ope
      <div className="knowledge-note-actions"><button className="primary" disabled={!dirty||busy} onClick={()=>void save()}><Save size={14}/>保存</button><button className="text-button" disabled={busy} onClick={()=>prepare('重命名笔记')}>重命名</button><button className="text-button" disabled={busy} onClick={()=>openObsidian()}><ArrowUpRight size={14}/>在 Obsidian 中打开</button></div>
      <NoteTools key={activeKey} vaultId={settings.vaultId} path={doc.path} text={text} revision={revision} prepare={prepareNote} apply={applyNote} openNote={openNote} created={newPath=>{setRevision(v=>v+1);openNote(newPath);}} jump={jump} request={toolRequest} onMove={()=>prepare('移动笔记')} onDelete={()=>prepare('删除笔记')} onExport={()=>{void treeAction({path:doc.path,name:title,directory:false},'export');}}/>
      <div className={mode==='分屏'?'knowledge-editor-split':'knowledge-editor-single'}>
-      {mode==='富文本'&&rich?.mode==='rich'?<Suspense fallback={<p role="status">正在打开富文本…</p>}><RichTextEditor value={text} onChange={setText} readOnly={busy}/></Suspense>:mode!=='预览'&&<MarkdownEditor key={`${settings.vaultId}:${doc.path}`} value={text} onChange={setText} readOnly={busy} editorRef={editor} live={(mode==='实时预览'||mode==='分屏')&&new TextEncoder().encode(text).length<=256*1024} vaultId={settings.vaultId} path={doc.path} onLink={(target,wiki)=>void link(target,wiki)} onExternal={url=>{void invoke('open_source',{url}).catch(e=>notify(aiError(e)));}} onVideo={onOpenVideo?(item,time)=>guard(()=>onOpenVideo(item,time)):undefined} onSelectionAi={(action,snapshot)=>setSelectionAi({id:crypto.randomUUID(),action,snapshot})} onInsertTime={()=>{const value=window.prompt('视频时间点链接（yingliu://video/课程ID?t=毫秒）');if(!value)return null;try{const url=new URL(value.trim()),time=Number(url.searchParams.get('t'));return url.protocol==='yingliu:'&&url.hostname==='video'&&url.pathname.length>1&&Number.isSafeInteger(time)&&time>=0?url.toString():null;}catch{return null;}}}/>}
+      {mode==='富文本'&&rich?.mode==='rich'?<Suspense fallback={<p role="status">正在打开富文本…</p>}><RichTextEditor value={text} onChange={setText} readOnly={busy}/></Suspense>:mode!=='预览'&&<MarkdownEditor key={`${settings.vaultId}:${doc.path}`} value={text} onChange={setText} readOnly={busy} editorRef={editor} live={(mode==='实时预览'||mode==='分屏')&&new TextEncoder().encode(text).length<=256*1024} vaultId={settings.vaultId} path={doc.path} onLink={(target,wiki)=>void link(target,wiki)} onExternal={url=>{void invoke('open_source',{url}).catch(e=>notify(aiError(e)));}} onVideo={onOpenVideo?(item,time)=>guard(()=>onOpenVideo(item,time)):undefined} onSelectionAi={(action,snapshot)=>setSelectionAi({id:crypto.randomUUID(),action,snapshot})} onInsertTime={promptTime}/>}
       {mode==='富文本'&&rich?.mode==='source'&&<p role="status" className="help">已回退源码编辑，原文保持完整：{rich.reason}</p>}
       {(mode==='实时预览'||mode==='分屏')&&new TextEncoder().encode(text).length>256*1024&&<p role="status" className="help">笔记超过 256 KiB，已切换源码编辑以保持流畅和原文完整。</p>}
       {(mode==='预览'||mode==='分屏')&&<MarkdownPreview value={text} vaultId={settings.vaultId} path={doc.path} onLink={(target,wiki)=>void link(target,wiki)} onExternal={url=>{void invoke('open_source',{url}).catch(e=>notify(aiError(e)));}} onVideo={onOpenVideo?(item,time)=>guard(()=>onOpenVideo(item,time)):undefined}/>}

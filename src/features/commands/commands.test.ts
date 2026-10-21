@@ -81,3 +81,7 @@ test('opening the command UI never buries recent business commands',async()=>{
 test('Space on a focused action button is left to the button',()=>{
  assert.equal(shouldHandleShortcut({key:' ',ctrlKey:false,shiftKey:false,altKey:false,metaKey:false},{id:'player.toggle',title:'播放',category:'播放器',shortcut:'Space',scope:'player',execute:()=>{}},{scope:'player',editable:false,overlay:false,interactive:true}),false);
 });
+test('Tab navigation cannot be reassigned by a player command',()=>{
+ assert.match(shortcutIssue('Tab','player')??'',/保留/);
+ assert.match(shortcutIssue('Shift+Tab','knowledge')??'',/保留/);
+});

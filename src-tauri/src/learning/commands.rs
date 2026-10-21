@@ -4,10 +4,15 @@ use std::sync::Arc;
 use tauri::State;
 type Learning<'a> = State<'a, Arc<LearningService>>;
 #[tauri::command]
-pub async fn learning_search_items(learning: Learning<'_>, query: String, page: u32) -> AppResult<ItemSearchPage> {
+pub async fn learning_search_items(
+    learning: Learning<'_>,
+    query: String,
+    page: u32,
+) -> AppResult<ItemSearchPage> {
     let learning = learning.inner().clone();
     tauri::async_runtime::spawn_blocking(move || learning.with(|r| r.search_items(&query, page)))
-        .await.map_err(|_| "课程搜索暂不可用，请重试")?
+        .await
+        .map_err(|_| "课程搜索暂不可用，请重试")?
 }
 #[tauri::command]
 pub fn learning_home(
@@ -37,6 +42,18 @@ pub fn learning_item(learning: Learning<'_>, id: String) -> AppResult<LearningIt
 #[tauri::command]
 pub fn learning_change(learning: Learning<'_>, change: LearningChange) -> AppResult<String> {
     learning.change(change)
+}
+
+#[tauri::command]
+pub fn learning_reversible_change(
+    learning: Learning<'_>,
+    change: ReversibleLearningChange,
+) -> AppResult<Option<String>> {
+    learning.reversible_change(change)
+}
+#[tauri::command]
+pub fn learning_undo_change(learning: Learning<'_>, receipt: String) -> AppResult<()> {
+    learning.undo_change(&receipt)
 }
 
 #[tauri::command]
@@ -209,6 +226,12 @@ pub async fn learning_clean_cache(
 }
 
 #[tauri::command]
+pub fn learning_thumbnail_tasks(
+    learning: Learning<'_>,
+) -> AppResult<Vec<super::thumbnail::ThumbnailTask>> {
+    learning.thumbnail_tasks()
+}
+#[tauri::command]
 pub async fn learning_set_thumbnail(
     learning: Learning<'_>,
     id: String,
@@ -310,11 +333,4 @@ pub async fn learning_capture_note(
     use tauri::Emitter;
     let _=l_event.app.emit("knowledge-file-changed",serde_json::json!({"id":result.reference.path,"vaultId":result.reference.vault_id,"kind":"create"}));
     Ok(result)
-}
-
-#[tauri::command]
-pub fn learning_thumbnail_tasks(
-    learning: Learning<'_>,
-) -> AppResult<Vec<super::thumbnail::ThumbnailTask>> {
-    learning.thumbnail_tasks()
 }

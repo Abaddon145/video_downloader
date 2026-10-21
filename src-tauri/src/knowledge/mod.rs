@@ -18,6 +18,8 @@ pub mod search;
 mod attachment_tests;
 #[cfg(test)]
 mod service_tests;
+#[cfg(test)]
+mod recovery_tests;
 
 pub mod generated;
 #[cfg(test)]

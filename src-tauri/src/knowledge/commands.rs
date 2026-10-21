@@ -9,6 +9,23 @@ use tauri::{Emitter, Manager, State};
 type Knowledge<'a> = State<'a, Arc<KnowledgeService>>;
 
 #[tauri::command]
+pub async fn knowledge_set_note_flag(
+    knowledge: Knowledge<'_>,
+    vault_id: String,
+    path: String,
+    flag: String,
+    expected: bool,
+    value: bool,
+) -> AppResult<KnowledgeView<NoteMetadata>> {
+    let k = knowledge.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        k.set_note_flag(&vault_id, &path, &flag, expected, value)
+    })
+    .await
+    .map_err(|_| "笔记标记未保存，请重新读取后重试")?
+}
+
+#[tauri::command]
 pub fn knowledge_set_pending_edits(knowledge: Knowledge<'_>, pending: bool) {
     knowledge.set_pending_edits(pending);
 }
@@ -676,4 +693,79 @@ pub async fn knowledge_delete_analysis_bundle(
         serde_json::json!({"vaultId":event_vault,"id":event_vault,"kind":"delete"}),
     );
     Ok(result)
+}
+
+#[tauri::command]
+pub async fn knowledge_trash_note(
+    knowledge: Knowledge<'_>,
+    app: tauri::AppHandle,
+    vault_id: String,
+    path: String,
+    expected_hash: String,
+) -> AppResult<super::models::TrashReceipt> {
+    let k = knowledge.inner().clone();
+    let id = vault_id.clone();
+    let changed = path.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        k.trash_note(&vault_id, &path, &expected_hash)
+    })
+    .await
+    .map_err(|_| "回收操作未完成，请重新读取笔记")?;
+    if result.is_ok() {
+        let _ = app.emit(
+            "knowledge-file-changed",
+            serde_json::json!({"id":changed,"vaultId":id,"kind":"delete"}),
+        );
+    }
+    result
+}
+#[tauri::command]
+pub async fn knowledge_restore_trashed_note(
+    knowledge: Knowledge<'_>,
+    app: tauri::AppHandle,
+    vault_id: String,
+    trash_path: String,
+    to: String,
+    expected_hash: String,
+) -> AppResult<KnowledgeMutation> {
+    let k = knowledge.inner().clone();
+    let id = vault_id.clone();
+    let changed = to.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        k.restore_trashed_note(&vault_id, &trash_path, &to, &expected_hash)
+    })
+    .await
+    .map_err(|_| "恢复操作未完成，回收内容保留")?;
+    if result.is_ok() {
+        let _ = app.emit(
+            "knowledge-file-changed",
+            serde_json::json!({"id":changed,"vaultId":id,"kind":"restore"}),
+        );
+    }
+    result
+}
+#[tauri::command]
+pub async fn knowledge_move_guarded(
+    knowledge: Knowledge<'_>,
+    app: tauri::AppHandle,
+    vault_id: String,
+    from: String,
+    to: String,
+    expected_hash: String,
+) -> AppResult<KnowledgeMutation> {
+    let k = knowledge.inner().clone();
+    let id = vault_id.clone();
+    let changed = to.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        k.move_note_guarded(&vault_id, &from, &to, &expected_hash)
+    })
+    .await
+    .map_err(|_| "移动操作未完成，请重新读取笔记")?;
+    if result.is_ok() {
+        let _ = app.emit(
+            "knowledge-file-changed",
+            serde_json::json!({"id":changed,"vaultId":id,"kind":"move"}),
+        );
+    }
+    result
 }

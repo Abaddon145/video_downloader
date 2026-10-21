@@ -1,0 +1,12 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.86s
+     Running unittests src\lib.rs (C:/Users/14582/Documents/ChatGPT/视频下载软件/src-tauri/target\debug\deps\video_downloader_lib-8f061203aeb65824.exe)
+
+running 5 tests
+test knowledge::recovery_tests::note_trash_rejects_directories_before_mutation ... ok
+test knowledge::recovery_tests::guarded_flags_preserve_other_metadata_and_reject_stale_undo ... ok
+test knowledge::recovery_tests::guarded_move_rejects_stale_hash_without_moving_file ... ok
+test knowledge::recovery_tests::restore_rejects_conflicts_tampering_and_unsafe_paths_without_losing_trash ... ok
+test knowledge::recovery_tests::trash_restore_preserves_exact_bytes_metadata_and_index ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 257 filtered out; finished in 0.15s
+

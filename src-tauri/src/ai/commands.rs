@@ -282,9 +282,12 @@ pub async fn ai_course_transcript(
     item_id: String,
     page: u32,
     current_ms: Option<i64>,
+    query: Option<String>,
 ) -> AppResult<super::subtitles::CourseTranscriptPage> {
     let ai = ai.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || ai.course_transcript(&item_id, page, current_ms))
-        .await
-        .map_err(|_| "读取课程字幕失败")?
+    tauri::async_runtime::spawn_blocking(move || {
+        ai.course_transcript(&item_id, page, current_ms, query.as_deref())
+    })
+    .await
+    .map_err(|_| "读取课程字幕失败")?
 }

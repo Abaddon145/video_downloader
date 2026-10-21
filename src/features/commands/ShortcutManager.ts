@@ -12,6 +12,7 @@ export function normalizeShortcut(value:string):string|null {
 }
 export function shortcutIssue(shortcut:string,scope:CommandScope='global',bindings:Pick<CommandDescriptor,'id'|'shortcut'|'scope'>[]=[],id=''):string|null {
  const value=normalizeShortcut(shortcut);if(!value)return '快捷键格式无效';
+ if(value==='Tab'||value==='Shift+Tab')return '此快捷键保留给焦点导航';
  if(/^(Ctrl|Meta)\+(Shift\+)?(Z|Y|A|C|V|X|B|I|U|F|H|ArrowLeft|ArrowRight|Home|End)$/.test(value)||value==='Shift+F10')return '此快捷键保留给编辑器或上下文菜单';
  if(['Alt+F4','Alt+Tab','Alt+Shift+Tab','Ctrl+Alt+Delete','Ctrl+W','Ctrl+R','Ctrl+Shift+I','F5','Meta+L','Meta+D','Meta+Tab'].includes(value)||value.startsWith('Meta+'))return '此快捷键保留给系统';
  if(scope==='global'&&!/^(Ctrl|Alt|Meta)\+/.test(value)&&value!=='F11')return '全局快捷键需要 Ctrl 或 Alt 修饰键';

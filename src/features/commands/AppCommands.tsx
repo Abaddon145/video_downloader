@@ -1,4 +1,4 @@
-import {useRegisterCommands,useCommands} from './CommandProvider';
+import {useRegisterCommands,useCommands,useCommandSnapshot,useShortcutBindings} from './CommandProvider';
 import type {CommandDescriptor} from './CommandRegistry';
 import {useWorkspace} from '../workspace/WorkspaceProvider';
 import {BUILTIN_WORKSPACE_PRESETS} from '../workspace/presets';
@@ -11,7 +11,8 @@ const inactiveCommands:CommandDescriptor[]=[
  ...[['player.toggle','播放 / 暂停','Space'],['player.seek-back','后退5秒','J'],['player.seek-forward','前进5秒','L'],['player.fullscreen','切换全屏','F11'],['player.seek-back-arrow','后退5秒','ArrowLeft'],['player.seek-forward-arrow','前进5秒','ArrowRight'],['player.seek-back-large','后退10秒','Shift+ArrowLeft'],['player.seek-forward-large','前进10秒','Shift+ArrowRight'],['player.mute','切换静音','M'],['player.fullscreen-legacy','切换全屏','F'],['player.next','下一课','N'],['player.previous','上一课','P'],['player.exit-fullscreen','退出全屏','Escape'],['player.copy-time','复制当前时间点'],['player.create-note','创建时间点笔记'],['player.load-subtitle','加载字幕'],['player.mark-complete','切换课程完成状态'],['player.layout-standard','标准学习布局'],['player.layout-stacked','上下布局'],['player.layout-theater','剧院模式'],['player.layout-focus','专注播放']].map(([id,title,shortcut])=>inactive(id,title,'player',shortcut)),
 ];
 export function AppCommands({navigate,focusDownloads,openDirectory,openRecent,hasRecent}:{navigate:(page:Page)=>void;focusDownloads:()=>void;openDirectory:()=>Promise<unknown>;openRecent:()=>Promise<unknown>;hasRecent:boolean}){
- const {workspace,setLayout,applyPreset,setAppearance}=useWorkspace(),{openHelp,openPalette,openSearch}=useCommands(),{undo,canUndo}=useFeedback();
+ const {workspace,setLayout,applyPreset,setAppearance}=useWorkspace(),{openHelp,openPalette,openSearch,shortcuts}=useCommands(),{undo,canUndo}=useFeedback();
+ const snapshot=useCommandSnapshot();useShortcutBindings();const binding=(id:string)=>{const command=snapshot.commands.find(c=>c.id===id);return command?shortcuts.binding(command):null;};
  useRegisterCommands(inactiveCommands);
  const presets=[...BUILTIN_WORKSPACE_PRESETS(),...workspace.presets];
  useRegisterCommands([
@@ -26,5 +27,5 @@ export function AppCommands({navigate,focusDownloads,openDirectory,openRecent,ha
   ...presets.map(p=>({id:`workspace.preset.${p.id}`,title:`应用布局：${p.name}`,category:'工作区',keywords:['preset','layout','预设'],execute:()=>applyPreset(p.id)})),
   {id:'app.undo-operation',title:'撤销上次业务操作',category:'操作',shortcut:'Ctrl+Alt+Z',enabled:canUndo,availabilityReason:'暂无可撤销的业务操作，正文撤销请使用 Ctrl+Z',execute:undo},
  ]);
- return <div className="global-command-tools"><button className="secondary" onClick={openPalette} title="搜索并执行命令">命令面板 <kbd>Ctrl K</kbd></button><button className="text-button" onClick={openSearch} title="搜索课程与知识笔记">搜索 <kbd>Ctrl P</kbd></button><button className="text-button" onClick={openHelp}>快捷键</button></div>;
+ return <div className="global-command-tools"><button className="secondary" onClick={openPalette} title="搜索并执行命令">命令面板 <kbd>{binding('app.palette')??'未绑定'}</kbd></button><button className="text-button" onClick={openSearch} title="搜索课程与知识笔记">搜索 <kbd>{binding('app.search')??'未绑定'}</kbd></button><button className="text-button" onClick={openHelp}>快捷键</button></div>;
 }

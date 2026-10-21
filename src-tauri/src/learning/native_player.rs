@@ -87,16 +87,73 @@ pub enum NativeAction {
     Fullscreen { enabled: bool },
 }
 #[derive(Debug, Deserialize)]
-#[serde(rename_all="camelCase",deny_unknown_fields)]
-pub struct NativeBinding { key:String, id:String }
-fn checked_bindings(bindings:&[NativeBinding]) -> AppResult<()> {
-    if bindings.len()>150 {return Err("播放快捷键过多".into());}
-    let mut seen=std::collections::HashSet::new();
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct NativeBinding {
+    key: String,
+    id: String,
+}
+fn checked_bindings(bindings: &[NativeBinding]) -> AppResult<()> {
+    if bindings.len() > 150 {
+        return Err("播放快捷键过多".into());
+    }
+    let mut seen = std::collections::HashSet::new();
     for binding in bindings {
-        if !seen.insert(&binding.key) || binding.key.len()>64 || binding.id.len()>100 || !binding.id.chars().all(|c|c.is_ascii_alphanumeric()||"._-".contains(c)) || !["app.","player.","navigate.","workspace.","tasks.","download.","file.","learning.","knowledge."].iter().any(|prefix|binding.id.starts_with(prefix)) {return Err("播放快捷键配置无效".into());}
-        let (raw,key)=if binding.key=="+"{("","+")}else if let Some(raw)=binding.key.strip_suffix("++"){(raw,"+")}else{binding.key.rsplit_once('+').unwrap_or(("",binding.key.as_str()))};
-        let parts=if raw.is_empty(){vec![]}else{raw.split('+').collect::<Vec<_>>()};
-        if parts.iter().collect::<std::collections::HashSet<_>>().len()!=parts.len() || !parts.iter().all(|p|["Ctrl","Alt","Shift"].contains(p)) || !(key.len()==1&&key.chars().all(|c|c.is_ascii_alphanumeric()||"!@#$%^&*()_+".contains(c))||["SPACE","LEFT","RIGHT","UP","DOWN","ESC","ENTER","TAB","HOME","END","BS","DEL","PGUP","PGDWN"].contains(&key)||key.strip_prefix('F').and_then(|n|n.parse::<u8>().ok()).is_some_and(|n|(1..=12).contains(&n))) {return Err("播放快捷键名称无效".into());}
+        if !seen.insert(&binding.key)
+            || binding.key.len() > 64
+            || binding.id.len() > 100
+            || !binding
+                .id
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || "._-".contains(c))
+            || ![
+                "app.",
+                "player.",
+                "navigate.",
+                "workspace.",
+                "tasks.",
+                "download.",
+                "file.",
+                "learning.",
+                "knowledge.",
+            ]
+            .iter()
+            .any(|prefix| binding.id.starts_with(prefix))
+        {
+            return Err("播放快捷键配置无效".into());
+        }
+        let (raw, key) = if binding.key == "+" {
+            ("", "+")
+        } else if let Some(raw) = binding.key.strip_suffix("++") {
+            (raw, "+")
+        } else {
+            binding
+                .key
+                .rsplit_once('+')
+                .unwrap_or(("", binding.key.as_str()))
+        };
+        let parts = if raw.is_empty() {
+            vec![]
+        } else {
+            raw.split('+').collect::<Vec<_>>()
+        };
+        if parts.iter().collect::<std::collections::HashSet<_>>().len() != parts.len()
+            || !parts.iter().all(|p| ["Ctrl", "Alt", "Shift"].contains(p))
+            || !(key.len() == 1
+                && key
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || "!@#$%^&*()_+".contains(c))
+                || [
+                    "SPACE", "LEFT", "RIGHT", "UP", "DOWN", "ESC", "ENTER", "TAB", "HOME", "END",
+                    "BS", "DEL", "PGUP", "PGDWN",
+                ]
+                .contains(&key)
+                || key
+                    .strip_prefix('F')
+                    .and_then(|n| n.parse::<u8>().ok())
+                    .is_some_and(|n| (1..=12).contains(&n)))
+        {
+            return Err("播放快捷键名称无效".into());
+        }
     }
     Ok(())
 }
@@ -120,10 +177,25 @@ impl NativeAction {
             Self::Subtitle { id } if id.is_none_or(|x| x >= 0) => {
                 set("sid", id.map_or(json!("no"), |v| json!(v)))
             }
-            Self::Audio { id } if id.is_none_or(|x| x >= 0) => set("aid", id.map_or(json!("no"), |v| json!(v))),
+            Self::Audio { id } if id.is_none_or(|x| x >= 0) => {
+                set("aid", id.map_or(json!("no"), |v| json!(v)))
+            }
             Self::FrameStep { direction } if direction == "next" => vec![json!("frame-step")],
-            Self::FrameStep { direction } if direction == "previous" => vec![json!("frame-back-step")],
-            Self::Aspect { ratio } if ["original","16:9","4:3","fill"].contains(&ratio.as_str()) => set("video-aspect-override", match ratio.as_str(){"16:9"=>json!(16. / 9.),"4:3"=>json!(4. / 3.),_=>json!("no")}),
+            Self::FrameStep { direction } if direction == "previous" => {
+                vec![json!("frame-back-step")]
+            }
+            Self::Aspect { ratio }
+                if ["original", "16:9", "4:3", "fill"].contains(&ratio.as_str()) =>
+            {
+                set(
+                    "video-aspect-override",
+                    match ratio.as_str() {
+                        "16:9" => json!(16. / 9.),
+                        "4:3" => json!(4. / 3.),
+                        _ => json!("no"),
+                    },
+                )
+            }
             Self::LoadSubtitle { path } => {
                 let p = super::importer::regular_file(path)?;
                 if !p.extension().is_some_and(|e| {
@@ -312,7 +384,27 @@ fn update(s: &mut NativeSnapshot, name: &str, v: &Value) {
         "sid" => s.subtitle_id = v.as_i64(),
         "aid" => s.audio_id = v.as_i64(),
         "track-list" => {
-            let tracks = |kind: &str| v.as_array().into_iter().flatten().filter(|t|t["type"] == kind).filter_map(|t| Some(NativeSubtitle{id:t["id"].as_i64()?,label:t["title"].as_str().or(t["lang"].as_str()).unwrap_or(if kind=="sub"{"内嵌字幕"}else{"音轨"}).into()})).collect();
+            let tracks = |kind: &str| {
+                v.as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter(|t| t["type"] == kind)
+                    .filter_map(|t| {
+                        Some(NativeSubtitle {
+                            id: t["id"].as_i64()?,
+                            label: t["title"]
+                                .as_str()
+                                .or(t["lang"].as_str())
+                                .unwrap_or(if kind == "sub" {
+                                    "内嵌字幕"
+                                } else {
+                                    "音轨"
+                                })
+                                .into(),
+                        })
+                    })
+                    .collect()
+            };
             s.subtitles = tracks("sub");
             s.audio_tracks = tracks("audio");
         }
@@ -700,12 +792,35 @@ impl LearningService {
         let _guard = engine.operations.lock().map_err(|_| "播放操作不可用")?;
         if let NativeAction::Shortcuts { bindings } = &action {
             checked_bindings(bindings)?;
-            let mut old=engine.shortcut_keys.lock().map_err(|_|"播放快捷键暂不可用")?;
-            for key in old.iter().map(String::as_str).chain(["SPACE","LEFT","RIGHT","Shift+LEFT","Shift+RIGHT","m","f","ESC","n","p","j","l","F11"]) {
-                engine.request(vec![json!("keybind"),json!(key),json!("ignore")])?;
+            let mut old = engine
+                .shortcut_keys
+                .lock()
+                .map_err(|_| "播放快捷键暂不可用")?;
+            for key in old.iter().map(String::as_str).chain([
+                "SPACE",
+                "LEFT",
+                "RIGHT",
+                "Shift+LEFT",
+                "Shift+RIGHT",
+                "m",
+                "f",
+                "ESC",
+                "n",
+                "p",
+                "j",
+                "l",
+                "F11",
+            ]) {
+                engine.request(vec![json!("keybind"), json!(key), json!("ignore")])?;
             }
-            for binding in bindings {engine.request(vec![json!("keybind"),json!(binding.key),json!(format!("script-message yingliu-command:{}",binding.id))])?;}
-            *old=bindings.iter().map(|b|b.key.clone()).collect();
+            for binding in bindings {
+                engine.request(vec![
+                    json!("keybind"),
+                    json!(binding.key),
+                    json!(format!("script-message yingliu-command:{}", binding.id)),
+                ])?;
+            }
+            *old = bindings.iter().map(|b| b.key.clone()).collect();
             return Ok(engine.snapshot());
         }
         if let NativeAction::Fullscreen { enabled } = action {
@@ -723,11 +838,17 @@ impl LearningService {
             }
         }
         if let NativeAction::Audio { id: Some(id) } = &action {
-            if !engine.snapshot().audio_tracks.iter().any(|t|t.id==*id){return Err("音轨不存在".into());}
+            if !engine.snapshot().audio_tracks.iter().any(|t| t.id == *id) {
+                return Err("音轨不存在".into());
+            }
         }
         if let NativeAction::Aspect { ratio } = &action {
             action.command()?;
-            engine.request(vec![json!("set_property"),json!("keepaspect"),json!(ratio!="fill")])?;
+            engine.request(vec![
+                json!("set_property"),
+                json!("keepaspect"),
+                json!(ratio != "fill"),
+            ])?;
         }
         engine.request(action.command()?)?;
         let s = engine.refresh()?;
@@ -809,9 +930,15 @@ mod tests {
     use super::*;
     #[test]
     fn native_shortcuts_reject_injection_unknown_keys_and_duplicate_bindings() {
-        for value in [json!([{"key":"SPACE\nrun evil","id":"player.toggle"}]),json!([{"key":"SPACE","id":"player.toggle;run"}]),json!([{"key":"SPACE","id":"bad.thing"}]),json!([{"key":"Ctrl+k","id":"app.palette"},{"key":"Ctrl+k","id":"app.search"}]),json!([{"key":"SPACE","id":"player.toggle","command":"quit"}])] {
-            let parsed=serde_json::from_value::<Vec<NativeBinding>>(value);
-            assert!(parsed.map_or(true,|bindings|checked_bindings(&bindings).is_err()));
+        for value in [
+            json!([{"key":"SPACE\nrun evil","id":"player.toggle"}]),
+            json!([{"key":"SPACE","id":"player.toggle;run"}]),
+            json!([{"key":"SPACE","id":"bad.thing"}]),
+            json!([{"key":"Ctrl+k","id":"app.palette"},{"key":"Ctrl+k","id":"app.search"}]),
+            json!([{"key":"SPACE","id":"player.toggle","command":"quit"}]),
+        ] {
+            let parsed = serde_json::from_value::<Vec<NativeBinding>>(value);
+            assert!(parsed.map_or(true, |bindings| checked_bindings(&bindings).is_err()));
         }
         let valid=serde_json::from_value::<Vec<NativeBinding>>(json!([{"key":"SPACE","id":"player.toggle"},{"key":"Ctrl+k","id":"app.palette"},{"key":"F11","id":"player.fullscreen"},{"key":"Ctrl++","id":"learning.search"},{"key":"Ctrl+!","id":"knowledge.search"}])).unwrap();
         checked_bindings(&valid).unwrap();
@@ -819,12 +946,25 @@ mod tests {
     #[test]
     fn native_advanced_controls_are_bounded_and_use_fixed_mpv_commands() {
         for (input, expected) in [
-            (json!({"type":"audio","id":3}), json!(["set_property","aid",3])),
-            (json!({"type":"frameStep","direction":"next"}), json!(["frame-step"])),
-            (json!({"type":"frameStep","direction":"previous"}), json!(["frame-back-step"])),
-            (json!({"type":"aspect","ratio":"16:9"}), json!(["set_property","video-aspect-override",16. / 9.])),
+            (
+                json!({"type":"audio","id":3}),
+                json!(["set_property", "aid", 3]),
+            ),
+            (
+                json!({"type":"frameStep","direction":"next"}),
+                json!(["frame-step"]),
+            ),
+            (
+                json!({"type":"frameStep","direction":"previous"}),
+                json!(["frame-back-step"]),
+            ),
+            (
+                json!({"type":"aspect","ratio":"16:9"}),
+                json!(["set_property", "video-aspect-override", 16. / 9.]),
+            ),
         ] {
-            let action: NativeAction = serde_json::from_value(input).expect("supported player control");
+            let action: NativeAction =
+                serde_json::from_value(input).expect("supported player control");
             assert_eq!(json!(action.command().unwrap()), expected);
         }
         for input in [
@@ -834,7 +974,8 @@ mod tests {
             json!({"type":"aspect","ratio":"bad"}),
             json!({"type":"frameStep","direction":"next","command":["run","x"]}),
         ] {
-            assert!(serde_json::from_value::<NativeAction>(input).map_or(true, |action| action.command().is_err()));
+            assert!(serde_json::from_value::<NativeAction>(input)
+                .map_or(true, |action| action.command().is_err()));
         }
     }
     #[test]
@@ -936,4 +1077,3 @@ mod tests {
         assert!(parse_reply(r#"{"request_id":7,"error":"failure"}"#, 7).is_err());
     }
 }
-
